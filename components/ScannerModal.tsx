@@ -1,0 +1,416 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { useIsMobile } from '@/hooks/useMediaQuery'
+import { X, FileText, Image, FileIcon, Upload, Loader2, CheckCircle2, AlertCircle, Shield, FileCheck, Smartphone } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import type { PendingScan } from '@/hooks/useScanner'
+
+interface ScannerModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  scan: PendingScan | null
+  onConfirm: (data: {
+    id: string
+    alias: string
+    confidentialityLevel: string
+    description: string
+    format: string
+  }) => void
+  onCancel: (id: string) => void
+  isConfirming: boolean
+  isCancelling: boolean
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+function getFileType(mimeType: string): string {
+  const types: Record<string, string> = {
+    'image/jpeg': 'JPG Image',
+    'image/png': 'PNG Image',
+    'image/gif': 'GIF Image',
+    'application/pdf': 'PDF',
+    'application/msword': 'Word Document',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word Document',
+  }
+  return types[mimeType] || mimeType
+}
+
+function FilePreview({ scan }: { scan: PendingScan }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState(false)
+
+  useEffect(() => {
+    if (scan.isImage && scan.previewUrl) {
+      setPreviewUrl(scan.previewUrl)
+      setPreviewError(false)
+    }
+  }, [scan])
+
+  // Determine file icon color
+  const getIconColor = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) return 'text-blue-600'
+    if (mimeType === 'application/pdf') return 'text-red-600'
+    return 'text-gray-600'
+  }
+
+  if (scan.isImage && previewUrl && !previewError) {
+    return (
+      <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 overflow-hidden border border-slate-200 shadow-sm">
+        <div className="relative aspect-video max-h-56 overflow-hidden rounded-xl bg-white flex items-center justify-center shadow-inner">
+          <img
+            src={previewUrl}
+            alt={scan.fileName}
+            className="max-h-full max-w-full object-contain"
+            onError={() => setPreviewError(true)}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (scan.mimeType === 'application/pdf' && !previewError) {
+    return (
+      <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 overflow-hidden border border-slate-200 shadow-sm">
+        <div className="aspect-video max-h-56 rounded-xl bg-white flex items-center justify-center shadow-inner border border-slate-200">
+          <iframe
+            src={scan.previewUrl || `/api/v1/scanner/pending/${scan.id}/preview`}
+            className="w-full h-full rounded-lg border-0"
+            title={scan.fileName}
+            onError={() => setPreviewError(true)}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 overflow-hidden border border-slate-200 shadow-sm">
+      <div className="aspect-video max-h-56 rounded-xl bg-white flex items-center justify-center shadow-inner border border-slate-200">
+        <div className="text-center">
+          {scan.mimeType.startsWith('image/') ? (
+            <Image className={`size-20 ${getIconColor(scan.mimeType)} mx-auto mb-2 opacity-30`} />
+          ) : scan.mimeType === 'application/pdf' ? (
+            <FileText className={`size-20 ${getIconColor(scan.mimeType)} mx-auto mb-2 opacity-30`} />
+          ) : (
+            <FileIcon className={`size-20 ${getIconColor(scan.mimeType)} mx-auto mb-2 opacity-30`} />
+          )}
+          <p className="text-sm text-slate-500">Preview not available</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function ScannerModal({
+  open,
+  onOpenChange,
+  scan,
+  onConfirm,
+  onCancel,
+  isConfirming,
+  isCancelling,
+}: ScannerModalProps) {
+  const isMobile = useIsMobile()
+  const [alias, setAlias] = useState('')
+  const [confidentialityLevel, setConfidentialityLevel] = useState<string>('')
+  const [description, setDescription] = useState('')
+  const [format, setFormat] = useState<string>('')
+  const contentRef = useRef<HTMLDivElement>(null)
+  const isSubmitting = isConfirming || isCancelling
+  const isFormValid = alias.trim() && confidentialityLevel && format
+
+  useEffect(() => {
+    if (scan) {
+      setAlias(scan.originalName.replace(/\.[^/.]+$/, ''))
+      setConfidentialityLevel('')
+      setDescription('')
+      setFormat(scan.mimeType === 'application/pdf' ? 'pdf' : scan.mimeType.startsWith('image/') ? 'jpg' : '')
+    }
+  }, [scan])
+
+  const handleConfirm = () => {
+    if (!scan || !alias.trim() || !confidentialityLevel || !format) return
+    onConfirm({
+      id: scan.id,
+      alias: alias.trim(),
+      confidentialityLevel,
+      description: description.trim(),
+      format,
+    })
+  }
+
+  const handleCancel = () => {
+    if (!scan) return
+    onCancel(scan.id)
+  }
+
+  if (!scan) return null
+
+  // Mobile breakpoint - show message instead of modal
+  if (isMobile && open) {
+    return (
+      <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
+        <DialogContent className="sm:max-w-[425px] border-0 shadow-2xl p-6" showCloseButton={false}>
+          <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+              <Smartphone className="size-8 text-blue-600" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-gray-900">Screen Too Small</DialogTitle>
+            <DialogDescription className="text-gray-600 max-w-sm">
+              The scanner confirmation dialog requires a larger screen. Please open this page on a tablet, laptop, or desktop computer.
+            </DialogDescription>
+            <Button
+              onClick={() => onOpenChange(false)}
+              className="mt-4 bg-blue-600 hover:bg-blue-700"
+            >
+              I Understand
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(open) => !isSubmitting && onOpenChange(open)}>
+      <DialogContent
+        className="sm:max-w-[650px] border-0 shadow-2xl p-0 overflow-hidden flex flex-col"
+        showCloseButton={false}
+      >
+        {/* Header - Fixed at top */}
+        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 px-8 py-6 relative overflow-hidden shrink-0">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-2xl" />
+          <div className="relative z-10 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4 flex-1">
+              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <Upload className="size-6 text-white" strokeWidth={1.5} />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-bold text-white">Confirm Scan Upload</DialogTitle>
+                <DialogDescription className="text-blue-100 mt-2 text-sm">
+                  Review document details and provide information
+                </DialogDescription>
+              </div>
+            </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all disabled:opacity-50 shrink-0"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content - Scrollable area */}
+        <div ref={contentRef} className="flex-1 overflow-y-auto px-8 py-6 space-y-6 min-h-0">
+          {/* FILE PREVIEW SECTION */}
+          <div className="animate-content-slide-up stagger-1">
+            <FilePreview scan={scan} />
+          </div>
+
+          {/* FILE INFORMATION - ORGANIZED GRID */}
+          <div className="animate-content-slide-up stagger-2">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">File Information</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 animate-badge-pop stagger-1">
+                <p className="text-xs text-slate-500 font-medium mb-2">File Name</p>
+                <p className="text-sm font-semibold text-slate-900 truncate" title={scan.originalName}>
+                  {scan.originalName.length > 20 ? scan.originalName.substring(0, 17) + '...' : scan.originalName}
+                </p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 animate-badge-pop stagger-2">
+                <p className="text-xs text-slate-500 font-medium mb-2">File Size</p>
+                <p className="text-sm font-semibold text-slate-900">{formatFileSize(scan.fileSize)}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 animate-badge-pop stagger-3">
+                <p className="text-xs text-slate-500 font-medium mb-2">File Type</p>
+                <p className="text-sm font-semibold text-slate-900">{getFileType(scan.mimeType)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* FORM SECTION */}
+          <div className="animate-content-slide-up stagger-3 space-y-5">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Document Details</h3>
+
+            {/* Document Alias - Full Width */}
+            <div className="space-y-2 animate-form-field-in stagger-1">
+              <Label htmlFor="alias" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <span className="text-base">📝</span>
+                Document Alias
+                <span className="text-red-500 font-bold">*</span>
+              </Label>
+              <Input
+                id="alias"
+                value={alias}
+                onChange={(e) => setAlias(e.target.value)}
+                placeholder="Enter a descriptive name (e.g., Invoice_January_2024)"
+                required
+                disabled={isSubmitting}
+                className="h-11 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white placeholder:text-slate-400 text-sm"
+              />
+            </div>
+
+            {/* Confidentiality Level & Format - Side by Side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 animate-form-field-in stagger-2">
+                <Label htmlFor="confidentiality" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Shield className="size-4" />
+                  Confidentiality Level
+                  <span className="text-red-500 font-bold">*</span>
+                </Label>
+                <Select
+                  value={confidentialityLevel}
+                  onValueChange={setConfidentialityLevel}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger id="confidentiality" className="h-11 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-sm">
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">
+                      <div className="flex items-center gap-2">
+                        <span className="size-2.5 rounded-full bg-green-500 block" />
+                        Public
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="internal">
+                      <div className="flex items-center gap-2">
+                        <span className="size-2.5 rounded-full bg-blue-500 block" />
+                        Internal
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="confidential">
+                      <div className="flex items-center gap-2">
+                        <span className="size-2.5 rounded-full bg-amber-500 block" />
+                        Confidential
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 animate-form-field-in stagger-3">
+                <Label htmlFor="format" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <FileText className="size-4" />
+                  Format
+                  <span className="text-red-500 font-bold">*</span>
+                </Label>
+                <Select
+                  value={format}
+                  onValueChange={setFormat}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger id="format" className="h-11 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-sm">
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">
+                      <span>📄 PDF</span>
+                    </SelectItem>
+                    <SelectItem value="jpg">
+                      <span>🖼️ JPG/JPEG</span>
+                    </SelectItem>
+                    <SelectItem value="png">
+                      <span>🖼️ PNG</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Description - Full Width Optional */}
+            <div className="space-y-2 animate-form-field-in stagger-4">
+              <Label htmlFor="description" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <span className="text-base">💬</span>
+                Description
+                <span className="text-slate-400 text-xs font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add notes or details about this document..."
+                disabled={isSubmitting}
+                className="h-11 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white placeholder:text-slate-400 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* INFO BANNER */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 flex gap-3 animate-content-slide-up stagger-4">
+            <CheckCircle2 className="size-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-700">
+              <p className="font-semibold">All set?</p>
+              <p className="text-blue-600 text-xs mt-0.5">Fill in the required fields marked with * and click upload.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer - Fixed at bottom */}
+        <div className="border-t border-slate-200 bg-slate-50 px-8 py-4 flex items-center justify-end gap-3 shrink-0">
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+            className="rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400 h-10 px-5 font-medium transition-all disabled:opacity-50"
+          >
+            {isCancelling ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-2" />
+                Removing...
+              </>
+            ) : (
+              <>
+                <X className="size-4 mr-2" />
+                Cancel
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={isSubmitting || !isFormValid}
+            className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white h-10 px-6 font-medium transition-all disabled:opacity-50 shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            {isConfirming ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="size-4" />
+                Confirm Upload
+              </>
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
