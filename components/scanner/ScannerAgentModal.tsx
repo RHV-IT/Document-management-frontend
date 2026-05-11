@@ -78,11 +78,21 @@ export function ScannerAgentModal({ isOpen, onAgentDetected, onRetry }: ScannerA
 
         const response = await fetch('http://localhost:4001/health')
         if (response.ok) {
-          const health = await response.json()
-          if (health.installed && health.running) {
+          try {
+            const health = await response.json()
+            if (health.running) {
+              clearInterval(pollInterval)
+              setModalState('success')
+              // Auto-dismiss after showing success
+              setTimeout(() => {
+                onAgentDetected()
+              }, 2000)
+              return
+            }
+          } catch (error) {
+            // If JSON parsing fails but response is OK, assume agent is running
             clearInterval(pollInterval)
             setModalState('success')
-            // Auto-dismiss after showing success
             setTimeout(() => {
               onAgentDetected()
             }, 2000)
