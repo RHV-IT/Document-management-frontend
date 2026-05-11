@@ -175,7 +175,6 @@ export default function FilesPage() {
 
   // Data
   const ownedFiles = ownedFilesData?.files || []
-  const scannedFiles = scannedFilesData?.files || []
 
   const ownedTotal = ownedFilesData?.total || 0
   const archiveFiles = archiveFilesData?.files || []
