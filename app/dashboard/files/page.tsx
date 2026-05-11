@@ -106,6 +106,8 @@ export default function FilesPage() {
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [previewType, setPreviewType] = useState<'pdf' | 'image' | 'viewer' | 'unsupported' | null>(null)
+  const [scannerModalOpen, setScannerModalOpen] = useState(false)
+  const [pendingScannerFile, setPendingScannerFile] = useState<any | null>(null)
 
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
@@ -139,6 +141,16 @@ export default function FilesPage() {
   const { data: myPermissionsData } = useMyPermissionsQuery()
   const { data: sentPermissionsData } = useMySentPermissionsQuery()
 
+  const { data: scannedFilesData, isLoading: scannedLoading } = useFilesQuery({
+    isScanned: true,
+    page,
+    limit: 20,
+    search: debouncedSearch || undefined,
+  })
+
+  const { data: scannerFilesData = [], isLoading: scannerLoading } = usePendingScans()
+  const { data: scannerStatsData } = useScannerPendingStatsQuery()
+
 
 
   const { data: versionHistoryData = [] } = useVersionHistoryQuery(selectedFile?.fileId || '')
@@ -171,10 +183,15 @@ export default function FilesPage() {
   const revokePermission = useRevokePermissionMutation()
   const grantPermission = useGrantPermissionMutation()
   const rollbackVersion = useRollbackVersionMutation()
+  const scannerConfirm = useScannerConfirmMutation()
+  const scannerCancel = useScannerCancelMutation()
 
 
   // Data
   const ownedFiles = ownedFilesData?.files || []
+  const scannedFiles = scannedFilesData?.files || []
+  const scannerFiles = scannerFilesData || []
+  const scannerStats = scannerStatsData || { pending: 0 }
 
   const ownedTotal = ownedFilesData?.total || 0
   const archiveFiles = archiveFilesData?.files || []
@@ -205,8 +222,9 @@ export default function FilesPage() {
     total: ownedTotal,
     scanned: ownedFiles.filter((f: any) => f.isScanned).length,
     sharedWithMe: receivedFilesList.length,
-    sharedByMe: sentFilesList.length
-  }), [ownedTotal, ownedFiles, receivedFilesList, sentFilesList])
+    sharedByMe: sentFilesList.length,
+    pending: scannerStats.pending || scannerFiles.length
+  }), [ownedTotal, ownedFiles, receivedFilesList, sentFilesList, scannerStats.pending, scannerFiles])
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -401,6 +419,27 @@ export default function FilesPage() {
     setRevokeConfirm(null)
   }
 
+  const openScannerModal = (file: any) => {
+    setPendingScannerFile(file)
+    setScannerModalOpen(true)
+  }
+
+  const handleScannerConfirm = (data: any) =>
+    scannerConfirm.mutate(data, {
+      onSuccess: () => {
+        setScannerModalOpen(false)
+        setPendingScannerFile(null)
+      }
+    })
+
+  const handleScannerCancel = (id: string) =>
+    scannerCancel.mutate(id, {
+      onSuccess: () => {
+        setScannerModalOpen(false)
+        setPendingScannerFile(null)
+      }
+    })
+
 
 
   return (
@@ -536,12 +575,13 @@ export default function FilesPage() {
 
         {/* Stats Cards */}
         <div className="p-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {[
               { label: 'Total Files', value: stats.total, icon: File, color: 'bg-blue-500/10 text-blue-500' },
               { label: 'Scanned Files', value: stats.scanned, icon: Scan, color: 'bg-green-500/10 text-green-500' },
               { label: 'Shared With Me', value: stats.sharedWithMe, icon: Users, color: 'bg-purple-500/10 text-purple-500' },
-              { label: 'Files I Shared', value: stats.sharedByMe, icon: Share2, color: 'bg-orange-500/10 text-orange-500' }
+              { label: 'Files I Shared', value: stats.sharedByMe, icon: Share2, color: 'bg-orange-500/10 text-orange-500' },
+              { label: 'Pending Scans', value: stats.pending, icon: Loader2, color: 'bg-amber-500/10 text-amber-500' }
             ].map((stat, i) => (
               <Card key={i} className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-card to-muted/50">
                 <CardContent className="p-6">
@@ -567,6 +607,8 @@ export default function FilesPage() {
               <TabsTrigger value="myfiles">My Files</TabsTrigger>
               <TabsTrigger value="received">Shared With Me</TabsTrigger>
               <TabsTrigger value="sent">Shared By Me</TabsTrigger>
+              <TabsTrigger value="scanned">Scanned Files</TabsTrigger>
+              <TabsTrigger value="scanner">Pending Scans</TabsTrigger>
               <TabsTrigger value="archive">Archive</TabsTrigger>
             </TabsList>
 
@@ -807,6 +849,179 @@ export default function FilesPage() {
                           <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => setRevokeConfirm(f.permissionId)}>
                             Revoke Access
                           </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ==================== PENDING SCANS ==================== */}
+              <TabsContent value="scanner" className="m-0 h-full flex flex-col p-6">
+                {scannerLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
+                        <Skeleton className="h-12 w-12 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-48" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : scannerFiles.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center p-6">
+                      <Scan className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                      <p className="text-lg font-medium">No pending scans</p>
+                      <p className="text-sm">Files scanned with the agent will appear here for review</p>
+                    </div>
+                  </div>
+                ) : viewMode === 'list' ? (
+                  <div className="space-y-3">
+                    {scannerFiles.map((f: any) => (
+                      <Card key={f._id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 bg-muted rounded-xl">
+                              {f.isImage ? <ImageIcon className="h-8 w-8 text-amber-500" /> : <File className="h-8 w-8 text-amber-500" />}
+                            </div>
+                            <div>
+                              <p className="font-medium">{f.originalName || f.fileName}</p>
+                              <p className="text-sm text-muted-foreground">{formatBytes(f.size || 0)}</p>
+                            </div>
+                          </div>
+                          <Button onClick={() => openScannerModal(f)}>Review</Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {scannerFiles.map((f: any) => (
+                      <Card key={f._id} className="p-6 text-center">
+                        <div className="mx-auto mb-4">
+                          {f.isImage ? <ImageIcon className="h-12 w-12 mx-auto text-amber-500" /> : <File className="h-12 w-12 mx-auto text-amber-500" />}
+                        </div>
+                        <p className="font-medium line-clamp-2">{f.originalName || f.fileName}</p>
+                        <Button className="mt-6 w-full" onClick={() => openScannerModal(f)}>Review</Button>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ==================== SCANNED ==================== */}
+              <TabsContent value="scanned" className="m-0 h-full flex flex-col">
+                {scannedLoading ? (
+                  <div className="p-6 space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
+                        <Skeleton className="h-12 w-12 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-48" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : scannedFiles.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center p-6">
+                      <FileCheck className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                      <p className="text-lg font-medium">No scanned files yet</p>
+                      <p className="text-sm">Files uploaded via scanner will appear here</p>
+                    </div>
+                  </div>
+                ) : viewMode === 'list' ? (
+                  <div className="divide-y">
+                    {scannedFiles.map((f: any) => (
+                      <div key={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
+                        <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{f.alias || f.name}</span>
+                            <Badge variant="outline" className="text-xs">{f.type}</Badge>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                            <span>{formatBytes(f.size)}</span>
+                            <span>{f.confidentialityLevel ? getConfidentialityLabel(f.confidentialityLevel) : '-'}</span>
+                            <span>{f.createdAt ? formatDistanceToNow(new Date(f.createdAt)) + ' ago' : ''}</span>
+                          </div>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handlePreview(f)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDownload(f.fileId, f.name)}><Download className="h-4 w-4" /></Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openShareDialog(f)}>Share</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }}>Version History</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {scannedFiles.map((f: any) => (
+                      <Card key={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
+                        <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
+                          <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
+                            {getFileIcon(f)}
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold truncate">{f.alias || f.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{f.name}</p>
+                            </div>
+                            <Badge variant="outline" className="shrink-0">{f.type}</Badge>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <File className="h-3 w-3" />
+                              <span className="truncate">{formatBytes(f.size)}</span>
+                            </div>
+                            {f.confidentialityLevel && (
+                              <Badge className={cn("w-fit", getConfidentialityColor(f.confidentialityLevel))}>
+                                {getConfidentialityLabel(f.confidentialityLevel)}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => handlePreview(f)}>
+                              <Eye className="h-3 w-3" /> Preview
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="ghost" className="px-2">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleDownload(f.fileId, f.name)}>
+                                  <Download className="h-4 w-4 mr-2" /> Download
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openShareDialog(f)}>
+                                  <Share2 className="h-4 w-4 mr-2" /> Share
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }}>
+                                  Versions
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenu>
+                          </div>
                         </div>
                       </Card>
                     ))}
@@ -1286,6 +1501,19 @@ export default function FilesPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Scanner Modal */}
+        {pendingScannerFile && (
+          <ScannerConfirmModal
+            open={scannerModalOpen}
+            onOpenChange={(o) => { setScannerModalOpen(o); if (!o) setPendingScannerFile(null) }}
+            pendingFile={pendingScannerFile}
+            onConfirm={handleScannerConfirm}
+            onCancel={handleScannerCancel}
+            isConfirming={scannerConfirm.isPending}
+            isCancelling={scannerCancel.isPending}
+          />
+        )}
       </div>
     </ResponsiveContainer>
   )
