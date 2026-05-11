@@ -51,13 +51,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 
-import { ScannerConfirmModal } from '@/components/scanner/ScannerConfirmModal'
-import {
-  useScannerConfirmMutation,
-  useScannerCancelMutation,
-  usePendingScans,
-  useScannerPendingStatsQuery
-} from '@/hooks/useScanner'
+
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
@@ -112,8 +106,7 @@ export default function FilesPage() {
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [previewType, setPreviewType] = useState<'pdf' | 'image' | 'viewer' | 'unsupported' | null>(null)
-  const [scannerModalOpen, setScannerModalOpen] = useState(false)
-  const [pendingScannerFile, setPendingScannerFile] = useState<any | null>(null)
+
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -146,15 +139,7 @@ export default function FilesPage() {
   const { data: myPermissionsData } = useMyPermissionsQuery()
   const { data: sentPermissionsData } = useMySentPermissionsQuery()
 
-  const { data: scannerFilesData = [], isLoading: scannerLoading } = usePendingScans()
-  const { data: scannerStatsData } = useScannerPendingStatsQuery()
 
-  const { data: scannedFilesData, isLoading: scannedLoading } = useFilesQuery({
-    isScanned: true,
-    page,
-    limit: 20,
-    search: debouncedSearch || undefined,
-  })
 
   const { data: versionHistoryData = [] } = useVersionHistoryQuery(selectedFile?.fileId || '')
 
@@ -186,14 +171,12 @@ export default function FilesPage() {
   const revokePermission = useRevokePermissionMutation()
   const grantPermission = useGrantPermissionMutation()
   const rollbackVersion = useRollbackVersionMutation()
-  const scannerConfirm = useScannerConfirmMutation()
-  const scannerCancel = useScannerCancelMutation()
+
 
   // Data
   const ownedFiles = ownedFilesData?.files || []
   const scannedFiles = scannedFilesData?.files || []
-  const scannerFiles = scannerFilesData || []
-  const scannerStats = scannerStatsData || { pending: 0 }
+
   const ownedTotal = ownedFilesData?.total || 0
   const archiveFiles = archiveFilesData?.files || []
 
@@ -223,30 +206,48 @@ export default function FilesPage() {
     total: ownedTotal,
     scanned: ownedFiles.filter((f: any) => f.isScanned).length,
     sharedWithMe: receivedFilesList.length,
-    sharedByMe: sentFilesList.length,
-    pending: scannerStats.pending || scannerFiles.length
-  }), [ownedTotal, ownedFiles, receivedFilesList, sentFilesList, scannerStats.pending, scannerFiles])
+    sharedByMe: sentFilesList.length
+  }), [ownedTotal, ownedFiles, receivedFilesList, sentFilesList])
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragOver(true)
+    e.stopPropagation()
+    if (!isDragOver) {
+      setIsDragOver(true)
+    }
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragOver(false)
+    e.stopPropagation()
+    // Only set drag over to false if we're leaving the main container
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX
+    const y = e.clientY
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setIsDragOver(false)
+    }
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setIsDragOver(false)
 
     const files = e.dataTransfer.files
     if (files.length > 0) {
       const file = files[0]
-      if (file) handleFileUpload(file)
+      if (file) {
+        handleFileUpload(file)
+      }
     }
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
   }
 
   // Handlers
@@ -401,38 +402,20 @@ export default function FilesPage() {
     setRevokeConfirm(null)
   }
 
-  const openScannerModal = (file: any) => {
-    setPendingScannerFile(file)
-    setScannerModalOpen(true)
-  }
 
-  const handleScannerConfirm = (data: any) =>
-    scannerConfirm.mutate(data, {
-      onSuccess: () => {
-        setScannerModalOpen(false)
-        setPendingScannerFile(null)
-      }
-    })
-
-  const handleScannerCancel = (id: string) =>
-    scannerCancel.mutate(id, {
-      onSuccess: () => {
-        setScannerModalOpen(false)
-        setPendingScannerFile(null)
-      }
-    })
 
   return (
     <ResponsiveContainer>
       <div
         className="flex-1 flex flex-col min-h-0 bg-background relative"
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         {/* Drag overlay */}
         {isDragOver && (
-          <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-sm flex items-center justify-center border-2 border-dashed border-primary rounded-lg m-4">
+          <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-sm flex items-center justify-center border-2 border-dashed border-primary rounded-lg m-4 pointer-events-none">
             <div className="text-center">
               <Upload className="h-12 w-12 text-primary mx-auto mb-4" />
               <p className="text-lg font-semibold text-primary">Drop file here to upload</p>
@@ -554,13 +537,12 @@ export default function FilesPage() {
 
         {/* Stats Cards */}
         <div className="p-6">
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
               { label: 'Total Files', value: stats.total, icon: File, color: 'bg-blue-500/10 text-blue-500' },
               { label: 'Scanned Files', value: stats.scanned, icon: Scan, color: 'bg-green-500/10 text-green-500' },
               { label: 'Shared With Me', value: stats.sharedWithMe, icon: Users, color: 'bg-purple-500/10 text-purple-500' },
-              { label: 'Files I Shared', value: stats.sharedByMe, icon: Share2, color: 'bg-orange-500/10 text-orange-500' },
-              { label: 'Pending Scans', value: stats.pending, icon: Loader2, color: 'bg-amber-500/10 text-amber-500' }
+              { label: 'Files I Shared', value: stats.sharedByMe, icon: Share2, color: 'bg-orange-500/10 text-orange-500' }
             ].map((stat, i) => (
               <Card key={i} className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-card to-muted/50">
                 <CardContent className="p-6">
@@ -586,8 +568,6 @@ export default function FilesPage() {
               <TabsTrigger value="myfiles">My Files</TabsTrigger>
               <TabsTrigger value="received">Shared With Me</TabsTrigger>
               <TabsTrigger value="sent">Shared By Me</TabsTrigger>
-              <TabsTrigger value="scanned">Scanned Files</TabsTrigger>
-              <TabsTrigger value="scanner">Pending Scans</TabsTrigger>
               <TabsTrigger value="archive">Archive</TabsTrigger>
             </TabsList>
 
@@ -1132,67 +1112,7 @@ export default function FilesPage() {
                 )}
               </TabsContent>
 
-              {/* ==================== PENDING SCANS ==================== */}
-              <TabsContent value="scanner" className="m-0 h-full flex flex-col p-6">
-                {scannerLoading ? (
-                  <div className="space-y-4">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
-                        <Skeleton className="h-12 w-12 rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : scannerFiles.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center p-6">
-                      <Scan className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                      <p className="text-lg font-medium">No pending scans</p>
-                    </div>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="space-y-4">
-                    {scannerFiles.map((f: any) => (
-                      <Card key={f._id || f.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-amber-100 dark:bg-amber-900/20 rounded-xl">
-                              {f.isImage ? <ImageIcon className="h-8 w-8 text-amber-500" /> : <File className="h-8 w-8 text-amber-500" />}
-                            </div>
-                            <div>
-                              <p className="font-medium">{f.originalName || f.fileName}</p>
-                              <p className="text-sm text-muted-foreground">{formatBytes(f.fileSize)}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openScannerModal(f)}>
-                              <FileCheck className="h-4 w-4 mr-2" /> Review
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleScannerCancel(f._id || f.id)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {scannerFiles.map((f: any) => (
-                      <Card key={f._id} className="p-6 text-center">
-                        <div className="mx-auto mb-4">
-                          {f.isImage ? <ImageIcon className="h-12 w-12 mx-auto text-amber-500" /> : <File className="h-12 w-12 mx-auto text-amber-500" />}
-                        </div>
-                        <p className="font-medium line-clamp-2">{f.originalName || f.fileName}</p>
-                        <Button className="mt-6 w-full" onClick={() => openScannerModal(f)}>Review</Button>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
+
 
               {/* ==================== SCANNED ==================== */}
               <TabsContent value="scanned" className="m-0 h-full flex flex-col">
@@ -1400,18 +1320,7 @@ export default function FilesPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Scanner Modal */}
-        {pendingScannerFile && (
-          <ScannerConfirmModal
-            open={scannerModalOpen}
-            onOpenChange={(o) => { setScannerModalOpen(o); if (!o) setPendingScannerFile(null) }}
-            pendingFile={pendingScannerFile}
-            onConfirm={handleScannerConfirm}
-            onCancel={handleScannerCancel}
-            isConfirming={scannerConfirm.isPending}
-            isCancelling={scannerCancel.isPending}
-          />
-        )}
+
 
         {/* Version History Modal */}
         <Dialog open={versionHistoryOpen} onOpenChange={setVersionHistoryOpen}>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuthContext } from '@/contexts/auth'
 import { useScannerAgentDetection } from '@/hooks/useScannerAgentDetection'
 import { ScannerAgentModal } from '@/components/scanner/ScannerAgentModal'
@@ -10,12 +10,21 @@ import { addNotification } from '@/components/notifications/NotificationCenter'
 export function ScannerAgentFlow() {
   const { isAuthenticated } = useAuthContext()
   const router = useRouter()
+  const pathname = usePathname()
   const { isConnected, isChecking, checkHealth, reset } = useScannerAgentDetection()
   const [showModal, setShowModal] = useState(false)
   const [hasChecked, setHasChecked] = useState(false)
 
+  const isOnDashboard = pathname?.startsWith('/dashboard')
+
   useEffect(() => {
     if (!isAuthenticated || hasChecked) return
+
+    // Skip check if we're already on dashboard (means we've already checked)
+    if (isOnDashboard) {
+      setHasChecked(true)
+      return
+    }
 
     const performCheck = async () => {
       try {
@@ -28,7 +37,7 @@ export function ScannerAgentFlow() {
     }
 
     performCheck()
-  }, [isAuthenticated, checkHealth, hasChecked])
+  }, [isAuthenticated, checkHealth, hasChecked, isOnDashboard])
 
   useEffect(() => {
     if (!hasChecked) return
@@ -37,12 +46,18 @@ export function ScannerAgentFlow() {
       // Agent is connected, show success notification and redirect
       addNotification('success', 'Scanner Agent Connected', 'Your scanner agent is running and ready to use.')
       setShowModal(false)
-      router.push('/dashboard')
+      // Only redirect if not already on dashboard
+      if (!isOnDashboard) {
+        router.push('/dashboard')
+      }
     } else if (!isChecking) {
       // Agent is not connected and not currently checking, show modal
-      setShowModal(true)
+      // But don't show modal if we're already on dashboard pages
+      if (!isOnDashboard) {
+        setShowModal(true)
+      }
     }
-  }, [isConnected, isChecking, hasChecked, router])
+  }, [isConnected, isChecking, hasChecked, router, isOnDashboard])
 
   const handleAgentDetected = () => {
     setShowModal(false)
