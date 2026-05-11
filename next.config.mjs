@@ -15,10 +15,30 @@ const nextConfig = {
       },
     ]
   },
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Machine-Id, X-Machine-Name, X-Hostname, X-Platform, X-Browser, X-Browser-Version, X-Source' },
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+        ],
+      },
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Machine-Id, X-Machine-Name, X-Hostname, X-Platform, X-Browser, X-Browser-Version, X-Source' },
+        ],
+      },
+    ]
+  },
 }
 
-// module.exports = {
-//   allowedDevOrigins: ['192.168.4.213'],
-// }
-
-export default nextConfig
+export default {
+  ...nextConfig,
+  allowedDevOrigins: ['192.168.8.216'],
+}

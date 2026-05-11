@@ -18,8 +18,10 @@ export function ScannerAgentModal({ isOpen, onAgentDetected, onRetry }: ScannerA
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [detectionAttempts, setDetectionAttempts] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
+  const [isModalOpen, setIsModalOpen] = useState(isOpen)
 
   useEffect(() => {
+    setIsModalOpen(isOpen)
     if (isOpen) {
       setModalState('requirement')
       setDownloadProgress(0)
@@ -76,28 +78,35 @@ export function ScannerAgentModal({ isOpen, onAgentDetected, onRetry }: ScannerA
       try {
         setDetectionAttempts(prev => prev + 1)
 
-        const response = await fetch('http://localhost:4001/health')
-        if (response.ok) {
+        // Try current hostname first, then localhost as fallback
+        const urls = [
+          `http://${window.location.hostname}:4001/health`,
+          'http://localhost:4001/health'
+        ]
+
+        let response: Response | null = null
+        for (const url of urls) {
           try {
-            const health = await response.json()
-            if (health.running) {
-              clearInterval(pollInterval)
-              setModalState('success')
-              // Auto-dismiss after showing success
-              setTimeout(() => {
-                onAgentDetected()
-              }, 2000)
-              return
+            const res = await fetch(url)
+            if (res.ok) {
+              response = res
+              break
             }
           } catch (error) {
-            // If JSON parsing fails but response is OK, assume agent is running
-            clearInterval(pollInterval)
-            setModalState('success')
-            setTimeout(() => {
-              onAgentDetected()
-            }, 2000)
-            return
+            // Continue to next URL
           }
+        }
+
+        if (!response) {
+          // Continue polling if no URL worked
+          return
+        }
+        if (response.ok) {
+          clearInterval(pollInterval)
+          // Close modal immediately when agent responds successfully
+          setIsModalOpen(false)
+          onAgentDetected()
+          return
         }
       } catch (error) {
         // Continue polling
@@ -417,7 +426,7 @@ export function ScannerAgentModal({ isOpen, onAgentDetected, onRetry }: ScannerA
     }
   }
 
-  if (!isOpen) return null
+  if (!isModalOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

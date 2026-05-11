@@ -1,5 +1,9 @@
 // Direct browser-to-agent communication on user's local machine
-const AGENT_LOCAL_URL = 'http://localhost:4001'
+const getAgentUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:4001'
+  return `http://${window.location.hostname}:4001`
+}
+const AGENT_LOCAL_URL = getAgentUrl()
 
 export interface AgentSetTokenRequest {
   token: string | null
@@ -93,15 +97,24 @@ export const agentService = {
     if (typeof window === 'undefined') {
       return { installed: false, running: false, version: '', machineId: '' }
     }
-    try {
-      const response = await fetch(`${AGENT_LOCAL_URL}/health`)
-      if (!response.ok) {
-        throw new Error('Failed to get health')
+    // Try current hostname first, then localhost as fallback
+    const urls = [
+      `http://${window.location.hostname}:4001/health`,
+      'http://localhost:4001/health'
+    ]
+
+    for (const url of urls) {
+      try {
+        const response = await fetch(url)
+        if (response.ok) {
+          return await response.json()
+        }
+      } catch (error) {
+        // Continue to next URL
       }
-      return await response.json()
-    } catch (error) {
-      console.warn('Scanner Agent not running:', error)
-      return { installed: false, running: false, version: '', machineId: '' }
     }
+
+    console.warn('Scanner Agent not running on any available URL')
+    return { installed: false, running: false, version: '', machineId: '' }
   },
 }
