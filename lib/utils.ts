@@ -40,13 +40,27 @@ export function getFileIcon(fileName: string): string {
   return iconMap[ext] || '📁'
 }
 
+function generateUUID(): string {
+  // Use crypto.randomUUID if available (modern browsers)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+
+  // Fallback: generate a UUID-like string using Math.random
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
 export const getMachineId = () => {
   if (typeof window === 'undefined') return null;
 
   let machineId = localStorage.getItem('machineId');
 
   if (!machineId) {
-    machineId = 'machine-' + crypto.randomUUID();
+    machineId = 'machine-' + generateUUID();
     localStorage.setItem('machineId', machineId);
   }
 

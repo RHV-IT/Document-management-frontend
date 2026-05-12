@@ -1,7 +1,8 @@
 // Direct browser-to-agent communication on user's local machine
 const getAgentUrl = () => {
   if (typeof window === 'undefined') return 'http://localhost:4001'
-  return `http://${window.location.hostname}:4001`
+  // Always use localhost for scanner agent communication
+  return 'http://localhost:4001'
 }
 const AGENT_LOCAL_URL = getAgentUrl()
 
@@ -36,23 +37,32 @@ export const agentService = {
       return { success: true } // Allow SSR to pass
     }
 
-    try {
-      const response = await fetch(`${AGENT_LOCAL_URL}/set-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      })
-      if (!response.ok) {
-        throw new Error('Failed to set token')
+    // Try localhost first, then current hostname as fallback
+    const urls = [
+      'http://localhost:4001/set-token',
+      `http://${window.location.hostname}:4001/set-token`
+    ]
+
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
+        })
+        if (response.ok) {
+          return { success: true }
+        }
+      } catch (error) {
+        // Continue to next URL
       }
-      return { success: true }
-    } catch (error) {
-      console.warn('Scanner Agent not running on this machine:', error)
-      // Don't throw - agent being offline is acceptable
-      return { success: false }
     }
+
+    console.warn('Scanner Agent not running on this machine (tried multiple URLs)')
+    // Don't throw - agent being offline is acceptable
+    return { success: false }
   },
 
   deleteFile: async (request: AgentDeleteFileRequest): Promise<{ success: boolean }> => {
@@ -97,17 +107,61 @@ export const agentService = {
     if (typeof window === 'undefined') {
       return { installed: false, running: false, version: '', machineId: '' }
     }
-    // Try current hostname first, then localhost as fallback
+    // Try localhost first, then current hostname as fallback
     const urls = [
-      `http://${window.location.hostname}:4001/health`,
-      'http://localhost:4001/health'
+      'http://localhost:4001/health',
+      `http://${window.location.hostname}:4001/health`
     ]
 
     for (const url of urls) {
       try {
-        const response = await fetch(url)
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        })
         if (response.ok) {
-          return await response.json()
+          try {
+            const data = await response.json()
+
+            // Handle different response formats
+            if (data && typeof data === 'object' && data.status === 'okay') {
+              return {
+                installed: true,
+                running: true,
+                version: '1.0.0',
+                machineId: 'localhost'
+              }
+            } else if (typeof data === 'string' && data === 'okay') {
+              return {
+                installed: true,
+                running: true,
+                version: '1.0.0',
+                machineId: 'localhost'
+              }
+            } else if (data && typeof data === 'object' && typeof data.running === 'boolean') {
+              return data
+            }
+
+            return { installed: false, running: false, version: '', machineId: '' }
+          } catch (parseError) {
+            // If JSON parsing fails, try to read as text
+            try {
+              const text = await response.text()
+              if (text && (text.trim() === 'okay' || text.includes('okay'))) {
+                return {
+                  installed: true,
+                  running: true,
+                  version: '1.0.0',
+                  machineId: 'localhost'
+                }
+              }
+            } catch (textError) {
+              // Ignore
+            }
+            return { installed: false, running: false, version: '', machineId: '' }
+          }
         }
       } catch (error) {
         // Continue to next URL

@@ -11,6 +11,20 @@ export interface MachineInfo {
 
 const MACHINE_STORAGE_KEY = 'dms_machine_info'
 
+function generateMachineId(): string {
+  // Use crypto.randomUUID if available (modern browsers)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+
+  // Fallback: generate a UUID-like string using Math.random
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
 export function getMachineInfo(): MachineInfo {
   // Try to get from localStorage first
   if (typeof window !== 'undefined') {
@@ -26,7 +40,7 @@ export function getMachineInfo(): MachineInfo {
 
   // Generate new machine info
   const machineInfo: MachineInfo = {
-    machineId: crypto.randomUUID(),
+    machineId: generateMachineId(),
     machineName: generateMachineName(),
     hostname: typeof window !== 'undefined' ? window.location.hostname : 'unknown',
     platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',

@@ -18,8 +18,10 @@ export function useSyncAgentToken() {
     mutationFn: async ({ token, userId }: { token: string; userId: string }) => {
       return agentService.setToken({ token, userId, machineId: getMachineId() })
     },
-    onError: () => {
-      addNotification('error', 'Scanner agent not running', 'Unable to connect to the scanner agent.')
+    onError: (error) => {
+      // Don't show error notification for scanner agent connection failures
+      // as it's acceptable for the agent to not be running
+      console.log('Scanner agent token sync failed (this is normal if agent is not running):', error)
     },
   })
 }

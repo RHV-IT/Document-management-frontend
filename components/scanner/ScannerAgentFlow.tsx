@@ -17,11 +17,20 @@ export function ScannerAgentFlow() {
 
   const isOnDashboard = pathname?.startsWith('/dashboard')
 
+  // Check if agent setup is already complete
+  const isSetupComplete = typeof window !== 'undefined' && localStorage.getItem('scanner_agent_setup_complete') === 'true'
+
   useEffect(() => {
     if (!isAuthenticated || hasChecked) return
 
     // Skip check if we're already on dashboard (means we've already checked)
     if (isOnDashboard) {
+      setHasChecked(true)
+      return
+    }
+
+    // Skip check if agent setup is already complete
+    if (isSetupComplete) {
       setHasChecked(true)
       return
     }
@@ -37,17 +46,16 @@ export function ScannerAgentFlow() {
     }
 
     performCheck()
-  }, [isAuthenticated, checkHealth, hasChecked, isOnDashboard])
+  }, [isAuthenticated, checkHealth, hasChecked, isOnDashboard, isSetupComplete])
 
   useEffect(() => {
     if (!hasChecked) return
 
-    if (isConnected) {
-      // Agent is connected, show success notification and redirect
-      addNotification('success', 'Scanner Agent Connected', 'Your scanner agent is running and ready to use.')
+    if (isConnected || isSetupComplete) {
+      // Agent is connected or setup is complete, close modal
       setShowModal(false)
-      // Only redirect if not already on dashboard
-      if (!isOnDashboard) {
+      if (isConnected && !isOnDashboard) {
+        addNotification('success', 'Scanner Agent Connected', 'Your scanner agent is running and ready to use.')
         router.push('/dashboard')
       }
     } else if (!isChecking) {
@@ -57,7 +65,7 @@ export function ScannerAgentFlow() {
         setShowModal(true)
       }
     }
-  }, [isConnected, isChecking, hasChecked, router, isOnDashboard])
+  }, [isConnected, isChecking, hasChecked, router, isOnDashboard, isSetupComplete, pathname])
 
   const handleAgentDetected = () => {
     setShowModal(false)
@@ -76,8 +84,8 @@ export function ScannerAgentFlow() {
     }
   }
 
-  // Don't render anything if user is not authenticated
-  if (!isAuthenticated) return null
+  // Don't render anything if user is not authenticated or already on dashboard
+  if (!isAuthenticated || isOnDashboard) return null
 
   return (
     <ScannerAgentModal

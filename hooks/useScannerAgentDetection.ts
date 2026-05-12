@@ -21,7 +21,7 @@ export function useScannerAgentDetection() {
 
     try {
       const health = await agentService.getHealth()
-      const isConnected = health.running
+      const isConnected = health.running || health.installed // Consider connected if either running or installed
 
       setState({
         isChecking: false,

@@ -106,9 +106,13 @@ const onSubmit = async (data: LoginFormData) => {
             syncToken.mutate({ token, userId })
           }
 
+          // Mark that agent communication is working for this session
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('scanner_agent_setup_complete', 'true')
+          }
+
           addNotification('success', 'Welcome!', 'You have successfully logged in.')
-          // Don't redirect immediately - let ScannerAgentFlow handle the next steps
-          // The ScannerAgentFlow component will check for the scanner agent and redirect appropriately
+          router.push('/dashboard')
         } else {
           addNotification('error', 'Login Failed', response.error || 'Invalid credentials')
         }

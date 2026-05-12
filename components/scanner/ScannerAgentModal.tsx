@@ -78,10 +78,10 @@ export function ScannerAgentModal({ isOpen, onAgentDetected, onRetry }: ScannerA
       try {
         setDetectionAttempts(prev => prev + 1)
 
-        // Try current hostname first, then localhost as fallback
+        // Try localhost first, then current hostname as fallback
         const urls = [
-          `http://${window.location.hostname}:4001/health`,
-          'http://localhost:4001/health'
+          'http://localhost:4001/health',
+          `http://${window.location.hostname}:4001/health`
         ]
 
         let response: Response | null = null
