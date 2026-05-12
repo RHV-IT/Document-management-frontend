@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
+import { ScannerAgentSetupPrompt } from '@/components/tutorial/ScannerAgentSetupPrompt'
 import { useAuth } from '@/hooks/useAuth'
+import { useAgentStatusQuery } from '@/hooks/useAgent'
 import { TableSkeleton } from '@/components/loaders/TableSkeleton'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { useUsersQuery, useSuspendUserMutation, useActivateUserMutation, useUpdateUserMutation, useResetPasswordMutation, useRestoreUserMutation, useDeleteUserMutation } from '@/hooks/useUsers'
@@ -41,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useRouter } from 'next/navigation'
 import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -56,6 +59,7 @@ interface UserType {
   role: string
   department: string
   status: string
+  confidentialityLevel?: string
   createdAt?: string
 }
 
@@ -84,6 +88,7 @@ export default function AdminUsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [activityUser, setActivityUser] = useState<UserType | null>(null)
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false)
+  const [isSetupPromptOpen, setIsSetupPromptOpen] = useState(false)
 
   // Password reset
   const [resetPwUser, setResetPwUser] = useState<UserType | null>(null)
@@ -96,6 +101,8 @@ export default function AdminUsersPage() {
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
 
   const { user } = useAuth()
+  const router = useRouter()
+  const { data: agentStatus } = useAgentStatusQuery()
 
   const { data, isLoading } = useUsersQuery({
     page,
@@ -116,6 +123,13 @@ export default function AdminUsersPage() {
     limit: 20,
     userId: activityUser?._id || activityUser?.id,
   })
+
+  // Check scanner agent status and show setup prompt if not connected
+  React.useEffect(() => {
+    if (agentStatus && !agentStatus.connected) {
+      setIsSetupPromptOpen(true)
+    }
+  }, [agentStatus])
 
   const handleEditUser = (user: UserType) => {
     setEditingUser(user)
@@ -713,14 +727,19 @@ export default function AdminUsersPage() {
                   <label className="text-sm font-medium">Department</label>
                   <Input name="department" defaultValue={editingUser.department} required />
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Role</label>
-                  <select name="role" defaultValue={editingUser.role} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
-                    <option value="user">User</option>
-                    <option value="hod">HOD</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
+                 <div>
+                   <label className="text-sm font-medium">Role</label>
+                   <Select name="role" defaultValue={editingUser.role}>
+                     <SelectTrigger>
+                       <SelectValue placeholder="Select role" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="user">User</SelectItem>
+                       <SelectItem value="hod">HOD</SelectItem>
+                       <SelectItem value="admin">Admin</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
                 <div>
                   <label className="text-sm font-medium">Confidentiality Level</label>
                   <ConfidentialityLevelSelect
@@ -925,6 +944,16 @@ export default function AdminUsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Scanner Agent Setup Prompt */}
+      <ScannerAgentSetupPrompt
+        isOpen={isSetupPromptOpen}
+        onComplete={() => {
+          setIsSetupPromptOpen(false)
+          router.push('/dashboard')
+        }}
+        onSkip={() => setIsSetupPromptOpen(false)}
+      />
     </div>
   </ResponsiveContainer>
 )
