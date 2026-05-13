@@ -11,7 +11,7 @@ const nextConfig = {
     return [
       {
         source: '/api/agent/:path*',
-        destination: 'http://localhost:4001/:path*',
+        destination: `${process.env.API_BASE_URL || 'http://localhost:4001'}/:path*`,
       },
     ]
   },

@@ -30,11 +30,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/app ./app
 
 # Expose the default Next.js port
-EXPOSE 3000
+EXPOSE ${PORT}
 
 # Make Next.js listen on all interfaces (required for Docker)
-ENV HOSTNAME=0.0.0.0
-ENV PORT=3000
-ENV NODE_ENV=production
+ENV HOSTNAME=${HOSTNAME}
+ENV PORT=${PORT}
+ENV NODE_ENV=${NODE_ENV}
+ENV API_BASE_URL=${API_BASE_URL}
 
 CMD ["npx", "next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
