@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  dms-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dms-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+      - NODE_ENV=production
+    restart: unless-stopped
