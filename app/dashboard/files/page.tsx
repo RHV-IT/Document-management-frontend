@@ -340,7 +340,7 @@ export default function FilesPage() {
     }
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'
 
       if (type === 'pdf' || type === 'image') {
         const response = await fetch(`${baseUrl}/api/v1/files/${file.fileId}/preview`, {

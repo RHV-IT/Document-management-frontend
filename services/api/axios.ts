@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios'
 import { debug } from '@/lib/debug'
 import { getMachineInfo } from '@/lib/machine'
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'
 
 const getToken = () => {
   if (typeof window === 'undefined') return null

@@ -16,7 +16,7 @@
 - Works on localhost but fails when accessed via network IP (http://192.168.4.213:3000)
 
 **Environment:**
-- Backend: `http://192.168.4.213:5000`
+- Backend: `https://rhv-dms-backend.vercel.app`
 - Frontend: `http://192.168.4.213:3000`
 - Next.js 16.2.0, React 19, TypeScript
 

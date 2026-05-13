@@ -111,7 +111,7 @@ export const filesAPI = {
 
   // Upload file
   uploadFile: async (formData: FormData): Promise<{ success: boolean; data: FileItem }> => {
-    const baseUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000')
+    const baseUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://rhv-dms-backend.vercel.app')
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') || sessionStorage.getItem('token') : null
 
     const response = await fetch(`${baseUrl}/api/v1/files`, {
@@ -144,7 +144,7 @@ export const filesAPI = {
     uploadScan: async (formData: FormData, onProgress?: (progress: number) => void): Promise<{ success: boolean; data: FileItem; message: string }> => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
-      const baseUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000')
+      const baseUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://rhv-dms-backend.vercel.app')
       xhr.open('POST', `${baseUrl}/api/v1/files/scan`)
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') || sessionStorage.getItem('token') : null
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
@@ -194,12 +194,12 @@ export const filesAPI = {
 
   // Get preview URL
   getPreviewUrl: (fileId: string): string => {
-    return `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/api/v1/files/${fileId}/preview`
+    return `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'}/api/v1/files/${fileId}/preview`
   },
 
   // Get Google Docs preview URL - embeddable iframe for document viewing
   getGoogleDocsPreviewUrl: (fileId: string): string => {
-    return `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/api/v1/files/${fileId}/preview/google`
+    return `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'}/api/v1/files/${fileId}/preview/google`
   },
 
   // Update file

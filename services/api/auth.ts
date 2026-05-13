@@ -1,6 +1,6 @@
 ﻿import apiClient from './axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'
 
 export const authAPI = {
   register: async (data: RegisterRequest): Promise<AuthResponse> => {
