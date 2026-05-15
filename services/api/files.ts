@@ -132,10 +132,17 @@ export const filesAPI = {
 
   // Bulk upload
   bulkUpload: async (files: File[]): Promise<{ success: boolean; data: FileItem[]; message: string }> => {
+    if (!files || files.length === 0) {
+      throw new Error('No files provided for bulk upload')
+    }
+
     const formData = new FormData()
+
+    // Append files with 'file' key (same as single upload)
     files.forEach((file) => {
-      formData.append('files', file)
+      formData.append('file', file)
     })
+
     const response = await apiClient.post('/api/v1/files/bulk', formData)
     return response.data
   },

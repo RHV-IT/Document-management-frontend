@@ -116,11 +116,14 @@ export default function UploadPage() {
   // Bulk file handlers
   const handleBulkFileSelect = async (files: FileList | null) => {
     if (!files) return
-    const newFiles: FileStatus[] = Array.from(files).map(file => ({
+
+    const filesArray = Array.from(files)
+    const newFiles: FileStatus[] = filesArray.map(file => ({
       file,
       id: generateId(),
       status: 'pending' as const
     }))
+
     setBulkFiles(prev => [...prev, ...newFiles])
   }
 
@@ -151,8 +154,23 @@ export default function UploadPage() {
 
   const handleBulkUpload = () => {
     const files = bulkFiles.map(f => f.file)
+
+    if (files.length === 0) {
+      addNotification('error', 'No Files', 'No files selected for upload')
+      return
+    }
+
+    // Filter out any null/undefined files
+    const validFiles = files.filter(f => f && typeof f === 'object' && f.constructor.name === 'File')
+
+    if (validFiles.length === 0) {
+      addNotification('error', 'Invalid Files', 'No valid files found for upload')
+      return
+    }
+
     setBulkFiles(prev => prev.map(f => ({ ...f, status: 'uploading' as const })))
-    bulkUpload.mutate(files, {
+
+    bulkUpload.mutate(validFiles, {
       onSuccess: () => {
         setBulkFiles(prev => prev.map(f => ({ ...f, status: 'success' as const })))
       },
