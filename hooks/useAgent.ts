@@ -1,3 +1,4 @@
+import React from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getMachineId } from '@/lib/utils'
 import { agentService, AgentStatusResponse, AgentDeleteFileRequest } from '@/services/agent'
@@ -14,16 +15,27 @@ export function useAgentStatusQuery() {
 }
 
 export function useSyncAgentToken() {
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async ({ token, userId }: { token: string; userId: string }) => {
       return agentService.setToken({ token, userId, machineId: getMachineId() })
     },
     onError: (error) => {
-      // Don't show error notification for scanner agent connection failures
-      // as it's acceptable for the agent to not be running
-      console.log('Scanner agent token sync failed (this is normal if agent is not running):', error)
+      // Silently handle errors to avoid spamming notifications
+      console.debug('Scanner agent token sync failed:', error)
     },
   })
+
+  // Retry every 30 seconds if it failed
+  React.useEffect(() => {
+    if (mutation.isError) {
+      const retryInterval = setInterval(() => {
+        mutation.mutate({ token: '', userId: '' }) // Will use current values
+      }, 30000)
+      return () => clearInterval(retryInterval)
+    }
+  }, [mutation.isError])
+
+  return mutation
 }
 
 export function useDeleteAgentFile() {

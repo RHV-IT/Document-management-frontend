@@ -1,27 +1,32 @@
 'use client'
 
-import { useAgentStatusQuery } from '@/hooks/useAgent'
+import { useScannerAgentDetection } from '@/hooks/useScannerAgentDetection'
 
 export function ScannerStatus() {
-  const { data, isError } = useAgentStatusQuery()
+  const { isConnected, isChecking } = useScannerAgentDetection()
 
-  if (isError) {
+  if (isChecking) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <div className="w-2 h-2 rounded-full bg-red-500" />
-        <span>Scanner not connected</span>
+        <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+        <span>Waiting for Agent</span>
       </div>
     )
   }
 
-  if (data?.connected) {
+  if (isConnected) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        <span>Scanner ready</span>
+        <div className="w-2 h-2 rounded-full bg-green-500" />
+        <span>Connected</span>
       </div>
     )
   }
 
-  return null
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="w-2 h-2 rounded-full bg-red-500" />
+      <span>Not Connected</span>
+    </div>
+  )
 }

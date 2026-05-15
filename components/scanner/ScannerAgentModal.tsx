@@ -48,7 +48,7 @@ export function ScannerAgentModal({ isOpen, onAgentDetected, onRetry }: ScannerA
       }, 200)
 
       // Create download link
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'}/api/v1/scanner/auto-install-download`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'}/api/v1/scanner/auto-install-download/direct`
       const link = document.createElement('a')
       link.href = apiUrl
       link.download = 'RHV-DMS-Scanner-Setup.exe'

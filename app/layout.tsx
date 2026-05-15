@@ -9,6 +9,7 @@ import { IdleDetector } from '@/components/idle/IdleDetector'
 import ErrorBoundary from '@/components/error-boundary'
 import { ScannerListener } from '@/components/ScannerListener'
 import { ScannerAgentFlow } from '@/components/scanner/ScannerAgentFlow'
+import { AgentEnforcement } from '@/components/AgentEnforcement'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             />
             <ScannerListener />
             <ScannerAgentFlow />
+            <AgentEnforcement />
           </AuthProvider>
         </QueryClientProvider>
         </body>

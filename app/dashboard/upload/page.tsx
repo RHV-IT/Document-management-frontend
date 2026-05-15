@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import type { FileItem } from '@/services/api/files'
 import { useAuth } from '@/hooks/useAuth'
+import { addNotification } from '@/components/notifications/NotificationCenter'
 
 interface FileStatus {
   file: File

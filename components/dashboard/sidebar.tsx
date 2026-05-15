@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { GlowCircle } from '@/components/ui/glow-circle'
+import { ScannerStatus } from '@/components/ScannerStatus'
 
 const NAV_ITEMS = [
   {
@@ -173,6 +174,11 @@ export function DashboardSidebar() {
       </nav>
 
       <Separator className="mx-4 bg-gray-100" />
+
+      {/* Scanner Status */}
+      <div className="px-4 py-3">
+        <ScannerStatus />
+      </div>
 
       {/* Logout */}
       <div className="p-4">

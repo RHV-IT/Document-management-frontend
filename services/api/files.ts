@@ -138,9 +138,9 @@ export const filesAPI = {
 
     const formData = new FormData()
 
-    // Append files with 'file' key (same as single upload)
+    // Append files with 'files' key for bulk upload
     files.forEach((file) => {
-      formData.append('file', file)
+      formData.append('files', file)
     })
 
     const response = await apiClient.post('/api/v1/files/bulk', formData)

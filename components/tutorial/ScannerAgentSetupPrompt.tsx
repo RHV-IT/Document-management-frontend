@@ -12,7 +12,7 @@ interface ScannerAgentSetupPromptProps {
 
 export function ScannerAgentSetupPrompt({ isOpen, onComplete, onSkip }: ScannerAgentSetupPromptProps) {
   const handleDownload = () => {
-    const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.4.213:5000'}/api/v1/scanner/auto-install-download`
+    const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.4.213:5000'}/api/v1/scanner/auto-install-download/direct`
     const link = document.createElement('a')
     link.href = apiUrl
     link.download = 'scanner-setup.bat'

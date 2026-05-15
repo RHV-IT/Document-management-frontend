@@ -458,7 +458,7 @@ export default function SettingsPage() {
                           <h5 className="font-semibold text-gray-900 mb-2">Download the Installer</h5>
                           <p className="text-sm text-gray-600 mb-3">Click below to download the scanner setup file directly from the server</p>
                           <a
-                            href={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.4.213:5000'}/api/v1/scanner/auto-install-download`}
+                            href={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.4.213:5000'}/api/v1/scanner/auto-install-download/direct`}
                             download="scanner-setup.bat"
                             className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md hover:shadow-lg"
                           >

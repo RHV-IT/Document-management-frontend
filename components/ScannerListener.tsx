@@ -5,6 +5,7 @@ import { usePendingScans } from '@/hooks/useScanner'
 import { useConfirmScan, useCancelScan } from '@/hooks/useScannerActions'
 import { useSyncAgentToken } from '@/hooks/useAgent'
 import { useAuthContext } from '@/contexts/auth'
+import { useScannerAgentDetection } from '@/hooks/useScannerAgentDetection'
 import { ScannerModal } from '@/components/ScannerModal'
 import type { PendingScan } from '@/services/scanner'
 
@@ -14,6 +15,7 @@ function ScannerListenerContent() {
   const { data: pendingScans = [], isLoading } = usePendingScans()
   const confirmScan = useConfirmScan()
   const cancelScan = useCancelScan()
+  const { isConnected } = useScannerAgentDetection()
 
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set())
   const [currentScan, setCurrentScan] = useState<PendingScan | null>(null)
@@ -40,8 +42,22 @@ function ScannerListenerContent() {
     }
   }, [user, syncAgentToken])
 
+  // Continuously retry token sync every 30 seconds if it failed
+  useEffect(() => {
+    if (syncToken.isError) {
+      const retryInterval = setInterval(() => {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+        const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId')
+        if (token && userId) {
+          syncToken.mutate({ token, userId })
+        }
+      }, 30000)
+      return () => clearInterval(retryInterval)
+    }
+  }, [syncToken.isError, syncToken])
+
   const detectNewScans = useCallback(() => {
-    if (!pendingScans.length) return
+    if (!pendingScans.length || !isConnected) return
 
     for (const scan of pendingScans) {
       if (!processedIdsRef.current.has(scan.id)) {
@@ -52,7 +68,7 @@ function ScannerListenerContent() {
         break
       }
     }
-  }, [pendingScans])
+  }, [pendingScans, isConnected])
 
   useEffect(() => {
     if (!isLoading && pendingScans.length > 0) {

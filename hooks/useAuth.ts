@@ -97,7 +97,11 @@ export function useAuth() {
   }
 
   const isFirstLogin = () => {
-    return false
+    if (typeof window === 'undefined') {
+      return false
+    }
+    const onboardingCompleted = localStorage.getItem('onboardingCompleted')
+    return !onboardingCompleted
   }
 
   const isAuthenticated = () => {
