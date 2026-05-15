@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUploadFileMutation, useBulkUploadMutation, useFilesQuery } from '@/hooks/useFiles'
-import { useBulkUploadToPendingMutation } from '@/hooks/useScanner'
 import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
 import {
   Upload, X, FileIcon, CheckCircle, AlertCircle,
@@ -60,7 +59,7 @@ export default function UploadPage() {
 
   // Mutations
   const uploadFile = useUploadFileMutation()
-  const bulkUpload = useBulkUploadToPendingMutation()
+  const bulkUpload = useBulkUploadMutation()
 
   // Queries
   const { data: filesData } = useFilesQuery({ limit: 10 })
@@ -153,7 +152,7 @@ export default function UploadPage() {
   const handleBulkUpload = () => {
     const files = bulkFiles.map(f => f.file)
     setBulkFiles(prev => prev.map(f => ({ ...f, status: 'uploading' as const })))
-    bulkUpload.mutate({ files }, {
+    bulkUpload.mutate(files, {
       onSuccess: () => {
         setBulkFiles(prev => prev.map(f => ({ ...f, status: 'success' as const })))
       },
@@ -193,9 +192,8 @@ export default function UploadPage() {
   return (
     <ResponsiveContainer>
       <div
-        className={`flex-1 p-8 bg-gradient-to-br from-gray-50/80 to-gray-100/50 overflow-auto animate-fade-in relative ${
-          isDraggingPage ? 'bg-blue-50/30' : ''
-        }`}
+        className={`flex-1 p-8 bg-gradient-to-br from-gray-50/80 to-gray-100/50 overflow-auto animate-fade-in relative ${isDraggingPage ? 'bg-blue-50/30' : ''
+          }`}
         onDragOver={handlePageDragOver}
         onDragLeave={handlePageDragLeave}
         onDrop={handlePageDrop}
@@ -281,11 +279,10 @@ export default function UploadPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${
-                      isDraggingSingle
+                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${isDraggingSingle
                         ? 'border-blue-500 bg-blue-50 scale-105'
                         : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
-                    }`}
+                      }`}
                     onClick={() => document.getElementById('single-file-input')?.click()}
                     onDragOver={handleSingleDragOver}
                     onDragLeave={handleSingleDragLeave}
@@ -299,9 +296,8 @@ export default function UploadPage() {
                       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                     />
                     <div className={`transition-transform duration-200 ${isDraggingSingle ? 'scale-110' : ''}`}>
-                      <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${
-                        isDraggingSingle ? 'text-blue-500' : 'text-gray-400'
-                      }`} />
+                      <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingSingle ? 'text-blue-500' : 'text-gray-400'
+                        }`} />
                     </div>
                     {singleFile ? (
                       <div className="flex items-center justify-center gap-2">
@@ -313,9 +309,8 @@ export default function UploadPage() {
                       </div>
                     ) : (
                       <>
-                        <p className={`font-medium transition-colors duration-200 ${
-                          isDraggingSingle ? 'text-blue-600' : 'text-gray-600'
-                        }`}>
+                        <p className={`font-medium transition-colors duration-200 ${isDraggingSingle ? 'text-blue-600' : 'text-gray-600'
+                          }`}>
                           {isDraggingSingle ? 'Drop your file here' : 'Drag & drop or click to select'}
                         </p>
                         <p className="text-sm text-gray-400 mt-2">PDF, Word, Excel, PowerPoint, Text files</p>
@@ -406,11 +401,10 @@ export default function UploadPage() {
                 </CardHeader>
                 <CardContent>
                   <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${
-                      isDraggingBulk
+                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${isDraggingBulk
                         ? 'border-blue-500 bg-blue-50 scale-105 shadow-lg'
                         : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
-                    }`}
+                      }`}
                     onDragOver={handleBulkDragOver}
                     onDragLeave={handleBulkDragLeave}
                     onDrop={handleBulkDrop}
@@ -425,13 +419,11 @@ export default function UploadPage() {
                       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                     />
                     <div className={`transition-transform duration-200 ${isDraggingBulk ? 'scale-110' : ''}`}>
-                      <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${
-                        isDraggingBulk ? 'text-blue-500' : 'text-gray-400'
-                      }`} />
+                      <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingBulk ? 'text-blue-500' : 'text-gray-400'
+                        }`} />
                     </div>
-                    <p className={`font-medium transition-colors duration-200 ${
-                      isDraggingBulk ? 'text-blue-600' : 'text-gray-600'
-                    }`}>
+                    <p className={`font-medium transition-colors duration-200 ${isDraggingBulk ? 'text-blue-600' : 'text-gray-600'
+                      }`}>
                       {isDraggingBulk ? 'Drop your files here' : 'Drag & drop or click to browse'}
                     </p>
                     <p className="text-sm text-gray-400 mt-2">Maximum 10 files • PDF, Word, Excel, PowerPoint, Text</p>

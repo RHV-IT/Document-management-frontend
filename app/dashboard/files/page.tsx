@@ -68,6 +68,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 import { FileItem } from '@/services/api/files'
 import { Lock, Shield } from 'lucide-react'
+import { ScannerConfirmModal } from '@/components/scanner/ScannerConfirmModal'
 
 // Helper Functions
 function getConfidentialityColor(level: any): string {
@@ -1023,11 +1024,11 @@ export default function FilesPage() {
                                   Versions
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                 <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">
-                                   <Trash2 className="h-4 w-4 mr-2" /> Delete
-                                 </DropdownMenuItem>
-                             </DropdownMenuContent>
-                           </DropdownMenu>
+                                <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </Card>
@@ -1073,21 +1074,21 @@ export default function FilesPage() {
                         />
                       </div>
 
-                       <div className="w-36">
-                         <label className="text-sm font-medium text-gray-600 mb-1.5 block">Level</label>
-                         <Select value={archiveConfidentiality || "all"} onValueChange={(value) => setArchiveConfidentiality(value === "all" ? "" : value)}>
-                           <SelectTrigger>
-                             <SelectValue placeholder="All levels" />
-                           </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All levels</SelectItem>
-                              <SelectItem value="public">Everyone Can See</SelectItem>
-                              <SelectItem value="internal">Company Only</SelectItem>
-                              <SelectItem value="confidential">Limited Access Only</SelectItem>
-                              <SelectItem value="highly_confidential">Very Secret - Few People Only</SelectItem>
-                            </SelectContent>
-                         </Select>
-                       </div>
+                      <div className="w-36">
+                        <label className="text-sm font-medium text-gray-600 mb-1.5 block">Level</label>
+                        <Select value={archiveConfidentiality || "all"} onValueChange={(value) => setArchiveConfidentiality(value === "all" ? "" : value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="All levels" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All levels</SelectItem>
+                            <SelectItem value="public">Everyone Can See</SelectItem>
+                            <SelectItem value="internal">Company Only</SelectItem>
+                            <SelectItem value="confidential">Limited Access Only</SelectItem>
+                            <SelectItem value="highly_confidential">Very Secret - Few People Only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
                       <div className="w-32">
                         <label className="text-sm font-medium text-gray-600 mb-1.5 block">Sort</label>
@@ -1180,15 +1181,15 @@ export default function FilesPage() {
                               </Badge>
                             )}
                           </div>
-                           <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground mt-1 flex-wrap">
-                             <span className="flex items-center gap-1">
-                               <User className="h-3 w-3" />
-                               {f.uploadedBy?.name || f.owner?.name || 'Unknown'}
-                             </span>
-                             <span className="flex items-center gap-1">
-                               <Building2 className="h-3 w-3" />
-                               {typeof f.department === 'object' ? f.department.name : f.department}
-                             </span>
+                          <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground mt-1 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {f.uploadedBy?.name || f.owner?.name || 'Unknown'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {typeof f.department === 'object' ? f.department.name : f.department}
+                            </span>
                             <span className="flex items-center gap-1">
                               <File className="h-3 w-3" />
                               {formatBytes(f.size)}
@@ -1267,14 +1268,14 @@ export default function FilesPage() {
                             <Badge variant="outline" className="shrink-0 text-xs">{f.type}</Badge>
                           </div>
                           <div className="space-y-1 text-xs sm:text-sm mb-3">
-                             <div className="flex items-center gap-2 text-muted-foreground">
-                               <User className="h-3 w-3" />
-                               <span className="truncate">{f.uploadedBy?.name || f.owner?.name || 'Unknown'}</span>
-                             </div>
-                             <div className="flex items-center gap-2 text-muted-foreground">
-                               <Building2 className="h-3 w-3" />
-                               <span className="truncate">{typeof f.department === 'object' ? f.department.name : f.department}</span>
-                             </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <User className="h-3 w-3" />
+                              <span className="truncate">{f.uploadedBy?.name || f.owner?.name || 'Unknown'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Building2 className="h-3 w-3" />
+                              <span className="truncate">{typeof f.department === 'object' ? f.department.name : f.department}</span>
+                            </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <File className="h-3 w-3" />
                               <span>{formatBytes(f.size)}</span>

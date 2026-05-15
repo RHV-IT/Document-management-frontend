@@ -127,9 +127,9 @@ export function useUpdateFileMutation() {
   return useMutation({
     mutationFn: ({ fileId, formData }: { fileId: string; formData: FormData }) =>
       filesAPI.updateFile(fileId, formData),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['files'] })
-      queryClient.invalidateQueries({ queryKey: ['file', fileId] })
+      queryClient.invalidateQueries({ queryKey: ['file', variables.fileId] })
       addNotification('success', 'File Updated', 'File metadata has been updated successfully.')
     },
     onError: (error: any) => {
