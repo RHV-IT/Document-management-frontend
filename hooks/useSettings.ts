@@ -33,12 +33,38 @@ export function useConfidentialityLevelsQuery() {
 }
 
 export function useConfidentialityLevelsConfigQuery() {
-  return useQuery<ConfidentialityLevelConfig[]>({
+  return useQuery<{ label: string; value: string }[]>({
     queryKey: ['config', 'confidentiality-levels'],
     queryFn: async () => {
       try {
-        const response = await settingsAPI.getConfidentialityLevelsConfig()
-        return response.data || []
+        const apiResponse = await settingsAPI.getConfidentialityLevelsConfig()
+
+        let config
+        // Handle both possible response structures
+        if (apiResponse && apiResponse.levels) {
+          // Direct response: { levels: [], descriptions: {} }
+          config = apiResponse
+        } else if (apiResponse && apiResponse.data && apiResponse.data.levels) {
+          // Wrapped response: { success: true, data: { levels: [], descriptions: {} } }
+          config = apiResponse.data
+        } else {
+
+          return []
+        }
+
+        if (!config || !config.levels) {
+
+          return []
+        }
+
+        // Transform the API response into the expected format
+        const transformed = config.levels.map(level => ({
+          value: level, // This should be "public", "internal", "confidential", "highly_confidential"
+          label: config.descriptions[level] || level.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        }))
+
+
+        return transformed
       } catch (error) {
         console.error('Failed to fetch confidentiality levels config:', error)
         return []

@@ -86,39 +86,7 @@ export default function SettingsPage() {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }))
   }
 
-  const PasswordInput = ({
-    id,
-    label,
-    value,
-    onChange,
-    required,
-    field
-  }: {
-    id: string;
-    label: string;
-    value: string;
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    required?: boolean;
-    field: 'current' | 'new' | 'confirm';
-  }) => (
-    <div className="relative">
-      <Input
-        id={id}
-        type={showPasswords[field] ? 'text' : 'password'}
-        value={value}
-        onChange={onChange}
-        required={required}
-        className="focus:ring-blue-500 focus:border-blue-500 pr-10"
-      />
-      <button
-        type="button"
-        onClick={() => togglePassword(field)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-      >
-        {showPasswords[field] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  )
+
 
   const [newDepartment, setNewDepartment] = useState({ name: '', code: '', description: '' })
 
@@ -286,14 +254,24 @@ export default function SettingsPage() {
                     <Field>
                       <FieldLabel>My Confidentiality Levels</FieldLabel>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {selectedLevels.length > 0 ? (
-                          selectedLevels.map((level) => (
-                            <Badge key={level} className="bg-blue-100 text-blue-800">
-                              {level.replace(/_/g, ' ')}
-                            </Badge>
-                          ))
+                        {confidentialityLevels && confidentialityLevels.length > 0 ? (
+                          confidentialityLevels.map((level) => {
+                            const isAssigned = selectedLevels.includes(level.value)
+                            return (
+                              <Badge
+                                key={level.value}
+                                className={cn(
+                                  isAssigned
+                                    ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-300'
+                                    : 'bg-gray-100 text-gray-500'
+                                )}
+                              >
+                                {isAssigned ? `${level.label} ✓` : level.label}
+                              </Badge>
+                            )
+                          })
                         ) : (
-                          <p className="text-sm text-gray-500">No confidentiality levels assigned</p>
+                          <p className="text-sm text-gray-500">No confidentiality levels configured</p>
                         )}
                       </div>
                     </Field>
@@ -323,42 +301,75 @@ export default function SettingsPage() {
                     <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
                       <Field>
                         <FieldLabel htmlFor="currentPassword">Current Password</FieldLabel>
-                        <PasswordInput
-                          id="currentPassword"
-                          label="Current Password"
-                          value={passwordData.currentPassword}
-                          onChange={(e) =>
-                            setPasswordData({ ...passwordData, currentPassword: e.target.value })
-                          }
-                          required
-                          field="current"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="currentPassword"
+                            type={showPasswords.current ? 'text' : 'password'}
+                            value={passwordData.currentPassword}
+                            onChange={(e) =>
+                              setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                            }
+                            required
+                            className="flex-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => togglePassword('current')}
+                            className="shrink-0"
+                          >
+                            {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </Field>
 
                       <Field>
                         <FieldLabel htmlFor="newPassword">New Password</FieldLabel>
-                        <PasswordInput
-                          id="newPassword"
-                          label="New Password"
-                          value={passwordData.newPassword}
-                          onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                          required
-                          field="new"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="newPassword"
+                            type={showPasswords.new ? 'text' : 'password'}
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                            required
+                            className="flex-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => togglePassword('new')}
+                            className="shrink-0"
+                          >
+                            {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </Field>
 
                       <Field>
                         <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
-                        <PasswordInput
-                          id="confirmPassword"
-                          label="Confirm Password"
-                          value={passwordData.confirmPassword}
-                          onChange={(e) =>
-                            setPasswordData({ ...passwordData, confirmPassword: e.target.value })
-                          }
-                          required
-                          field="confirm"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="confirmPassword"
+                            type={showPasswords.confirm ? 'text' : 'password'}
+                            value={passwordData.confirmPassword}
+                            onChange={(e) =>
+                              setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                            }
+                            required
+                            className="flex-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => togglePassword('confirm')}
+                            className="shrink-0"
+                          >
+                            {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </Field>
 
                       <Button type="submit" disabled={isChangingPassword} className="cursor-pointer bg-blue-600 hover:bg-blue-700">

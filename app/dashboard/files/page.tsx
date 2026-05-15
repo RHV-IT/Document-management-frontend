@@ -26,6 +26,12 @@ import {
 
 import { useUsersQuery as useUsersListQuery } from '@/hooks/useUsers'
 import { useConfidentialityLevelsConfigQuery } from '@/hooks/useSettings'
+import {
+  usePendingScans,
+  useScannerPendingStatsQuery,
+  useScannerConfirmMutation,
+  useScannerCancelMutation
+} from '@/hooks/useScanner'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 
 // Icons
@@ -78,10 +84,10 @@ function getConfidentialityColor(level: any): string {
 
 function getConfidentialityLabel(level: any): string {
   const labels: Record<string, string> = {
-    public: 'Public',
-    internal: 'Internal',
-    confidential: 'Confidential',
-    highly_confidential: 'Highly Confidential'
+    public: 'Everyone Can See',
+    internal: 'Company Only',
+    confidential: 'Limited Access Only',
+    highly_confidential: 'Very Secret - Few People Only'
   }
   return ['public', 'internal', 'confidential', 'highly_confidential'].includes(level)
     ? labels[level]
@@ -1073,13 +1079,13 @@ export default function FilesPage() {
                            <SelectTrigger>
                              <SelectValue placeholder="All levels" />
                            </SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="all">All levels</SelectItem>
-                             <SelectItem value="public">Public</SelectItem>
-                             <SelectItem value="internal">Internal</SelectItem>
-                             <SelectItem value="confidential">Confidential</SelectItem>
-                             <SelectItem value="highly_confidential">Highly Confidential</SelectItem>
-                           </SelectContent>
+                            <SelectContent>
+                              <SelectItem value="all">All levels</SelectItem>
+                              <SelectItem value="public">Everyone Can See</SelectItem>
+                              <SelectItem value="internal">Company Only</SelectItem>
+                              <SelectItem value="confidential">Limited Access Only</SelectItem>
+                              <SelectItem value="highly_confidential">Very Secret - Few People Only</SelectItem>
+                            </SelectContent>
                          </Select>
                        </div>
 

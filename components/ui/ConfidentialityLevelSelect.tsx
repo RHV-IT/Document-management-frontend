@@ -22,10 +22,10 @@ const CONFIDENTIALITY_COLORS: Record<string, string> = {
 }
 
 const CONFIDENTIALITY_LABELS: Record<string, string> = {
-  public: 'Public',
-  internal: 'Internal',
-  confidential: 'Confidential',
-  highly_confidential: 'Highly Confidential',
+  public: 'Everyone Can See',
+  internal: 'Company Only',
+  confidential: 'Limited Access Only',
+  highly_confidential: 'Very Secret - Few People Only',
 }
 
 const CONFIDENTIALITY_LEVEL_ORDER = ['public', 'internal', 'confidential', 'highly_confidential']
@@ -63,15 +63,27 @@ export function ConfidentialityLevelSelect({
   }
 
   const allowedLevels = getAllowedLevels(currentUserLevel, currentUserRole)
-  const options = levels
-    ?.filter(level => allowedLevels.includes(level.value))
-    .sort((a, b) => CONFIDENTIALITY_LEVEL_ORDER.indexOf(a.value) - CONFIDENTIALITY_LEVEL_ORDER.indexOf(b.value))
-    .map(level => ({
-      value: level.value,
-      label: level.label,
-      color: CONFIDENTIALITY_COLORS[level.value] || '#6b7280',
-      description: level.label, // Using label as description since backend doesn't provide separate description
-    })) || []
+  // Fallback options in case API doesn't work
+  const fallbackOptions = [
+    { value: 'public', label: CONFIDENTIALITY_LABELS.public, color: CONFIDENTIALITY_COLORS.public, description: 'Accessible to everyone' },
+    { value: 'internal', label: CONFIDENTIALITY_LABELS.internal, color: CONFIDENTIALITY_COLORS.internal, description: 'Internal company use only' },
+    { value: 'confidential', label: CONFIDENTIALITY_LABELS.confidential, color: CONFIDENTIALITY_COLORS.confidential, description: 'Sensitive information - restricted access' },
+    { value: 'highly_confidential', label: CONFIDENTIALITY_LABELS.highly_confidential, color: CONFIDENTIALITY_COLORS.highly_confidential, description: 'Extremely sensitive - very limited access' },
+  ]
+
+  const options = levels && levels.length > 0
+    ? levels
+        .filter(level => allowedLevels.includes(level.value))
+        .sort((a, b) => CONFIDENTIALITY_LEVEL_ORDER.indexOf(a.value) - CONFIDENTIALITY_LEVEL_ORDER.indexOf(b.value))
+        .map(level => ({
+          value: level.value,
+          label: CONFIDENTIALITY_LABELS[level.value] || level.label,
+          color: CONFIDENTIALITY_COLORS[level.value] || '#6b7280',
+          description: level.label,
+        }))
+    : fallbackOptions.filter(option => allowedLevels.includes(option.value))
+
+
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
@@ -88,7 +100,7 @@ export function ConfidentialityLevelSelect({
               />
               <div>
                 <div className="font-medium">{option.label}</div>
-                {option.description && (
+                {option.description && option.description !== option.label && (
                   <div className="text-xs text-muted-foreground">{option.description}</div>
                 )}
               </div>

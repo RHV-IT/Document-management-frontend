@@ -20,8 +20,8 @@ export interface ConfidentialityLevel {
 }
 
 export interface ConfidentialityLevelConfig {
-  label: string
-  value: string
+  levels: string[]
+  descriptions: Record<string, string>
 }
 
 export const settingsAPI = {
@@ -62,7 +62,7 @@ export const settingsAPI = {
     return response.data
   },
 
-  getConfidentialityLevelsConfig: async (): Promise<{ success: boolean; data: { label: string; value: string }[] }> => {
+  getConfidentialityLevelsConfig: async (): Promise<ConfidentialityLevelConfig> => {
     const response = await apiClient.get('/api/v1/config/confidentiality-levels')
     return response.data
   },

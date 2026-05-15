@@ -296,19 +296,25 @@ export function ScannerModal({
                     <SelectItem value="public">
                       <div className="flex items-center gap-2">
                         <span className="size-2.5 rounded-full bg-green-500 block" />
-                        Public
+                        Everyone Can See
                       </div>
                     </SelectItem>
                     <SelectItem value="internal">
                       <div className="flex items-center gap-2">
                         <span className="size-2.5 rounded-full bg-blue-500 block" />
-                        Internal
+                        Company Only
                       </div>
                     </SelectItem>
                     <SelectItem value="confidential">
                       <div className="flex items-center gap-2">
                         <span className="size-2.5 rounded-full bg-amber-500 block" />
-                        Confidential
+                        Limited Access Only
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="highly_confidential">
+                      <div className="flex items-center gap-2">
+                        <span className="size-2.5 rounded-full bg-red-500 block" />
+                        Very Secret - Few People Only
                       </div>
                     </SelectItem>
                   </SelectContent>
