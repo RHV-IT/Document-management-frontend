@@ -35,7 +35,7 @@ function useParticles(count: number) {
   return mounted ? particles : []
 }
 
-export function IdleDetector({ children, idleTimeout = 15 * 60 * 1000 }: IdleDetectorProps) {
+export function IdleDetector({ children, idleTimeout = 30 * 60 * 1000 }: IdleDetectorProps) {
   const [isIdle, setIsIdle] = useState(false)
   const [showOverlay, setShowOverlay] = useState(false)
   const [mounted, setMounted] = useState(false)

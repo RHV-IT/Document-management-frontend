@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryClientProvider>
           <AuthProvider>
             <ErrorBoundary>
-              <IdleDetector idleTimeout={15 * 60 * 1000}>
+              <IdleDetector idleTimeout={30 * 60 * 1000}>
                 {children}
               </IdleDetector>
             </ErrorBoundary>

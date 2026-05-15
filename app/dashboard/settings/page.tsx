@@ -387,7 +387,7 @@ export default function SettingsPage() {
                       Session Management
                     </h3>
                     <p className="text-sm text-gray-500 mb-4">
-                      You are currently logged in. Your session will expire after 24 hours of inactivity.
+                      You are currently logged in. Your session will expire after 30 minutes of inactivity.
                     </p>
                     <Button variant="outline" className="cursor-pointer">
                       Logout from All Devices
