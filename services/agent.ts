@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './api/axios'
+
 // Direct browser-to-agent communication on user's local machine
 const getAgentUrl = () => {
   if (typeof window === 'undefined') return 'http://localhost:4001'
@@ -31,34 +33,25 @@ export interface AgentHealthResponse {
 
 export const agentService = {
   setToken: async (request: AgentSetTokenRequest): Promise<{ success: boolean }> => {
-    // Browser-only: send directly to user's local agent
+    // Send token sync to backend (which forwards to scanner agent)
     if (typeof window === 'undefined') {
       console.warn('setToken called on server - skipping')
-      return { success: true } // Allow SSR to pass
+      return { success: true }
     }
 
-    const urls = ['http://localhost:4001/set-token']
-
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(request),
-        })
-        if (response.ok) {
-          return { success: true }
-        }
-      } catch (error) {
-        // Continue to next URL
-      }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/set-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      })
+      return { success: response.ok }
+    } catch (error) {
+      console.warn('setToken to backend failed:', error)
+      return { success: false }
     }
-
-    console.warn('Scanner Agent not running on this machine (tried multiple URLs)')
-    // Don't throw - agent being offline is acceptable
-    return { success: false }
   },
 
   deleteFile: async (request: AgentDeleteFileRequest): Promise<{ success: boolean }> => {
