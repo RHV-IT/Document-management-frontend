@@ -37,11 +37,7 @@ export const agentService = {
       return { success: true } // Allow SSR to pass
     }
 
-    // Try localhost first, then current hostname as fallback
-    const urls = [
-      'http://localhost:4001/set-token',
-      `http://${window.location.hostname}:4001/set-token`
-    ]
+    const urls = ['http://localhost:4001/set-token']
 
     for (const url of urls) {
       try {
@@ -107,11 +103,7 @@ export const agentService = {
     if (typeof window === 'undefined') {
       return { installed: false, running: false, version: '', machineId: '' }
     }
-    // Try localhost first, then current hostname as fallback
-    const urls = [
-      'http://localhost:4001/health',
-      `http://${window.location.hostname}:4001/health`
-    ]
+    const urls = ['http://localhost:4001/health']
 
     for (const url of urls) {
       try {
