@@ -47,7 +47,7 @@ export const agentService = {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ machineId, userId }),
+        body: JSON.stringify({ token, machineId, userId }),
       })
       return { success: response.ok }
     } catch (error) {
