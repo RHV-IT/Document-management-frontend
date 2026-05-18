@@ -18,7 +18,7 @@ export function ScannerAgentFlow() {
   const isOnDashboard = pathname?.startsWith('/dashboard')
 
   // Check if agent setup is already complete
-  const isSetupComplete = typeof window !== 'undefined' && localStorage.getItem('scanner_agent_setup_complete') === 'true'
+  const isSetupComplete = typeof window !== 'undefined' && (localStorage.getItem('scanner_agent_setup_complete') === 'true' || localStorage.getItem('agentConnected') === 'true')
 
   useEffect(() => {
     if (!isAuthenticated || hasChecked) return
@@ -48,6 +48,9 @@ export function ScannerAgentFlow() {
     performCheck()
   }, [isAuthenticated, checkHealth, hasChecked, isOnDashboard, isSetupComplete])
 
+  const shouldShowAgentDialog =
+    !isConnected || !isSetupComplete
+
   useEffect(() => {
     if (!hasChecked) return
 
@@ -55,13 +58,14 @@ export function ScannerAgentFlow() {
       // Agent is connected or setup is complete, close modal
       setShowModal(false)
       if (isConnected && !isOnDashboard) {
+        localStorage.setItem('agentConnected', 'true')
         addNotification('success', 'Scanner Agent Connected', 'Your scanner agent is running and ready to use.')
         router.push('/dashboard')
       }
     } else if (!isChecking) {
       // Agent is not connected and not currently checking, show modal
       // But don't show modal if we're already on dashboard pages
-      if (!isOnDashboard) {
+      if (!isOnDashboard && shouldShowAgentDialog) {
         setShowModal(true)
       }
     }

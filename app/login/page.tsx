@@ -104,12 +104,16 @@ const onSubmit = async (data: LoginFormData) => {
           const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId')
 
           if (token && userId) {
-            syncToken.mutate({ token, userId })
-          }
-
-          // Mark that agent communication is working for this session
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('scanner_agent_setup_complete', 'true')
+            syncToken.mutate({ token, userId }, {
+              onSuccess: () => {
+                localStorage.setItem('agentConnected', 'true')
+                localStorage.setItem('scanner_agent_setup_complete', 'true')
+              }
+            })
+          } else {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('scanner_agent_setup_complete', 'true')
+            }
           }
 
           addNotification('success', 'Welcome!', 'You have successfully logged in.')

@@ -138,8 +138,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token')
         const userId = user.id || user._id || ''
          if (token && userId) {
-           agentService.setToken({ token, userId, machineId: null })
-         }
+            agentService.setToken({ token, userId, machineId: null }).then(() => {
+              // After successful set-token: update state, cache, refetch
+              localStorage.setItem('agentConnected', 'true')
+              queryClient.setQueryData(['session'], { data: { ...user, agentConnected: true, mustDownloadAgent: false } })
+              queryClient.invalidateQueries({ queryKey: ['session'] })
+            })
+          }
       }
 
       return { success: true, user }

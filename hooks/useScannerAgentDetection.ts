@@ -9,11 +9,22 @@ export interface ScannerAgentState {
 }
 
 export function useScannerAgentDetection() {
-  const [state, setState] = useState<ScannerAgentState>({
-    isChecking: false,
-    isConnected: false,
-    health: null,
-    error: null,
+  const [state, setState] = useState<ScannerAgentState>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('agentConnected') === 'true'
+      return {
+        isChecking: false,
+        isConnected: cached,
+        health: null,
+        error: null,
+      }
+    }
+    return {
+      isChecking: false,
+      isConnected: false,
+      health: null,
+      error: null,
+    }
   })
 
   const checkHealth = useCallback(async (): Promise<AgentHealthResponse> => {
@@ -22,6 +33,10 @@ export function useScannerAgentDetection() {
     try {
       const health = await agentService.getHealth()
       const isConnected = health.running || health.installed // Consider connected if either running or installed
+
+      if (isConnected && typeof window !== 'undefined') {
+        localStorage.setItem('agentConnected', 'true')
+      }
 
       setState({
         isChecking: false,
