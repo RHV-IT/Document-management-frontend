@@ -33,7 +33,7 @@ export interface AgentHealthResponse {
 
 export const agentService = {
   setToken: async (request: AgentSetTokenRequest): Promise<{ success: boolean }> => {
-    // Send token sync to backend (which forwards to scanner agent)
+    // Send POST {token, machineId, userId} directly to local agent per spec
     if (typeof window === 'undefined') {
       console.warn('setToken called on server - skipping')
       return { success: true }
@@ -41,17 +41,16 @@ export const agentService = {
 
     try {
       const { token, machineId, userId } = request
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/set-token`, {
+      const response = await fetch(`${AGENT_LOCAL_URL}/set-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ token, machineId, userId }),
       })
       return { success: response.ok }
     } catch (error) {
-      console.warn('setToken to backend failed:', error)
+      console.warn('setToken to local agent failed:', error)
       return { success: false }
     }
   },
