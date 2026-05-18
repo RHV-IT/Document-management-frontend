@@ -40,12 +40,14 @@ export const agentService = {
     }
 
     try {
+      const { token, machineId, userId } = request
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/set-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify({ machineId, userId }),
       })
       return { success: response.ok }
     } catch (error) {
