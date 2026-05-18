@@ -1,5 +1,5 @@
 import React from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getMachineId } from '@/lib/utils'
 import { agentService, AgentStatusResponse, AgentDeleteFileRequest } from '@/services/agent'
 import { addNotification } from '@/components/notifications/NotificationCenter'
@@ -15,9 +15,22 @@ export function useAgentStatusQuery() {
 }
 
 export function useSyncAgentToken() {
+  const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: async ({ token, userId }: { token: string; userId: string }) => {
       return agentService.setToken({ token, userId, machineId: getMachineId() })
+    },
+    onSuccess: async () => {
+      // After successful /auth/set-token: update state, cache, refetch auth user
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('agentConnected', 'true')
+      }
+      // Update React Query cache - support both keys to remove stale values
+      queryClient.setQueryData(['session'], (old: any) => old ? { ...old, data: { ...(old.data || {}), agentConnected: true, mustDownloadAgent: false } } : { data: { agentConnected: true, mustDownloadAgent: false } })
+      queryClient.setQueryData(['auth-user'], (old: any) => old ? { ...old, data: { ...(old.data || {}), agentConnected: true, mustDownloadAgent: false } } : { data: { agentConnected: true, mustDownloadAgent: false } })
+      // Re-fetch /auth/me 
+      await queryClient.invalidateQueries({ queryKey: ['auth-user'] })
+      await queryClient.invalidateQueries({ queryKey: ['session'] })
     },
     onError: (error) => {
       // Silently handle errors to avoid spamming notifications

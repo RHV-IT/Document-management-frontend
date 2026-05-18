@@ -11,14 +11,28 @@ export function ScannerAgentFlow() {
   const { isAuthenticated } = useAuthContext()
   const router = useRouter()
   const pathname = usePathname()
-  const { isConnected, isChecking, checkHealth, reset } = useScannerAgentDetection()
+  const { isConnected, isChecking, checkHealth, reset, healthSuccess, setTokenSuccess, agentConnected, mustDownloadAgent } = useScannerAgentDetection()
   const [showModal, setShowModal] = useState(false)
   const [hasChecked, setHasChecked] = useState(false)
+  const [forceHideDialog, setForceHideDialog] = useState(false)
 
   const isOnDashboard = pathname?.startsWith('/dashboard')
 
   // Check if agent setup is already complete
   const isSetupComplete = typeof window !== 'undefined' && (localStorage.getItem('scanner_agent_setup_complete') === 'true' || localStorage.getItem('agentConnected') === 'true')
+
+  const shouldShowAgentDialog =
+    !agentConnected ||
+    mustDownloadAgent ||
+    !healthSuccess ||
+    !setTokenSuccess
+
+  // On app load: check /health, if healthy hide dialog automatically
+  useEffect(() => {
+    if (isAuthenticated && healthSuccess) {
+      setShowModal(false)
+    }
+  }, [isAuthenticated, healthSuccess])
 
   useEffect(() => {
     if (!isAuthenticated || hasChecked) return
@@ -48,15 +62,13 @@ export function ScannerAgentFlow() {
     performCheck()
   }, [isAuthenticated, checkHealth, hasChecked, isOnDashboard, isSetupComplete])
 
-  const shouldShowAgentDialog =
-    !isConnected || !isSetupComplete
-
   useEffect(() => {
     if (!hasChecked) return
 
     if (isConnected || isSetupComplete) {
       // Agent is connected or setup is complete, close modal
       setShowModal(false)
+      setForceHideDialog(true) // After successful connection
       if (isConnected && !isOnDashboard) {
         localStorage.setItem('agentConnected', 'true')
         addNotification('success', 'Scanner Agent Connected', 'Your scanner agent is running and ready to use.')
@@ -65,11 +77,11 @@ export function ScannerAgentFlow() {
     } else if (!isChecking) {
       // Agent is not connected and not currently checking, show modal
       // But don't show modal if we're already on dashboard pages
-      if (!isOnDashboard && shouldShowAgentDialog) {
+      if (!isOnDashboard && shouldShowAgentDialog && !forceHideDialog) {
         setShowModal(true)
       }
     }
-  }, [isConnected, isChecking, hasChecked, router, isOnDashboard, isSetupComplete, pathname])
+  }, [isConnected, isChecking, hasChecked, router, isOnDashboard, isSetupComplete, pathname, shouldShowAgentDialog])
 
   const handleAgentDetected = () => {
     setShowModal(false)
@@ -88,8 +100,8 @@ export function ScannerAgentFlow() {
     }
   }
 
-  // Don't render anything if user is not authenticated or already on dashboard
-  if (!isAuthenticated || isOnDashboard) return null
+  // Don't render anything if user is not authenticated or already on dashboard or success flags indicate no dialog
+  if (!isAuthenticated || isOnDashboard || !shouldShowAgentDialog || forceHideDialog) return null
 
   return (
     <ScannerAgentModal

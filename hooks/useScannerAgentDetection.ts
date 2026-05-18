@@ -6,6 +6,10 @@ export interface ScannerAgentState {
   isConnected: boolean
   health: AgentHealthResponse | null
   error: string | null
+  healthSuccess: boolean
+  setTokenSuccess: boolean
+  agentConnected: boolean
+  mustDownloadAgent: boolean
 }
 
 export function useScannerAgentDetection() {
@@ -17,6 +21,10 @@ export function useScannerAgentDetection() {
         isConnected: cached,
         health: null,
         error: null,
+        healthSuccess: cached,
+        setTokenSuccess: cached,
+        agentConnected: cached,
+        mustDownloadAgent: !cached,
       }
     }
     return {
@@ -24,6 +32,10 @@ export function useScannerAgentDetection() {
       isConnected: false,
       health: null,
       error: null,
+      healthSuccess: false,
+      setTokenSuccess: false,
+      agentConnected: false,
+      mustDownloadAgent: true,
     }
   })
 
@@ -43,6 +55,10 @@ export function useScannerAgentDetection() {
         isConnected,
         health,
         error: null,
+        healthSuccess: true,
+        setTokenSuccess: true,
+        agentConnected: isConnected,
+        mustDownloadAgent: false,
       })
 
       return health
@@ -53,6 +69,10 @@ export function useScannerAgentDetection() {
         isConnected: false,
         health: null,
         error: errorMessage,
+        healthSuccess: false,
+        setTokenSuccess: false,
+        agentConnected: false,
+        mustDownloadAgent: true,
       })
       throw error
     }
@@ -64,6 +84,10 @@ export function useScannerAgentDetection() {
       isConnected: false,
       health: null,
       error: null,
+      healthSuccess: false,
+      setTokenSuccess: false,
+      agentConnected: false,
+      mustDownloadAgent: true,
     })
   }, [])
 

@@ -45,8 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loginCount, setLoginCount] = useState<number>(0)
 
   // Session query - fetches current user on mount and when cache is stale
+  // Use 'auth-user' key per spec for refetch after set-token
   const sessionQuery = useQuery({
-    queryKey: ['session'],
+    queryKey: ['auth-user'],
     queryFn: () => authAPI.getCurrentUser(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
@@ -70,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Handle session expired event from axios interceptor
   useEffect(() => {
     const handleSessionExpired = () => {
-      queryClient.removeQueries({ queryKey: ['session'] })
+      queryClient.removeQueries({ queryKey: ['auth-user'] })
       addNotification('error', 'Session Expired', 'Your session has expired. Please log in again.')
     }
 
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     onSuccess: (response, variables) => {
       const { user } = response.data
       // Update session cache
-      queryClient.setQueryData(['session'], { data: user })
+      queryClient.setQueryData(['auth-user'], { data: user })
       
       // Initialize login count for this user if not exists
       if (typeof window !== 'undefined') {
@@ -108,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Failed to clear agent token:', e)
       }
       // Clear session cache
-      queryClient.removeQueries({ queryKey: ['session'] })
+      queryClient.removeQueries({ queryKey: ['auth-user'] })
       addNotification('success', 'Logged Out', 'You have been successfully logged out.')
       router.push('/login')
     },
@@ -138,11 +139,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token')
         const userId = user.id || user._id || ''
          if (token && userId) {
-            agentService.setToken({ token, userId, machineId: null }).then(() => {
-              // After successful set-token: update state, cache, refetch
-              localStorage.setItem('agentConnected', 'true')
-              queryClient.setQueryData(['session'], { data: { ...user, agentConnected: true, mustDownloadAgent: false } })
-              queryClient.invalidateQueries({ queryKey: ['session'] })
+            agentService.setToken({ token, userId, machineId: null }).then(async () => {
+              // After successful /auth/set-token response: update local auth state, React Query cache, Context/local state
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('agentConnected', 'true')
+              }
+              const updatedUser = { ...user, agentConnected: true, mustDownloadAgent: false }
+              queryClient.setQueryData(['auth-user'], { data: updatedUser })
+              // Re-fetch /auth/me 
+              await queryClient.invalidateQueries({ queryKey: ['auth-user'] })
             })
           }
       }
@@ -166,9 +171,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Manual user setter (used by other hooks/mutations)
   const setUser = useCallback((newUser: User | null) => {
     if (newUser) {
-      queryClient.setQueryData(['session'], { data: newUser })
+      queryClient.setQueryData(['auth-user'], { data: newUser })
     } else {
-      queryClient.removeQueries({ queryKey: ['session'] })
+      queryClient.removeQueries({ queryKey: ['auth-user'] })
     }
   }, [])
 
