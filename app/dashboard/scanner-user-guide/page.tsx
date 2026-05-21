@@ -7,9 +7,10 @@ import apiClient from '@/services/api/axios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import {
-  LogIn, Download, FolderOpen, Bell, CheckCircle, Upload, Printer, ArrowLeft,
-  Scan, Monitor, User, FileText, HelpCircle
+  LogIn, Download, FolderOpen, Bell, CheckCircle, Printer, ArrowLeft,
+  Scan, Monitor, User, FileText, HelpCircle, Shield
 } from 'lucide-react'
 
 interface AgentHealth {
@@ -77,289 +78,214 @@ export default function ScannerUserGuidePage() {
     const url = `${base}/api/v1/scanner/auto-install-download/direct`
     const link = document.createElement('a')
     link.href = url
-    link.download = 'scanner-setup.bat'
+    link.download = 'RHV-Scanner-Agent.exe'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
   const handleDownloadGuide = () => {
-    // Print-friendly PDF via browser (user can "Save as PDF")
     window.print()
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 p-6 print:p-0 print:bg-white">
-      {/* Header - hide on print */}
-      <div className="max-w-4xl mx-auto mb-8 print:hidden">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href="/dashboard" className="flex items-center gap-2 text-blue-600 hover:text-blue-700">
-            <ArrowLeft className="h-4 w-4" /> Back to Dashboard
-          </Link>
-          <Badge variant="outline" className="ml-auto">For Hospital Staff</Badge>
-        </div>
-        <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
-          <Scan className="h-10 w-10 text-blue-600" />
-          Scanner User Guide
-        </h1>
-        <p className="text-lg text-gray-600 mt-2">Simple step-by-step instructions to scan and upload documents</p>
+  const Step = ({ number, title, icon: Icon, children }: { number: number; title: string; icon: any; children: React.ReactNode }) => (
+    <div className="relative">
+      <div className="absolute -left-4 top-6 w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg ring-4 ring-blue-50 z-10">
+        {number}
       </div>
-
-      {/* Scanner Status Card + Actions */}
-      <div className="max-w-4xl mx-auto mb-8">
-        <Card className="border-2 border-blue-200 shadow-sm print:border print:shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Monitor className="h-5 w-5" /> Scanner Status
-            </CardTitle>
-            <CardDescription>Live connection status (updates every 5 seconds)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                {statusLoading ? (
-                  <div className="text-gray-500">Checking scanner connection...</div>
-                ) : agentStatus.connected ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🟢</span>
-                    <div>
-                      <div className="font-semibold text-green-700 text-lg">Scanner Connected</div>
-                      <div className="text-sm text-gray-600">Your scanner agent is running and ready</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🔴</span>
-                    <div>
-                      <div className="font-semibold text-red-700 text-lg">Scanner Offline</div>
-                      <div className="text-sm text-gray-600">Please install or start the scanner agent</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 print:hidden">
-                <Button onClick={handleDownloadAgent} variant="outline" className="gap-2">
-                  <Download className="h-4 w-4" /> Download Scanner Agent
-                </Button>
-                <Button onClick={handleDownloadGuide} variant="default" className="gap-2 bg-blue-600 hover:bg-blue-700">
-                  <Printer className="h-4 w-4" /> Download / Print User Guide
-                </Button>
-              </div>
-            </div>
-
-            {/* Agent Details */}
-            {agentStatus.connected && (agentStatus.version || agentStatus.machineId) && (
-              <div className="mt-4 p-3 bg-green-50 rounded-lg text-sm grid grid-cols-1 sm:grid-cols-3 gap-2 text-green-800">
-                {agentStatus.version && (
-                  <div><span className="font-medium">Agent Version:</span> {agentStatus.version}</div>
-                )}
-                {agentStatus.machineId && (
-                  <div><span className="font-medium">Machine ID:</span> {agentStatus.machineId}</div>
-                )}
-                {typeof agentStatus.watcherRunning !== 'undefined' && (
-                  <div><span className="font-medium">Watcher:</span> {agentStatus.watcherRunning ? 'Active' : 'Stopped'}</div>
-                )}
-              </div>
-            )}
-
-            <div className="mt-3 text-xs text-gray-500 print:hidden">
-              Need help? The agent runs in the background and watches your <strong>Documents/Scan</strong> folder.
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* The Visual Guide */}
-      <div className="max-w-4xl mx-auto space-y-6 print:space-y-4" id="guide-content">
-        <div className="text-center mb-6 print:mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">How to Use the Scanner in 6 Easy Steps</h2>
-          <p className="text-gray-600">No technical knowledge needed — just follow the pictures and words</p>
+      <div className="ml-12 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
+            <Icon className="h-4.5 w-4.5 text-blue-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
         </div>
-
-        {/* STEP 1 */}
-        <Card className="border-l-4 border-l-blue-500 print:border-l-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-bold">1</div>
-              <CardTitle className="text-2xl">STEP 1 — Login to RHV DMS</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-16">
-            <div className="flex gap-4 items-start">
-              <div className="flex-1">
-                <ul className="space-y-2 text-lg">
-                  <li className="flex gap-2"><User className="h-5 w-5 mt-1 text-blue-600" /> Open your web browser and go to the RHV DMS login page</li>
-                  <li className="flex gap-2"><LogIn className="h-5 w-5 mt-1 text-blue-600" /> Enter your username and password</li>
-                  <li>Click the <strong>Login</strong> button</li>
-                </ul>
-              </div>
-              <div className="hidden md:block w-40 h-24 border-2 border-dashed border-blue-300 rounded-lg flex items-center justify-center text-center text-sm text-blue-500 bg-blue-50 print:hidden">
-                📷 Screenshot placeholder<br />Login screen
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* STEP 2 */}
-        <Card className="border-l-4 border-l-purple-500 print:border-l-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center text-xl font-bold">2</div>
-              <CardTitle className="text-2xl">STEP 2 — Install Scanner Agent</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-16">
-            <div className="flex gap-4 items-start">
-              <div className="flex-1 text-lg">
-                <p className="mb-2">If you have not installed the scanner agent yet:</p>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>Click the <strong>Download Scanner Agent</strong> button above (or in Settings)</li>
-                  <li>Save and run the <strong>scanner-setup.bat</strong> file</li>
-                  <li>Follow the simple on-screen instructions (type Y when asked)</li>
-                </ol>
-                <p className="mt-2 text-sm text-gray-600">The agent will start automatically when your computer starts.</p>
-              </div>
-              <div className="hidden md:block w-40 h-24 border-2 border-dashed border-purple-300 rounded-lg flex items-center justify-center text-center text-sm text-purple-500 bg-purple-50 print:hidden">
-                📷 Screenshot placeholder<br />Agent installer
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* STEP 3 */}
-        <Card className="border-l-4 border-l-emerald-500 print:border-l-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold">3</div>
-              <CardTitle className="text-2xl">STEP 3 — Place Scanned Files in Documents/Scan</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-16">
-            <div className="flex gap-4 items-start">
-              <div className="flex-1 text-lg">
-                <p>After you scan a document with your physical scanner:</p>
-                <div className="my-3 p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-3">
-                  <FolderOpen className="h-8 w-8 text-emerald-600" />
-                  <div>
-                    <div className="font-semibold">Save or move the scanned file to:</div>
-                    <code className="font-mono text-emerald-800">Documents\Scan</code>
-                  </div>
-                </div>
-                <p className="text-sm">The agent watches this folder and detects new files automatically.</p>
-              </div>
-              <div className="hidden md:block w-40 h-24 border-2 border-dashed border-emerald-300 rounded-lg flex items-center justify-center text-center text-sm text-emerald-500 bg-emerald-50 print:hidden">
-                📷 Screenshot placeholder<br />File Explorer showing Documents/Scan folder
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* STEP 4 */}
-        <Card className="border-l-4 border-l-amber-500 print:border-l-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center text-xl font-bold">4</div>
-              <CardTitle className="text-2xl">STEP 4 — Wait for Upload Approval Popup</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-16">
-            <div className="flex gap-4 items-start">
-              <div className="flex-1 text-lg">
-                <p>Within a few seconds a popup window will appear in the DMS web app showing:</p>
-                <ul className="mt-2 space-y-1">
-                  <li className="flex gap-2"><FileText className="h-5 w-5 mt-0.5" /> Scanned file name and preview</li>
-                  <li className="flex gap-2"><Bell className="h-5 w-5 mt-0.5" /> “New scan ready for upload” message</li>
-                </ul>
-              </div>
-              <div className="hidden md:block w-40 h-24 border-2 border-dashed border-amber-300 rounded-lg flex items-center justify-center text-center text-sm text-amber-500 bg-amber-50 print:hidden">
-                📷 Screenshot placeholder<br />Upload approval popup
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* STEP 5 */}
-        <Card className="border-l-4 border-l-orange-500 print:border-l-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-orange-600 text-white flex items-center justify-center text-xl font-bold">5</div>
-              <CardTitle className="text-2xl">STEP 5 — Approve or Reject Upload</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-16">
-            <div className="flex gap-4 items-start">
-              <div className="flex-1 text-lg">
-                <p>In the popup you can:</p>
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                    <CheckCircle className="text-green-600 h-5 w-5" /> <strong>Approve + Add Metadata</strong> — choose confidentiality level and optional rename, then upload
-                  </div>
-                  <div className="flex items-center gap-2 p-2 bg-red-50 rounded">
-                    <span className="text-red-600">✕</span> <strong>Reject / Cancel</strong> — file stays in your Scan folder for later
-                  </div>
-                </div>
-              </div>
-              <div className="hidden md:block w-40 h-24 border-2 border-dashed border-orange-300 rounded-lg flex items-center justify-center text-center text-sm text-orange-500 bg-orange-50 print:hidden">
-                📷 Screenshot placeholder<br />Approve / metadata form
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* STEP 6 */}
-        <Card className="border-l-4 border-l-teal-500 print:border-l-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center text-xl font-bold">6</div>
-              <CardTitle className="text-2xl">STEP 6 — Uploaded Files Are Automatically Processed</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-16">
-            <div className="flex gap-4 items-start">
-              <div className="flex-1 text-lg">
-                <p>Once approved:</p>
-                <ul className="mt-2 list-disc list-inside space-y-1">
-                  <li>The file is securely uploaded to the DMS</li>
-                  <li>It appears in your <strong>My Files</strong> with the confidentiality level you chose</li>
-                  <li>Original scan is removed from the local Scan folder (if approved with delete option)</li>
-                </ul>
-                <div className="mt-3 p-3 bg-teal-50 rounded text-sm">✅ That’s it! Your document is now safely stored and searchable.</div>
-              </div>
-              <div className="hidden md:block w-40 h-24 border-2 border-dashed border-teal-300 rounded-lg flex items-center justify-center text-center text-sm text-teal-500 bg-teal-50 print:hidden">
-                📷 Screenshot placeholder<br />Success message / file in list
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Quick Tips */}
-        <Card className="bg-white border print:shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><HelpCircle className="h-5 w-5" /> Quick Tips &amp; Troubleshooting</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p>• Make sure the scanner agent is running (see status card above). If offline, re-run the setup or restart your PC.</p>
-            <p>• Files must be placed exactly in <code>Documents\Scan</code> (create the folder if missing).</p>
-            <p>• Supported file types: PDF, images, Word, Excel, etc.</p>
-            <p>• If preview fails you will see “Preview unavailable” — you can still approve the upload.</p>
-            <p>• For more help contact your system administrator or check the Scanner tab in Settings.</p>
-          </CardContent>
-        </Card>
-
-        {/* Footer actions for print */}
-        <div className="text-center py-6 print:hidden">
-          <Button onClick={handleDownloadGuide} size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700">
-            <Printer className="h-5 w-5" /> Print or Save as PDF
-          </Button>
-          <p className="text-xs text-gray-500 mt-2">Tip: In the print dialog, choose “Save as PDF” to download this guide</p>
+        <div className="text-[15px] leading-relaxed text-gray-600 space-y-2">
+          {children}
         </div>
-      </div>
-
-      {/* Print-only footer */}
-      <div className="hidden print:block text-center text-xs text-gray-500 mt-8 border-t pt-4">
-        RHV DMS Scanner User Guide — Printed on {new Date().toLocaleDateString()}
       </div>
     </div>
+  )
+
+  return (
+    <ResponsiveContainer>
+      <div className="max-w-4xl mx-auto pb-12">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 print:mb-4">
+          <div>
+            <Link href="/dashboard" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-3 text-sm font-medium">
+              <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+            </Link>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent flex items-center gap-3">
+              <Scan className="h-9 w-9 text-blue-600" />
+              Scanner User Guide
+            </h1>
+            <p className="text-lg text-gray-600 mt-1">Simple instructions for hospital staff</p>
+          </div>
+          <Badge variant="outline" className="hidden md:flex items-center gap-1.5 px-3 py-1 text-sm">
+            <Shield className="h-3.5 w-3.5" /> For Hospital Staff
+          </Badge>
+        </div>
+
+        {/* Scanner Status + Actions Card */}
+        <Card className="border-0 shadow-sm mb-10 bg-white">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <Monitor className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-xl">Scanner Status</CardTitle>
+            </div>
+            <CardDescription>Live connection • updates every 5 seconds</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+              <div className="flex-1">
+                {statusLoading ? (
+                  <div className="text-gray-500">Checking connection...</div>
+                ) : agentStatus.connected ? (
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-3xl">🟢</span>
+                      <span className="text-xl font-semibold text-green-700">Scanner Connected</span>
+                    </div>
+                    <p className="text-sm text-gray-600">Your RHV Scanner Agent is running and ready to use.</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-3xl">🔴</span>
+                      <span className="text-xl font-semibold text-red-700">Scanner Offline</span>
+                    </div>
+                    <p className="text-sm text-gray-600">Please install the RHV Scanner Agent to continue.</p>
+                  </div>
+                )}
+
+                {agentStatus.connected && (agentStatus.version || agentStatus.machineId) && (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm bg-green-50 border border-green-100 rounded-xl p-3 text-green-800">
+                    {agentStatus.version && <div><span className="font-medium">Version:</span> {agentStatus.version}</div>}
+                    {agentStatus.machineId && <div><span className="font-medium">Machine ID:</span> {agentStatus.machineId}</div>}
+                    {typeof agentStatus.watcherRunning !== 'undefined' && (
+                      <div><span className="font-medium">Watcher:</span> {agentStatus.watcherRunning ? 'Running' : 'Stopped'}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 print:hidden">
+                <Button
+                  onClick={handleDownloadAgent}
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 h-11 px-6 text-base shadow-sm"
+                >
+                  <Download className="h-4 w-4" />
+                  Download RHV Scanner Agent (.exe)
+                </Button>
+                <Button
+                  onClick={handleDownloadGuide}
+                  variant="outline"
+                  className="gap-2 h-11 px-6 text-base"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print / Save as PDF
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Guide Intro */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-1">How to Scan Documents in 6 Simple Steps</h2>
+          <p className="text-gray-600">No technical knowledge required — just follow these easy instructions</p>
+        </div>
+
+        {/* STEPS */}
+        <div className="space-y-6 relative before:absolute before:left-[13px] before:top-8 before:bottom-8 before:w-px before:bg-gray-200">
+          {/* STEP 1 */}
+          <Step number={1} title="Login to RHV DMS" icon={LogIn}>
+            <p>Open your web browser and go to the RHV DMS login page.</p>
+            <p>Enter your username and password, then click <strong>Login</strong>.</p>
+            <div className="hidden md:block mt-3 p-3 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 bg-gray-50">
+              📷 Screenshot placeholder — Login screen
+            </div>
+          </Step>
+
+          {/* STEP 2 — UPDATED FOR .EXE */}
+          <Step number={2} title="Install RHV Scanner Agent" icon={Download}>
+            <p>Click the <strong>Download RHV Scanner Agent (.exe)</strong> button above.</p>
+            <p>Once the file finishes downloading, locate it on your computer and <strong>double-click</strong> it.</p>
+            <p>Follow the simple on-screen installer (just click Next a few times).</p>
+            <p className="font-medium text-blue-700">The agent installs and starts running automatically in the background. You don’t need to open or configure anything else.</p>
+            <div className="hidden md:block mt-3 p-3 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 bg-gray-50">
+              📷 Screenshot placeholder — Installer window
+            </div>
+          </Step>
+
+          {/* STEP 3 */}
+          <Step number={3} title="Place Scanned Files in Documents/Scan" icon={FolderOpen}>
+            <p>After scanning a document with your physical scanner, save or move the file into this folder:</p>
+            <div className="my-2 inline-block px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl font-mono text-emerald-800 text-sm">
+              Documents\Scan
+            </div>
+            <p>The agent watches this folder and automatically detects new files.</p>
+            <div className="hidden md:block mt-3 p-3 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 bg-gray-50">
+              📷 Screenshot placeholder — File Explorer showing Documents\Scan
+            </div>
+          </Step>
+
+          {/* STEP 4 */}
+          <Step number={4} title="Wait for the Upload Approval Popup" icon={Bell}>
+            <p>Within seconds, a popup will appear in RHV DMS showing the scanned file and a preview.</p>
+            <p>You will see a message: “New scan ready for upload”.</p>
+            <div className="hidden md:block mt-3 p-3 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 bg-gray-50">
+              📷 Screenshot placeholder — Upload approval popup
+            </div>
+          </Step>
+
+          {/* STEP 5 */}
+          <Step number={5} title="Approve or Reject the Upload" icon={CheckCircle}>
+            <p>In the popup you can:</p>
+            <ul className="list-disc pl-5 mt-1 space-y-1">
+              <li><strong>Approve</strong> — choose confidentiality level and optional rename, then upload</li>
+              <li><strong>Reject / Cancel</strong> — the file stays in your Scan folder for later</li>
+            </ul>
+            <div className="hidden md:block mt-3 p-3 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 bg-gray-50">
+              📷 Screenshot placeholder — Approve with metadata form
+            </div>
+          </Step>
+
+          {/* STEP 6 */}
+          <Step number={6} title="Files Are Automatically Uploaded & Processed" icon={FileText}>
+            <p>Once approved, the document is securely uploaded to the system.</p>
+            <p>It appears in <strong>My Files</strong> with the confidentiality level you selected.</p>
+            <p className="font-medium">You’re done! The document is now safely stored and searchable.</p>
+          </Step>
+        </div>
+
+        {/* Tips Card */}
+        <Card className="mt-10 border-0 shadow-sm bg-white">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-blue-600" />
+              <CardTitle>Quick Tips & Troubleshooting</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="text-sm text-gray-600 space-y-2">
+            <p>• If the status shows <strong>Scanner Offline</strong>, download and double-click the RHV Scanner Agent .exe again.</p>
+            <p>• Make sure scanned files are saved exactly in <code className="bg-gray-100 px-1 rounded">Documents\Scan</code> (create the folder if it doesn’t exist).</p>
+            <p>• Supported files: PDF, images, Word, Excel, PowerPoint, and text documents.</p>
+            <p>• If you see “Preview unavailable” in the popup, you can still approve the upload safely.</p>
+            <p>• For further help, contact your system administrator or check the Scanner section in Settings.</p>
+          </CardContent>
+        </Card>
+
+        {/* Bottom action */}
+        <div className="text-center mt-10 print:hidden">
+          <Button onClick={handleDownloadGuide} size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700 px-8 h-12 text-base">
+            <Printer className="h-5 w-5" />
+            Print or Save this Guide as PDF
+          </Button>
+          <p className="text-xs text-gray-500 mt-2">Tip: Choose “Save as PDF” in the print dialog to keep a copy</p>
+        </div>
+      </div>
+    </ResponsiveContainer>
   )
 }
