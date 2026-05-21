@@ -328,18 +328,12 @@ const onSubmit = async (data: LoginFormData) => {
 
                   {/* Password Input */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-gray-500" />
-                        Password
-                      </label>
-                      <Link
-                        href="/forgot-password"
-                        className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors hover:underline"
-                      >
-                        Forgot password?
-                      </Link>
-                    </div>
+                     <div className="flex items-center">
+                       <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-gray-500" />
+                         Password
+                       </label>
+                     </div>
                     <div className={cn(
                       'relative rounded-xl border-2 transition-all duration-300 bg-white',
                       errors.password

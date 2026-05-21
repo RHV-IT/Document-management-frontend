@@ -34,8 +34,11 @@ apiClient.interceptors.request.use(
       config.headers['x-source'] = machine.source
     }
     // Only set Content-Type for non-FormData requests
-    // FormData should use multipart/form-data with boundary auto-set by browser
-    if (!(config.data instanceof FormData)) {
+    // FormData should use multipart/form-data with boundary auto-set by axios
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+      delete config.headers['content-type']
+    } else {
       config.headers['Content-Type'] = 'application/json'
     }
     debug.api(config.method?.toUpperCase() || 'unknown', config.url || 'unknown')

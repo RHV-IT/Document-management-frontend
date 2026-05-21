@@ -19,9 +19,13 @@ export interface AgentDeleteFileRequest {
 }
 
 export interface AgentStatusResponse {
-  status: string
-  version?: string
+  status?: string
+  success?: boolean
   connected?: boolean
+  watcherRunning?: boolean
+  hasToken?: boolean
+  machineId?: string
+  version?: string
 }
 
 export interface AgentHealthResponse {
@@ -33,27 +37,53 @@ export interface AgentHealthResponse {
 
 export const agentService = {
   setToken: async (request: AgentSetTokenRequest): Promise<{ success: boolean }> => {
-    // Send token sync to backend (which forwards to scanner agent)
     if (typeof window === 'undefined') {
       console.warn('setToken called on server - skipping')
       return { success: true }
     }
 
+    const { token, machineId, userId } = request
+    const payload = { token, machineId, userId }
+
+    // STEP 1: Backend (required)
+    let backendSuccess = false
     try {
-      const { token, machineId, userId } = request
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/set-token`, {
+      const backendRes = await fetch(`${API_BASE_URL}/api/v1/auth/set-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ token, machineId, userId }),
+        body: JSON.stringify(payload),
       })
-      return { success: response.ok }
+      backendSuccess = backendRes.ok
+      console.log('Backend set-token response:', backendSuccess, await backendRes.text().catch(() => ''))
     } catch (error) {
-      console.warn('setToken to backend failed:', error)
+      console.warn('Backend set-token failed:', error)
       return { success: false }
     }
+    if (!backendSuccess) return { success: false }
+
+    // STEP 2: Local Electron agent (optional)
+    try {
+      const localRes = await fetch('http://localhost:4001/set-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const localText = await localRes.text().catch(() => '')
+      console.log('Local set-token response:', localRes.ok, localText)
+      if (localRes.ok) {
+        // Call health after success
+        const healthRes = await fetch('http://localhost:4001/health')
+        const healthData = await healthRes.json().catch(() => ({}))
+        console.log('Local health after set-token:', healthData)
+      }
+    } catch (error) {
+      console.warn('Localhost scanner agent not available (optional):', error)
+    }
+
+    return { success: true }
   },
 
   deleteFile: async (request: AgentDeleteFileRequest): Promise<{ success: boolean }> => {

@@ -10,13 +10,10 @@ export function AgentEnforcement() {
   const { isConnected, isChecking, checkHealth, healthSuccess, setTokenSuccess, agentConnected, mustDownloadAgent } = useScannerAgentDetection()
   const [showModal, setShowModal] = useState(false)
 
-  const shouldShowAgentDialog =
-    !agentConnected ||
-    mustDownloadAgent ||
-    !healthSuccess ||
-    !setTokenSuccess
-
   const isSetupComplete = typeof window !== 'undefined' && (localStorage.getItem('scanner_agent_setup_complete') === 'true' || localStorage.getItem('agentConnected') === 'true')
+
+  // Prioritize LIVE health: if healthy, NEVER show dialog
+  const shouldShowAgentDialog = isAuthenticated && !isConnected && !healthSuccess && mustDownloadAgent && !isSetupComplete
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -26,7 +23,6 @@ export function AgentEnforcement() {
       try {
         await checkHealth()
       } catch (error) {
-        // Silently handle errors to avoid spamming
         console.debug('Agent health check failed:', error)
       }
     }, 30000)
@@ -40,16 +36,16 @@ export function AgentEnforcement() {
   }, [isAuthenticated, checkHealth])
 
   useEffect(() => {
-    // Show modal ONLY if health/set-token fail (per spec). Hide automatically if healthy or local success
-    if (isAuthenticated && shouldShowAgentDialog && !isSetupComplete && !isConnected && !isChecking) {
-      setShowModal(true)
-    } else if (isConnected || isSetupComplete || healthSuccess || setTokenSuccess) {
+    // Close immediately if health succeeds (live check overrides stale mustDownloadAgent)
+    if (healthSuccess || isConnected || isSetupComplete) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('agentConnected', 'true')
       }
       setShowModal(false)
+    } else if (isAuthenticated && shouldShowAgentDialog && !isChecking) {
+      setShowModal(true)
     }
-  }, [isConnected, isChecking, isAuthenticated, shouldShowAgentDialog, isSetupComplete, healthSuccess, setTokenSuccess])
+  }, [isConnected, isChecking, isAuthenticated, shouldShowAgentDialog, isSetupComplete, healthSuccess])
 
   const handleAgentDetected = () => {
     setShowModal(false)
@@ -63,7 +59,7 @@ export function AgentEnforcement() {
     }
   }
 
-  if (!isAuthenticated || isConnected || isSetupComplete || !shouldShowAgentDialog) return null
+  if (!isAuthenticated || isConnected || isSetupComplete || healthSuccess) return null
 
   return (
     <ScannerAgentModal

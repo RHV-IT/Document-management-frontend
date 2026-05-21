@@ -48,6 +48,7 @@ export default function UploadPage() {
   // Bulk files state
   const [bulkFiles, setBulkFiles] = useState<FileStatus[]>([])
   const [isDraggingBulk, setIsDraggingBulk] = useState(false)
+  const [bulkUploadProgress, setBulkUploadProgress] = useState(0)
 
   // Page-level drag state
   const [isDraggingPage, setIsDraggingPage] = useState(false)
@@ -66,6 +67,21 @@ export default function UploadPage() {
   const { data: filesData } = useFilesQuery({ limit: 10 })
 
   const generateId = () => Math.random().toString(36).substring(2, 15)
+
+  const MAX_BULK_FILES = 10
+  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+  const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt']
+
+  const validateFile = (file: File): string | null => {
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase()
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return `Unsupported file type: ${ext}`
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 50MB`
+    }
+    return null
+  }
 
   // Single file handlers
   const handleSingleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,13 +135,28 @@ export default function UploadPage() {
     if (!files) return
 
     const filesArray = Array.from(files)
-    const newFiles: FileStatus[] = filesArray.map(file => ({
-      file,
-      id: generateId(),
-      status: 'pending' as const
-    }))
+    const newFiles: FileStatus[] = []
 
-    setBulkFiles(prev => [...prev, ...newFiles])
+    for (const file of filesArray) {
+      if (bulkFiles.length + newFiles.length >= MAX_BULK_FILES) {
+        addNotification('error', 'Upload Limit', 'Maximum 10 files allowed per bulk upload')
+        break
+      }
+      const validationError = validateFile(file)
+      if (validationError) {
+        addNotification('error', 'Invalid File', `${file.name}: ${validationError}`)
+        continue
+      }
+      newFiles.push({
+        file,
+        id: generateId(),
+        status: 'pending' as const
+      })
+    }
+
+    if (newFiles.length > 0) {
+      setBulkFiles(prev => [...prev, ...newFiles])
+    }
   }
 
   const handleBulkFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,7 +185,8 @@ export default function UploadPage() {
   }
 
   const handleBulkUpload = () => {
-    const files = bulkFiles.map(f => f.file)
+    const pendingItems = bulkFiles.filter(f => f.status === 'pending')
+    const files = pendingItems.map(f => f.file)
 
     if (files.length === 0) {
       addNotification('error', 'No Files', 'No files selected for upload')
@@ -162,30 +194,39 @@ export default function UploadPage() {
     }
 
     // Filter out any null/undefined files
-    const validFiles = files.filter(f => f && typeof f === 'object' && f.constructor.name === 'File')
+    const validFiles = files.filter(f => f && typeof f === 'object' && f.constructor.name === 'File') as File[]
 
     if (validFiles.length === 0) {
       addNotification('error', 'Invalid Files', 'No valid files found for upload')
       return
     }
 
-    setBulkFiles(prev => prev.map(f => ({ ...f, status: 'uploading' as const })))
+    setBulkUploadProgress(0)
+    setBulkFiles(prev => prev.map(f => f.status === 'pending' ? { ...f, status: 'uploading' as const } : f ))
 
-    bulkUpload.mutate(validFiles, {
-      onSuccess: () => {
-        setBulkFiles(prev => prev.map(f => ({ ...f, status: 'success' as const })))
-      },
-      onError: (error: any) => {
-        setBulkFiles(prev => prev.map(f => ({
-          ...f,
-          status: 'error' as const,
-          error: error.response?.data?.message
-        })))
+    bulkUpload.mutate(
+      { files: validFiles, onProgress: (p: number) => setBulkUploadProgress(p) },
+      {
+        onSuccess: () => {
+          setBulkUploadProgress(100)
+          setBulkFiles(prev => prev.map(f => f.status === 'uploading' ? { ...f, status: 'success' as const } : f ))
+        },
+        onError: (error: any) => {
+          setBulkUploadProgress(0)
+          setBulkFiles(prev => prev.map(f => f.status === 'uploading' ? {
+            ...f,
+            status: 'error' as const,
+            error: error.response?.data?.message || error.message
+          } : f ))
+        }
       }
-    })
+    )
   }
 
-  const clearAllBulk = () => setBulkFiles([])
+  const clearAllBulk = () => {
+    setBulkFiles([])
+    setBulkUploadProgress(0)
+  }
 
   // Page-level drag handlers
   const handlePageDragOver = (e: React.DragEvent) => {
@@ -471,6 +512,18 @@ export default function UploadPage() {
                           </div>
                         ))}
                       </div>
+
+                      {/* Upload Progress */}
+                      {(bulkUpload.isPending || bulkUploadProgress > 0) && (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                            <span>Uploading...</span>
+                            <span>{bulkUploadProgress}%</span>
+                          </div>
+                          <Progress value={bulkUploadProgress} className="h-2" />
+                        </div>
+                      )}
+
                       <Button
                         onClick={handleBulkUpload}
                         disabled={bulkUpload.isPending || bulkFiles.every(f => f.status !== 'pending')}

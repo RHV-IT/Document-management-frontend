@@ -68,8 +68,8 @@ export default function ProfilePage() {
       }
     }
     checkAgentStatus()
-    // Refresh every 10 seconds
-    const interval = setInterval(checkAgentStatus, 10000)
+    // Refresh every 5 seconds for realtime status
+    const interval = setInterval(checkAgentStatus, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -363,30 +363,44 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Agent Status */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Activity className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">Agent Status</span>
-                </div>
-                {agentLoading ? (
-                  <SkeletonLoader type="text" className="h-5 w-20" />
-                ) : (
-                  <div className="flex items-center gap-2">
-                    {agentStatus.connected ? (
-                      <>
-                        <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-sm font-semibold text-green-700">Connected</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-3 h-3 rounded-full bg-red-500" />
-                        <span className="text-sm font-semibold text-red-700">Offline</span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+               {/* Agent Status */}
+               <div className="p-4 bg-gray-50 rounded-lg">
+                 <div className="flex items-center gap-2 mb-2">
+                   <Activity className="h-4 w-4 text-gray-500" />
+                   <span className="text-sm font-medium text-gray-700">Agent Status</span>
+                 </div>
+                 {agentLoading ? (
+                   <SkeletonLoader type="text" className="h-5 w-20" />
+                 ) : (
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2">
+                       { (agentStatus.connected || agentStatus.success) ? (
+                         <>
+                           <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+                           <span className="text-sm font-semibold text-green-700">🟢 Scanner Connected</span>
+                         </>
+                       ) : (
+                         <>
+                           <div className="w-3 h-3 rounded-full bg-red-500" />
+                           <span className="text-sm font-semibold text-red-700">🔴 Scanner Offline</span>
+                         </>
+                       )}
+                     </div>
+                     {(agentStatus.connected || agentStatus.success) && (
+                       <div className="text-xs text-gray-600 space-y-0.5 pl-5">
+                         {agentStatus.version && <div>Version: {agentStatus.version}</div>}
+                         {agentStatus.machineId && <div>Machine: {agentStatus.machineId}</div>}
+                         {typeof agentStatus.watcherRunning !== 'undefined' && (
+                           <div>Watcher: {agentStatus.watcherRunning ? 'Running' : 'Stopped'}</div>
+                         )}
+                         {typeof agentStatus.hasToken !== 'undefined' && (
+                           <div>Token: {agentStatus.hasToken ? 'Present' : 'Missing'}</div>
+                         )}
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </div>
 
               {/* Pending Scans */}
               <div className="p-4 bg-blue-50 rounded-lg">

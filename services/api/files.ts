@@ -131,7 +131,7 @@ export const filesAPI = {
   },
 
   // Bulk upload
-  bulkUpload: async (files: File[]): Promise<{ success: boolean; data: FileItem[]; message: string }> => {
+  bulkUpload: async (files: File[], onProgress?: (progress: number) => void): Promise<{ success: boolean; data: FileItem[]; message: string }> => {
     if (!files || files.length === 0) {
       throw new Error('No files provided for bulk upload')
     }
@@ -143,7 +143,14 @@ export const filesAPI = {
       formData.append('files', file)
     })
 
-    const response = await apiClient.post('/api/v1/files/bulk', formData)
+    const response = await apiClient.post('/api/v1/files/bulk', formData, {
+      onUploadProgress: (event) => {
+        if (event.lengthComputable && onProgress && event.total) {
+          const percent = Math.round((event.loaded * 100) / event.total)
+          onProgress(percent)
+        }
+      }
+    })
     return response.data
   },
 

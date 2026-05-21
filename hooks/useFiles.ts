@@ -77,7 +77,11 @@ export function useBulkUploadMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (files: File[]) => filesAPI.bulkUpload(files),
+    mutationFn: (input: File[] | { files: File[]; onProgress?: (progress: number) => void }) => {
+      const files = Array.isArray(input) ? input : input.files
+      const onProgress = Array.isArray(input) ? undefined : input.onProgress
+      return filesAPI.bulkUpload(files, onProgress)
+    },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['files'] })
       addNotification('success', 'Files Uploaded', `${response.data.length} files uploaded successfully.`)

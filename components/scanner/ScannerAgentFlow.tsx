@@ -21,11 +21,8 @@ export function ScannerAgentFlow() {
   // Check if agent setup is already complete
   const isSetupComplete = typeof window !== 'undefined' && (localStorage.getItem('scanner_agent_setup_complete') === 'true' || localStorage.getItem('agentConnected') === 'true')
 
-  const shouldShowAgentDialog =
-    !agentConnected ||
-    mustDownloadAgent ||
-    !healthSuccess ||
-    !setTokenSuccess
+  // Prioritize LIVE health check over stale mustDownloadAgent from login response
+  const shouldShowAgentDialog = !isConnected && !healthSuccess && mustDownloadAgent
 
   // On app load: check /health, if healthy hide dialog automatically
   useEffect(() => {

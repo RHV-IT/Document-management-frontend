@@ -138,18 +138,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token')
         const userId = user.id || user._id || ''
-         if (token && userId) {
-            agentService.setToken({ token, userId, machineId: null }).then(async () => {
-              // After successful /auth/set-token response: update local auth state, React Query cache, Context/local state
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('agentConnected', 'true')
+        const machineId = (await import('@/lib/utils')).getMachineId()
+        if (token && userId) {
+          console.log("Backend login response:", response.data)
+          agentService.setToken({ token, userId, machineId }).then(async () => {
+            console.log("Local set-token success")
+            // STEP 4-6: Immediate health check + retries
+            const maxRetries = 10
+            let retryCount = 0
+            const retryHealth = async () => {
+              try {
+                const health = await agentService.getHealth()
+                console.log("Agent health response:", health)
+                const isHealthy = health.running || health.installed
+                if (isHealthy) {
+                  console.log("mustDownloadAgent final:", false)
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('agentConnected', 'true')
+                  }
+                  const updatedUser = { ...user, agentConnected: true, mustDownloadAgent: false }
+                  queryClient.setQueryData(['auth-user'], { data: updatedUser })
+                  await queryClient.invalidateQueries({ queryKey: ['auth-user'] })
+                  return true
+                }
+              } catch (e) {
+                console.log("Agent health response:", { success: false })
               }
-              const updatedUser = { ...user, agentConnected: true, mustDownloadAgent: false }
-              queryClient.setQueryData(['auth-user'], { data: updatedUser })
-              // Re-fetch /auth/me 
-              await queryClient.invalidateQueries({ queryKey: ['auth-user'] })
-            })
-          }
+              retryCount++
+              if (retryCount < maxRetries) {
+                setTimeout(retryHealth, 2000)
+              }
+              return false
+            }
+            await retryHealth()
+          })
+        }
       }
 
       return { success: true, user }
