@@ -109,13 +109,10 @@ export default function ScannerUserGuidePage() {
 
   return (
     <ResponsiveContainer>
-      <div className="max-w-4xl mx-auto pb-12">
+      <div className="pb-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 print:mb-4">
           <div>
-            <Link href="/dashboard" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-3 text-sm font-medium">
-              <ArrowLeft className="h-4 w-4" /> Back to Dashboard
-            </Link>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent flex items-center gap-3">
               <Scan className="h-9 w-9 text-blue-600" />
               Scanner User Guide
