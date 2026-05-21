@@ -535,19 +535,16 @@ export default function UploadPage() {
                                     className="h-8 text-sm"
                                   />
                                 </div>
-                                <div>
-                                  <label className="text-xs font-medium text-gray-600 block mb-1">Confidentiality</label>
-                                  <select
-                                    value={file.confidentialityLevel || 'internal'}
-                                    onChange={(e) => updateBulkFileMetadata(file.id, { confidentialityLevel: e.target.value })}
-                                    className="w-full h-8 text-sm border border-gray-300 rounded-md px-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  >
-                                    <option value="public">Public</option>
-                                    <option value="internal">Internal</option>
-                                    <option value="confidential">Confidential</option>
-                                    <option value="highly_confidential">Strictly Confidential</option>
-                                  </select>
-                                </div>
+                                 <div>
+                                   <label className="text-xs font-medium text-gray-600 block mb-1">Confidentiality</label>
+                                   <ConfidentialityLevelSelect
+                                     value={file.confidentialityLevel || 'internal'}
+                                     onValueChange={(val) => updateBulkFileMetadata(file.id, { confidentialityLevel: val })}
+                                     userLevel={user?.confidentialityLevel}
+                                     placeholder="Select level"
+                                     className="h-8 text-sm"
+                                   />
+                                 </div>
                               </div>
                             )}
                             {file.status === 'error' && file.error && (
