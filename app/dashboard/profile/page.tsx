@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/auth'
 import { useNotificationsQuery } from '@/hooks/useNotifications'
 import { useUsersQuery } from '@/hooks/useUsers'
 import { usePendingScans } from '@/hooks/useScanner'
-import { agentService, AgentStatusResponse } from '@/services/agent'
+import apiClient from '@/services/api/axios'
+import { AgentStatusResponse } from '@/services/agent'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -55,12 +56,41 @@ export default function ProfilePage() {
   })
   const [agentLoading, setAgentLoading] = useState(true)
 
-  // Get agent status on mount
+  // Get scanner agent status via backend (realtime, works in production)
   React.useEffect(() => {
     const checkAgentStatus = async () => {
       try {
-        const status = await agentService.getStatus()
-        setAgentStatus(status)
+        const userId = user?._id || user?.id
+        if (!userId) {
+          setAgentStatus({ status: 'offline', connected: false })
+          setAgentLoading(false)
+          return
+        }
+
+        // Use backend endpoint instead of direct localhost
+        const response = await apiClient.get('/api/v1/scanner/health', {
+          params: { userId }
+        })
+        const data = response.data || {}
+
+        // Derive connected/online state from common response shapes
+        const isConnected = Boolean(
+          data.connected ||
+          data.success ||
+          data.online ||
+          data.agentConnected ||
+          data.watcherRunning
+        )
+
+        setAgentStatus({
+          connected: isConnected,
+          success: data.success,
+          version: data.version,
+          machineId: data.machineId,
+          watcherRunning: data.watcherRunning,
+          hasToken: data.hasToken,
+          status: isConnected ? 'connected' : 'offline'
+        })
       } catch (error) {
         setAgentStatus({ status: 'offline', connected: false })
       } finally {
@@ -71,7 +101,7 @@ export default function ProfilePage() {
     // Refresh every 5 seconds for realtime status
     const interval = setInterval(checkAgentStatus, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, [user])
 
   // Recent notifications (top 5)
   const recentNotifications = useMemo(() => {
