@@ -51,7 +51,7 @@ export function useScannerPendingStatsQuery(machineId?: string) {
     queryKey: ['scanner-pending-stats'],
     queryFn: () => filesAPI.getPendingStats(),
     select: (response) => response.data,
-    refetchInterval: 30000,
+    refetchInterval: 5000,
     enabled: true,
   })
 }

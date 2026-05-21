@@ -77,10 +77,11 @@ export function useBulkUploadMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: File[] | { files: File[]; onProgress?: (progress: number) => void }) => {
+    mutationFn: (input: File[] | { files: File[]; metadata?: Array<{ alias?: string; confidentialityLevel?: string }>; onProgress?: (progress: number) => void }) => {
       const files = Array.isArray(input) ? input : input.files
+      const metadata = Array.isArray(input) ? undefined : input.metadata
       const onProgress = Array.isArray(input) ? undefined : input.onProgress
-      return filesAPI.bulkUpload(files, onProgress)
+      return filesAPI.bulkUpload(files, onProgress, metadata)
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['files'] })

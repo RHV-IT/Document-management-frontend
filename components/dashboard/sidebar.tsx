@@ -46,6 +46,13 @@ const NAV_ITEMS = [
     description: 'Upload files (single, bulk, scan)',
   },
   {
+    label: 'Scanner Guide',
+    href: '/dashboard/scanner-user-guide',
+    icon: Scan,
+    roles: ['user', 'hod', 'admin'],
+    description: 'Step-by-step scanner instructions',
+  },
+  {
     label: 'Recycle Bin',
     href: '/dashboard/recycle-bin',
     icon: Trash2,

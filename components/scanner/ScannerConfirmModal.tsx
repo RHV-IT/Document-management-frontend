@@ -171,21 +171,27 @@ export function ScannerConfirmModal({
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
                 <div className="relative bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50 rounded-2xl border border-slate-200/60 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
                   <div className="flex items-center gap-6">
-                    {/* Preview Image/Icon */}
-                    <div className="relative flex-shrink-0 animate-badge-pop stagger-1">
-                      {pendingFile.isImage && pendingFile.previewUrl ? (
-                        <div className="w-32 h-32 rounded-xl overflow-hidden shadow-md border-3 border-white hover:shadow-lg transition-shadow">
-                          <img
-                            src={pendingFile.previewUrl}
-                            alt={pendingFile.originalName}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-emerald-100 via-teal-100 to-cyan-100 border-3 border-white flex items-center justify-center shadow-md hover:shadow-lg transition-all">
-                          <FileText className="h-16 w-16 text-emerald-600 opacity-80" />
-                        </div>
-                      )}
+                     {/* Preview Image/Icon */}
+                     <div className="relative flex-shrink-0 animate-badge-pop stagger-1">
+                       {pendingFile.isImage && pendingFile.previewUrl ? (
+                         <div className="w-32 h-32 rounded-xl overflow-hidden shadow-md border-3 border-white hover:shadow-lg transition-shadow duration-300">
+                           <img
+                             src={pendingFile.previewUrl}
+                             alt={pendingFile.originalName}
+                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                           />
+                         </div>
+                       ) : pendingFile.isImage ? (
+                         <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-emerald-100 via-teal-100 to-cyan-100 border-3 border-white flex flex-col items-center justify-center shadow-md hover:shadow-lg transition-all">
+                           <FileText className="h-12 w-12 text-emerald-600 opacity-80 mb-1" />
+                           <span className="text-[10px] text-emerald-600/70 font-medium">Preview unavailable</span>
+                         </div>
+                       ) : (
+                         <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-emerald-100 via-teal-100 to-cyan-100 border-3 border-white flex items-center justify-center shadow-md hover:shadow-lg transition-all">
+                           <FileText className="h-16 w-16 text-emerald-600 opacity-80" />
+                         </div>
+                       )}
                       {/* Status Badge */}
                       <div className="absolute -bottom-3 -right-3 flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full shadow-lg border border-amber-300 animate-bounce">
                         <Clock className="h-3.5 w-3.5 text-white" />

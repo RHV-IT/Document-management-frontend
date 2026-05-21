@@ -131,16 +131,18 @@ export const filesAPI = {
   },
 
   // Bulk upload
-  bulkUpload: async (files: File[], onProgress?: (progress: number) => void): Promise<{ success: boolean; data: FileItem[]; message: string }> => {
+  bulkUpload: async (files: File[], onProgress?: (progress: number) => void, metadata?: Array<{ alias?: string; confidentialityLevel?: string }>): Promise<{ success: boolean; data: FileItem[]; message: string }> => {
     if (!files || files.length === 0) {
       throw new Error('No files provided for bulk upload')
     }
 
     const formData = new FormData()
 
-    // Append files with 'files' key for bulk upload
-    files.forEach((file) => {
+    // Append files and per-file metadata as required for bulk metadata support
+    files.forEach((file, index) => {
       formData.append('files', file)
+      const meta = metadata?.[index] || { confidentialityLevel: 'internal' }
+      formData.append('metadata', JSON.stringify(meta))
     })
 
     const response = await apiClient.post('/api/v1/files/bulk', formData, {
@@ -365,8 +367,19 @@ export const filesAPI = {
   },
 
     getPendingStats: async (): Promise<{ success: boolean; data: ScannerStats }> => {
-      const response = await apiClient.get('/api/v1/scanner/pending/stats')
-      return response.data
+      try {
+        const response = await apiClient.get('/api/v1/scanner/pending/stats')
+        return response.data
+      } catch (error: any) {
+        // Graceful fallback for 404 or missing endpoint - never crash UI, show zero stats
+        if (error?.response?.status === 404 || error?.response?.status === 400) {
+          return {
+            success: true,
+            data: { total: 0, pending: 0, confirmed: 0, cancelled: 0 }
+          }
+        }
+        throw error
+      }
     },
 }
 

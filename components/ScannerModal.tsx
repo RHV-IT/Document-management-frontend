@@ -118,7 +118,7 @@ function FilePreview({ scan }: { scan: PendingScan }) {
           ) : (
             <FileIcon className={`size-20 ${getIconColor(scan.mimeType)} mx-auto mb-2 opacity-30`} />
           )}
-          <p className="text-sm text-slate-500">Preview not available</p>
+           <p className="text-sm text-slate-500">Preview unavailable</p>
         </div>
       </div>
     </div>

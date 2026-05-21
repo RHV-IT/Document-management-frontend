@@ -31,6 +31,8 @@ interface FileStatus {
   id: string
   status: 'pending' | 'uploading' | 'success' | 'error'
   error?: string
+  alias?: string
+  confidentialityLevel?: string
   preview?: string
 }
 
@@ -150,7 +152,9 @@ export default function UploadPage() {
       newFiles.push({
         file,
         id: generateId(),
-        status: 'pending' as const
+        status: 'pending' as const,
+        confidentialityLevel: 'internal',
+        alias: ''
       })
     }
 
@@ -184,6 +188,10 @@ export default function UploadPage() {
     setBulkFiles(prev => prev.filter(f => f.id !== id))
   }
 
+  const updateBulkFileMetadata = (id: string, updates: Partial<Pick<FileStatus, 'alias' | 'confidentialityLevel'>>) => {
+    setBulkFiles(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f))
+  }
+
   const handleBulkUpload = () => {
     const pendingItems = bulkFiles.filter(f => f.status === 'pending')
     const files = pendingItems.map(f => f.file)
@@ -201,11 +209,16 @@ export default function UploadPage() {
       return
     }
 
+    const metadata = pendingItems.map(f => ({
+      confidentialityLevel: f.confidentialityLevel || 'internal',
+      ...(f.alias && f.alias.trim() ? { alias: f.alias.trim() } : {})
+    }))
+
     setBulkUploadProgress(0)
     setBulkFiles(prev => prev.map(f => f.status === 'pending' ? { ...f, status: 'uploading' as const } : f ))
 
     bulkUpload.mutate(
-      { files: validFiles, onProgress: (p: number) => setBulkUploadProgress(p) },
+      { files: validFiles, metadata, onProgress: (p: number) => setBulkUploadProgress(p) },
       {
         onSuccess: () => {
           setBulkUploadProgress(100)
@@ -380,7 +393,7 @@ export default function UploadPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium">Rename (optional)</label>
+                      <label className="text-sm font-medium">Rename (Optional)</label>
                       <Input
                         value={alias}
                         onChange={(e) => setAlias(e.target.value)}
@@ -497,17 +510,48 @@ export default function UploadPage() {
                           <Trash2 className="h-4 w-4 mr-1" /> Clear
                         </Button>
                       </div>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
                         {bulkFiles.map((file) => (
-                          <div key={file.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                            <FileIcon className="h-4 w-4 text-gray-400" />
-                            <span className="flex-1 text-sm truncate">{file.file.name}</span>
-                            {file.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                            {file.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500" />}
+                          <div key={file.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="flex-1 text-sm font-medium truncate" title={file.file.name}>{file.file.name}</span>
+                              {file.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                              {file.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
+                              {file.status === 'pending' && (
+                                <Button variant="ghost" size="icon" onClick={() => removeBulkFile(file.id)} className="cursor-pointer h-6 w-6 flex-shrink-0">
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                             {file.status === 'pending' && (
-                              <Button variant="ghost" size="icon" onClick={() => removeBulkFile(file.id)} className="cursor-pointer h-6 w-6">
-                                <X className="h-3 w-3" />
-                              </Button>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-xs font-medium text-gray-600 block mb-1">Rename (Optional)</label>
+                                  <Input
+                                    value={file.alias || ''}
+                                    onChange={(e) => updateBulkFileMetadata(file.id, { alias: e.target.value })}
+                                    placeholder="Custom filename"
+                                    className="h-8 text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-medium text-gray-600 block mb-1">Confidentiality</label>
+                                  <select
+                                    value={file.confidentialityLevel || 'internal'}
+                                    onChange={(e) => updateBulkFileMetadata(file.id, { confidentialityLevel: e.target.value })}
+                                    className="w-full h-8 text-sm border border-gray-300 rounded-md px-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  >
+                                    <option value="public">Public</option>
+                                    <option value="internal">Internal</option>
+                                    <option value="confidential">Confidential</option>
+                                    <option value="highly_confidential">Strictly Confidential</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+                            {file.status === 'error' && file.error && (
+                              <p className="text-xs text-red-600 mt-1 truncate">{file.error}</p>
                             )}
                           </div>
                         ))}
