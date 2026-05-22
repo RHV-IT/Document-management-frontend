@@ -32,9 +32,14 @@ const CONFIDENTIALITY_LABELS: Record<string, string> = {
 }
 
 function getAllowedLevels(userRole?: string, userLevel?: string, confidentialityLevels?: string[]): string[] {
-  if (userRole === 'admin' && Array.isArray(confidentialityLevels) && confidentialityLevels.length > 0) {
-    return confidentialityLevels
+  // Admins always get full list (or their provided list)
+  if (userRole === 'admin') {
+    if (Array.isArray(confidentialityLevels) && confidentialityLevels.length > 0) {
+      return confidentialityLevels.filter(l => CONFIDENTIALITY_LEVELS.includes(l as any))
+    }
+    return [...CONFIDENTIALITY_LEVELS]
   }
+
   const tempUser = userRole || userLevel ? { 
     role: userRole, 
     confidentialityLevel: userLevel,
