@@ -222,8 +222,9 @@ export default function FilesPage() {
       }))
   }, [])
 
-  const receivedFilesList = useMemo(() => buildList(myPermissionsData || []).filter((f: any) => canView(f)), [myPermissionsData, buildList, canView])
-  const sentFilesList = useMemo(() => buildList(sentPermissionsData || []).filter((f: any) => canView(f)), [sentPermissionsData, buildList, canView])
+  // Shared files (received/sent via explicit permissions) always visible — sharing is the only exception to dept/confidentiality rules
+  const receivedFilesList = useMemo(() => buildList(myPermissionsData || []), [myPermissionsData, buildList])
+  const sentFilesList = useMemo(() => buildList(sentPermissionsData || []), [sentPermissionsData, buildList])
 
   const availableUsers = useMemo(() => {
     const usersList = usersData?.users || []
