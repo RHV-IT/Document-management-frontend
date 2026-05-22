@@ -292,14 +292,15 @@ export function ScannerConfirmModal({
                   Confidentiality
                   <span className="text-red-500 font-bold">*</span>
                 </Label>
-                <ConfidentialityLevelSelect
-                  value={confidentiality}
-                  onValueChange={setConfidentiality}
-                  userLevel={user?.confidentialityLevel}
-                  placeholder="Select level"
-                  className="h-12 bg-gradient-to-r from-gray-50 to-teal-50 border-gray-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 rounded-xl shadow-sm hover:shadow-md transition-all"
-                  disabled={isProcessing}
-                />
+                 <ConfidentialityLevelSelect
+                   value={confidentiality}
+                   onValueChange={setConfidentiality}
+                   userLevel={user?.confidentialityLevel}
+                   placeholder="Select level"
+                   className="h-12 bg-gradient-to-r from-gray-50 to-teal-50 border-gray-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 rounded-xl shadow-sm hover:shadow-md transition-all"
+                   disabled={isProcessing}
+                   showRestrictionNote
+                 />
 
               </div>
 

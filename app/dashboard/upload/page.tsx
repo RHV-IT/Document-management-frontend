@@ -427,12 +427,13 @@ export default function UploadPage() {
                     </div>
                     <div>
                       <label className="text-sm font-medium">Confidentiality</label>
-                      <ConfidentialityLevelSelect
-                        value={confidentiality}
-                        onValueChange={setConfidentiality}
-                        userLevel={user?.confidentialityLevel}
-                        placeholder="Select level"
-                      />
+                       <ConfidentialityLevelSelect
+                         value={confidentiality}
+                         onValueChange={setConfidentiality}
+                         userLevel={user?.confidentialityLevel}
+                         placeholder="Select level"
+                         showRestrictionNote
+                       />
                       {confidentiality === 'highly_confidential' && (
                         <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-md flex gap-2">
                           <Shield className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -570,13 +571,14 @@ export default function UploadPage() {
                                 </div>
                                  <div>
                                    <label className="text-xs font-medium text-gray-600 block mb-1">Confidentiality</label>
-                                    <ConfidentialityLevelSelect
-                                      value={file.confidentialityLevel || 'internal'}
-                                      onValueChange={(val) => updateBulkFileMetadata(file.id, { confidentialityLevel: val })}
-                                      userLevel={user?.confidentialityLevel}
-                                      placeholder="Select level"
-                                      className="h-8 text-sm"
-                                    />
+                                     <ConfidentialityLevelSelect
+                                       value={file.confidentialityLevel || 'internal'}
+                                       onValueChange={(val) => updateBulkFileMetadata(file.id, { confidentialityLevel: val })}
+                                       userLevel={user?.confidentialityLevel}
+                                       placeholder="Select level"
+                                       className="h-8 text-sm"
+                                       showRestrictionNote
+                                     />
                                     {(file.confidentialityLevel || 'internal') === 'highly_confidential' && (
                                       <div className="mt-1 flex items-center gap-1 text-[10px] text-red-600">
                                         <Lock className="h-3 w-3" /> Visibility locked to you + admins

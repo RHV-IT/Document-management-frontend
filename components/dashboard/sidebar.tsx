@@ -5,16 +5,23 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth'
+import { useAccessControl } from '@/hooks/useAccessControl'
 import { cn } from '@/lib/utils'
 import { debug } from '@/lib/debug'
 import {
   Home, FileText, Upload, Trash2, Users, BarChart3, Settings,
-  LogOut, Activity, Scan, Layers, User
+  LogOut, Activity, Scan, Layers, User, Shield
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { GlowCircle } from '@/components/ui/glow-circle'
 import { ScannerStatus } from '@/components/ScannerStatus'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@/components/ui/tooltip'
 
 const NAV_ITEMS = [
   {
@@ -85,6 +92,7 @@ const NAV_ITEMS = [
 export function DashboardSidebar() {
   const pathname = usePathname()
   const { user, canAccess, logout } = useAuth()
+  const { clearanceBadge } = useAccessControl()
 
   const visibleItems = NAV_ITEMS.filter((item) => canAccess(item.roles))
 
@@ -120,19 +128,19 @@ export function DashboardSidebar() {
       {user && (
         <div className="p-4 mx-4 mt-4 bg-gradient-to-br from-blue-50 to-white rounded-xl border border-blue-100/50">
           <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white font-semibold shadow-md">
-                {user?.name?.charAt(0).toUpperCase() || '?'}
-              </div>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white font-semibold shadow-md">
+              {user?.name?.charAt(0).toUpperCase() || '?'}
+            </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-gray-900 text-sm truncate">{user?.name || 'User'}</p>
               <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border', getRoleBadgeColor(user?.role || 'user'))}>
-                 {user?.role === 'admin' ? 'Administrator' : user?.role === 'hod' ? 'Head of Dept' : 'User'}
+                {user?.role === 'admin' ? 'Administrator' : user?.role === 'hod' ? 'Head of Dept' : 'User'}
               </span>
             </div>
           </div>
-            {user?.department && (
-              <p className="text-xs text-gray-500 mt-2 pl-13">{user.department!}</p>
-            )}
+          {user?.department && (
+            <p className="text-xs text-gray-500 mt-2 pl-13">{user.department!}</p>
+          )}
         </div>
       )}
 
@@ -166,21 +174,45 @@ export function DashboardSidebar() {
               )}>
                 <Icon className={cn('h-4 w-4', isActive ? 'text-white' : 'text-gray-500 group-hover:text-blue-600')} />
               </div>
-               <div className="flex-1">
-                 <p className={cn('font-medium text-sm', isActive ? 'text-white' : 'text-gray-700')}>
-                   {item.label}
-                 </p>
-                 <p className={cn('text-xs', isActive ? 'text-blue-100' : 'text-gray-400')}>
-                   {item.description}
-                 </p>
-               </div>
-               <GlowCircle isActive={isActive} />
+              <div className="flex-1">
+                <p className={cn('font-medium text-sm', isActive ? 'text-white' : 'text-gray-700')}>
+                  {item.label}
+                </p>
+                <p className={cn('text-xs', isActive ? 'text-blue-100' : 'text-gray-400')}>
+                  {item.description}
+                </p>
+              </div>
+              <GlowCircle isActive={isActive} />
             </Link>
           )
         })}
       </nav>
 
       <Separator className="mx-4 bg-gray-100" />
+
+      {/* Current Clearance - Professional visibility (collapsible on narrow sidebars) */}
+      {user && (
+        <div className="px-4 py-2">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 text-gray-500">
+              <Shield className="h-3.5 w-3.5" />
+              <span className="font-medium tracking-wide hidden md:inline">CLEARANCE</span>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border cursor-help ${clearanceBadge.color}`}>
+                    {clearanceBadge.label}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[220px] text-xs">
+                  Your current clearance level determines the highest confidentiality of files you can upload, view, and manage.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      )}
 
       {/* Scanner Status */}
       <div className="px-4 py-3">
@@ -199,7 +231,7 @@ export function DashboardSidebar() {
         </Button>
 
         <p className="text-xs text-gray-400 text-center mt-3">
-          DMS v2.0 • RHV Edition
+          DMS v1.0 • RHV Edition
         </p>
       </div>
     </aside>

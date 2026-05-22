@@ -156,9 +156,20 @@ export default function ProfilePage() {
     <ResponsiveContainer>
       <div className="flex-1 p-8 bg-gray-50/50 overflow-auto animate-fade-in">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-        <p className="text-gray-500 mt-1">View your account details, notifications, and scanner status</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+          <p className="text-gray-500 mt-1">View your account details, notifications, and scanner status</p>
+        </div>
+        {user?.confidentialityLevel && (
+          <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
+            <Shield className="h-4 w-4" />
+            <span className="font-medium">Clearance:</span>
+            <Badge className={`${getLevelColor(user.confidentialityLevel)} text-xs px-2.5 py-0.5`}>
+              {user.confidentialityLevel.replace(/_/g, ' ')}
+            </Badge>
+          </div>
+        )}
       </div>
 
       <div className="max-w-6xl space-y-6">

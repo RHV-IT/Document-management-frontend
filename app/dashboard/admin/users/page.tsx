@@ -827,12 +827,13 @@ export default function AdminUsersPage() {
                           <Lock className="h-4 w-4" />
                           Confidentiality Level
                         </label>
-                        <ConfidentialityLevelSelect
-                          value={editingConfidentialityLevel}
-                          onValueChange={setEditingConfidentialityLevel}
-                          userRole={user?.role}
-                          placeholder="Select confidentiality level"
-                        />
+                         <ConfidentialityLevelSelect
+                           value={editingConfidentialityLevel}
+                           onValueChange={setEditingConfidentialityLevel}
+                           userRole={user?.role}
+                           placeholder="Select confidentiality level"
+                           showRestrictionNote
+                         />
                       </div>
                     </div>
                   </div>

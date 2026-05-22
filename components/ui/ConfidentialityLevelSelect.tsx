@@ -3,7 +3,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useConfidentialityLevelsConfigQuery } from '@/hooks/useSettings'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
-import { getAllowedUploadLevels, CONFIDENTIALITY_LEVELS } from '@/lib/access-control'
+import { getAllowedUploadLevels, CONFIDENTIALITY_LEVELS, getClearanceLabel } from '@/lib/access-control'
+import { Shield } from 'lucide-react'
 
 interface ConfidentialityLevelSelectProps {
   value?: string
@@ -13,6 +14,7 @@ interface ConfidentialityLevelSelectProps {
   userLevel?: string
   userRole?: string
   className?: string
+  showRestrictionNote?: boolean   // Professional helper note when options are limited by user's clearance
 }
 
 const CONFIDENTIALITY_COLORS: Record<string, string> = {
@@ -49,6 +51,7 @@ export function ConfidentialityLevelSelect({
   userLevel,
   userRole,
   className = '',
+  showRestrictionNote = false,
 }: ConfidentialityLevelSelectProps) {
   const { data: levels, isLoading } = useConfidentialityLevelsConfigQuery()
   const { user } = useAuth()
@@ -107,5 +110,15 @@ export function ConfidentialityLevelSelect({
         ))}
       </SelectContent>
     </Select>
+
+    {/* Professional restriction note (A + B) */}
+    {showRestrictionNote && allowedLevels.length < CONFIDENTIALITY_LEVELS.length && currentUserLevel && (
+      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+        <Shield className="h-3 w-3 flex-shrink-0" />
+        <span>
+          Limited to your clearance: <strong className="font-medium">{getClearanceLabel(currentUserLevel)}</strong>
+        </span>
+      </div>
+    )}
   )
 }

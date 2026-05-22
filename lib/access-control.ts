@@ -77,16 +77,23 @@ export function canViewFile(user: AccessUser | null, file: AccessFile | null): b
 export function getAllowedUploadLevels(user: AccessUser | null): ConfidentialityLevel[] {
   if (!user) return ['public']
 
-  // Use array for every user when available (new backend format)
-  if (Array.isArray(user.confidentialityLevels) && user.confidentialityLevels.length > 0) {
-    return user.confidentialityLevels.filter(l => CONFIDENTIALITY_LEVELS.includes(l as any)) as any
+  // Determine the maximum level this user is allowed to reach (based on their clearance)
+  let maxAllowed: ConfidentialityLevel[]
+
+  if (user.role === 'admin') {
+    maxAllowed = [...CONFIDENTIALITY_LEVELS]
+  } else {
+    const idx = getLevelIndex(user.confidentialityLevel)
+    maxAllowed = idx === -1 ? ['public'] : [...CONFIDENTIALITY_LEVELS].slice(0, idx + 1)
   }
 
-  // Fallback to singular logic
-  if (user.role === 'admin') return [...CONFIDENTIALITY_LEVELS]
-  const idx = getLevelIndex(user.confidentialityLevel)
-  if (idx === -1) return ['public']
-  return [...CONFIDENTIALITY_LEVELS].slice(0, idx + 1)
+  // If the backend provides a more specific/restricted list, intersect it (never allow beyond max)
+  if (Array.isArray(user.confidentialityLevels) && user.confidentialityLevels.length > 0) {
+    const userList = user.confidentialityLevels.filter(l => CONFIDENTIALITY_LEVELS.includes(l as any)) as ConfidentialityLevel[]
+    return userList.filter(level => maxAllowed.includes(level))
+  }
+
+  return maxAllowed
 }
 
 export function canUploadLevel(user: AccessUser | null, level: string): boolean {

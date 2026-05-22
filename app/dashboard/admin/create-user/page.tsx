@@ -345,13 +345,14 @@ export default function CreateUserPage() {
                         <Shield className="h-4 w-4 text-gray-500" />
                         Confidentiality Level
                       </label>
-                      <ConfidentialityLevelSelect
-                        value={confidentialityLevel}
-                        onValueChange={setConfidentialityLevel}
-                        userRole={user?.role}
-                        placeholder="Select level"
-                        className="h-fit w-full"
-                      />
+                       <ConfidentialityLevelSelect
+                         value={confidentialityLevel}
+                         onValueChange={setConfidentialityLevel}
+                         userRole={user?.role}
+                         placeholder="Select level"
+                         className="h-fit w-full"
+                         showRestrictionNote
+                       />
                     </div>
 
                     {/* Password Input */}
