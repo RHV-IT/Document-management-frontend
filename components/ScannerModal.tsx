@@ -89,17 +89,6 @@ function FilePreview({ scan }: { scan: PendingScan }) {
     </div>
   )
 }
-            ) : (
-              <FileIcon className={`size-16 ${getIconColor(scan.mimeType)}`} />
-            )}
-          </div>
-          <p className="text-xs text-slate-500 font-medium tracking-wider">PREVIEW UNAVAILABLE</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{scan.mimeType.split('/')[1]?.toUpperCase() || 'FILE'}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 type ConfirmationPhase = 'initial' | 'upload-confirm' | 'cancel-confirm' | 'details'
 
