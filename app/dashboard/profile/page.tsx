@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth'
 import { useNotificationsQuery } from '@/hooks/useNotifications'
 import { useUsersQuery } from '@/hooks/useUsers'
 import { usePendingScans } from '@/hooks/useScanner'
-import apiClient from '@/services/api/axios'
+import { scannerService } from '@/services/scanner'
 import { AgentStatusResponse } from '@/services/agent'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -67,11 +67,8 @@ export default function ProfilePage() {
           return
         }
 
-        // Use backend endpoint instead of direct localhost
-        const response = await apiClient.get('/api/v1/scanner/health', {
-          params: { userId }
-        })
-        const data = response.data || {}
+        // Always pass userId to backend /scanner/health
+        const data = await scannerService.getHealth(userId) || {}
 
         // Derive connected/online state from common response shapes
         const isConnected = Boolean(

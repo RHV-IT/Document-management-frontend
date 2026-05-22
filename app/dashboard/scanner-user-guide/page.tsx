@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
-import apiClient from '@/services/api/axios'
+import { scannerService } from '@/services/scanner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -44,17 +44,11 @@ export default function ScannerUserGuidePage() {
     return () => { const s = document.getElementById('guide-print-styles'); if (s) s.remove() }
   }, [])
 
-  // Realtime scanner status polling every 5 seconds - ALWAYS send userId from auth
+  // Realtime scanner status polling every 5 seconds - ALWAYS pass userId
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        let userId = user?._id || user?.id
-        if (!userId && typeof window !== 'undefined') {
-          userId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || ''
-        }
-        const params: any = { userId: userId || '' } // always include
-        const res = await apiClient.get('/api/v1/scanner/health', { params })
-        const data = res.data || {}
+        const data = await scannerService.getHealth(user?._id || user?.id)
         setAgentStatus({
           connected: Boolean(data.connected || data.success || data.online || data.agentConnected),
           version: data.version,

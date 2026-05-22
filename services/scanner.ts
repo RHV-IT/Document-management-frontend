@@ -46,6 +46,27 @@ export interface ConfirmScanResponse {
 }
 
 export const scannerService = {
+  /**
+   * Get scanner agent health from backend.
+   * ALWAYS requires userId because the backend validates per-user agent status.
+   */
+  getHealth: async (userId?: string): Promise<any> => {
+    let resolvedUserId = userId
+
+    if (!resolvedUserId && typeof window !== 'undefined') {
+      resolvedUserId = 
+        localStorage.getItem('userId') || 
+        sessionStorage.getItem('userId') || 
+        ''
+    }
+
+    const params: any = {}
+    if (resolvedUserId) params.userId = resolvedUserId
+
+    const response = await apiClient.get('/api/v1/scanner/health', { params })
+    return response.data
+  },
+
   getPendingScans: async (machineId?: string): Promise<{ data: { pendingScans: PendingScan[] } }> => {
     const response = await apiClient.get('/api/v1/scanner/pending')
     return response.data
