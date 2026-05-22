@@ -197,6 +197,8 @@ export default function FilesPage() {
   // Data
   const ownedFiles = ownedFilesData?.files || []
   const scannedFiles = scannedFilesData?.files || []
+  // Ensure only truly scanned files are shown on the Scanned tab
+  const scannedOnlyFiles = scannedFiles.filter((f: any) => f.isScanned === true)
   const scannerFiles = scannerFilesData || []
   const scannerStats = scannerStatsData || { pending: 0 }
 
@@ -933,7 +935,7 @@ export default function FilesPage() {
                       </div>
                     ))}
                   </div>
-                ) : scannedFiles.length === 0 ? (
+                ) : scannedOnlyFiles.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <div className="text-center p-6">
                       <FileCheck className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
@@ -943,7 +945,7 @@ export default function FilesPage() {
                   </div>
                 ) : viewMode === 'list' ? (
                   <div className="divide-y">
-                    {scannedFiles.map((f: any) => (
+                    {scannedOnlyFiles.map((f: any) => (
                       <div key={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
                         <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
                         <div className="flex-1 min-w-0">
@@ -977,7 +979,7 @@ export default function FilesPage() {
                   </div>
                 ) : (
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {scannedFiles.map((f: any) => (
+                    {scannedOnlyFiles.map((f: any) => (
                       <Card key={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
                         <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
                           <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
