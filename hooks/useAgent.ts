@@ -2,11 +2,12 @@ import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getMachineId } from '@/lib/utils'
 import { agentService, AgentStatusResponse, AgentDeleteFileRequest } from '@/services/agent'
+import { queryKeys } from '@/lib/query-keys'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 
 export function useAgentStatusQuery() {
   return useQuery({
-    queryKey: ['agent-status'],
+    queryKey: queryKeys.agent.status(),
     queryFn: () => agentService.getStatus(),
     refetchInterval: 30000,
     retry: false,
@@ -29,8 +30,8 @@ export function useSyncAgentToken() {
       queryClient.setQueryData(['session'], (old: any) => old ? { ...old, data: { ...(old.data || {}), agentConnected: true, mustDownloadAgent: false } } : { data: { agentConnected: true, mustDownloadAgent: false } })
       queryClient.setQueryData(['auth-user'], (old: any) => old ? { ...old, data: { ...(old.data || {}), agentConnected: true, mustDownloadAgent: false } } : { data: { agentConnected: true, mustDownloadAgent: false } })
       // Re-fetch /auth/me 
-      await queryClient.invalidateQueries({ queryKey: ['auth-user'] })
-      await queryClient.invalidateQueries({ queryKey: ['session'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() })
     },
     onError: (error) => {
       // Silently handle errors to avoid spamming notifications

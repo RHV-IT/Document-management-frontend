@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-keys'
 import { useCallback, useRef } from 'react'
 import { scannerService, PendingScan } from '@/services/scanner'
 import { filesAPI, ScannerPendingItem } from '@/services/api/files'
@@ -20,7 +21,7 @@ export interface ScannerConfirmPayload {
 
 export function usePendingScans(machineId?: string) {
   return useQuery({
-    queryKey: ['pendingScans'],
+    queryKey: queryKeys.scanner.legacyPending(),
     queryFn: () => scannerService.getPendingScans(),
     select: (response) => response.data?.pendingScans || [],
     refetchInterval: 3000,
@@ -30,7 +31,7 @@ export function usePendingScans(machineId?: string) {
 
 export function usePendingScan(id: string | null) {
   return useQuery({
-    queryKey: ['pendingScan', id],
+    queryKey: queryKeys.scanner.legacyPendingDetail(id!),
     queryFn: () => scannerService.getPendingScan(id!),
     select: (response) => response.data,
     enabled: !!id,
@@ -39,7 +40,7 @@ export function usePendingScan(id: string | null) {
 
 export function useScannerPendingDetailsQuery(id: string | null) {
   return useQuery({
-    queryKey: ['scanner-pending', id],
+    queryKey: queryKeys.scanner.pending.detail(id!),
     queryFn: () => filesAPI.getPendingDetails(id!),
     select: (response) => response.data,
     enabled: !!id,
@@ -48,7 +49,7 @@ export function useScannerPendingDetailsQuery(id: string | null) {
 
 export function useScannerPendingStatsQuery(machineId?: string) {
   return useQuery({
-    queryKey: ['scanner-pending-stats'],
+    queryKey: queryKeys.scanner.pending.stats(),
     queryFn: () => filesAPI.getPendingStats(),
     select: (response) => response.data,
     refetchInterval: 5000,
@@ -66,8 +67,8 @@ export function useUploadToPendingMutation() {
       return filesAPI.uploadToPending(formData, onProgress)
     },
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['scanner-pending'] })
-      queryClient.invalidateQueries({ queryKey: ['scanner-pending-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.stats() })
       addNotification('success', 'Upload Successful', response.message || 'File uploaded to pending for confirmation.')
     },
     onError: (error: any) => {
@@ -92,8 +93,8 @@ export function useBulkUploadToPendingMutation() {
       return results
     },
     onSuccess: (results) => {
-      queryClient.invalidateQueries({ queryKey: ['scanner-pending'] })
-      queryClient.invalidateQueries({ queryKey: ['scanner-pending-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.stats() })
       addNotification('success', 'Upload Successful', `${results.length} file(s) uploaded to pending for confirmation.`)
     },
     onError: (error: any) => {
@@ -111,8 +112,8 @@ export function useScannerDeleteMutation() {
       return filesAPI.deletePending(id)
     },
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['scanner-pending'] })
-      queryClient.invalidateQueries({ queryKey: ['scanner-pending-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.stats() })
       addNotification('success', 'Document Deleted', response.message || 'Pending document has been deleted.')
     },
     onError: (error: any) => {
@@ -178,7 +179,7 @@ export function useScannerUploadMutation() {
 
 export function useScannerFilesQuery(params?: { page?: number; limit?: number }) {
   return useQuery({
-    queryKey: ['scanner-pending', params],
+    queryKey: queryKeys.scanner.pending.list(params),
     queryFn: () => filesAPI.listPending(params),
     select: (response) => response.data?.pendingScans || [],
     refetchInterval: 5000,
@@ -187,7 +188,7 @@ export function useScannerFilesQuery(params?: { page?: number; limit?: number })
 
 export function useScannerPendingQuery(params?: { page?: number; limit?: number }) {
   return useQuery({
-    queryKey: ['scanner-pending', params],
+    queryKey: queryKeys.scanner.pending.list(params),
     queryFn: () => filesAPI.listPending(params),
     select: (response) => response.data?.pendingScans || [],
     refetchInterval: 5000,
@@ -226,7 +227,7 @@ export function useScannerCancelMutation() {
       })
 
       // Also update scanner stats
-      queryClient.invalidateQueries({ queryKey: ['scanner-pending-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.stats() })
 
       addNotification('success', 'Scan Rejected', response.message || 'Scan has been permanently rejected.')
     },

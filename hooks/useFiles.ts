@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { filesAPI } from '@/services/api/files'
+import { queryKeys } from '@/lib/query-keys'
 import { permissionsAPI } from '@/services/api/permissions'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 
@@ -34,7 +35,7 @@ export interface ArchiveFilesQueryParams {
 
 export function useFilesQuery(params?: FilesQueryParams) {
   return useQuery({
-    queryKey: ['files', params],
+    queryKey: queryKeys.files.list(params),
     queryFn: () => filesAPI.getFiles(params),
     select: (response) => response.data,
   })
@@ -42,7 +43,7 @@ export function useFilesQuery(params?: FilesQueryParams) {
 
 export function useArchiveFilesQuery(params?: ArchiveFilesQueryParams) {
   return useQuery({
-    queryKey: ['archive-files', params],
+    queryKey: queryKeys.files.archive(params),
     queryFn: () => filesAPI.getArchiveFiles(params),
     select: (response) => response.data,
   })
@@ -50,7 +51,7 @@ export function useArchiveFilesQuery(params?: ArchiveFilesQueryParams) {
 
 export function useFileQuery(fileId: string) {
   return useQuery({
-    queryKey: ['file', fileId],
+    queryKey: queryKeys.files.detail(fileId),
     queryFn: () => filesAPI.getFile(fileId),
     select: (response) => response.data,
     enabled: !!fileId,
@@ -63,7 +64,7 @@ export function useUploadFileMutation() {
   return useMutation({
     mutationFn: (formData: FormData) => filesAPI.uploadFile(formData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       addNotification('success', 'File Uploaded', 'Your file has been uploaded successfully.')
     },
     onError: (error: any) => {
@@ -84,7 +85,7 @@ export function useBulkUploadMutation() {
       return filesAPI.bulkUpload(files, onProgress, metadata)
     },
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       addNotification('success', 'Files Uploaded', `${response.data.length} files uploaded successfully.`)
     },
     onError: (error: any) => {
@@ -100,7 +101,7 @@ export function useUploadScannedDocumentMutation() {
   return useMutation({
     mutationFn: (formData: FormData) => filesAPI.uploadScan(formData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       addNotification('success', 'Document Scanned', 'Your scanned document has been uploaded successfully.')
     },
     onError: (error: any) => {
@@ -116,7 +117,7 @@ export function useBulkScanUploadMutation() {
   return useMutation({
     mutationFn: (files: File[]) => filesAPI.bulkScanUpload(files),
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       addNotification('success', 'Documents Scanned', `${response.data.length} scanned documents uploaded successfully.`)
     },
     onError: (error: any) => {
@@ -133,8 +134,8 @@ export function useUpdateFileMutation() {
     mutationFn: ({ fileId, formData }: { fileId: string; formData: FormData }) =>
       filesAPI.updateFile(fileId, formData),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      queryClient.invalidateQueries({ queryKey: ['file', variables.fileId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.detail(variables.fileId) })
       addNotification('success', 'File Updated', 'File metadata has been updated successfully.')
     },
     onError: (error: any) => {
@@ -151,8 +152,8 @@ export function useDeleteFileMutation() {
     mutationFn: (variables: { fileId: string; permanent?: boolean }) =>
       filesAPI.deleteFile(variables.fileId, variables.permanent),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      queryClient.invalidateQueries({ queryKey: ['deletedFiles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.deleted() })
       addNotification('success', 'File Deleted', 'File has been moved to recycle bin.')
     },
     onError: (error: any) => {
@@ -168,8 +169,8 @@ export function useRestoreFileMutation() {
   return useMutation({
     mutationFn: (fileId: string) => filesAPI.restoreFile(fileId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      queryClient.invalidateQueries({ queryKey: ['deletedFiles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.deleted() })
       addNotification('success', 'File Restored', 'File has been restored from recycle bin.')
     },
     onError: (error: any) => {
@@ -186,10 +187,10 @@ export function useShareFileMutation() {
     mutationFn: ({ fileId, userId, access }: { fileId: string; userId: string; access: 'view' | 'download' | 'edit' }) =>
       filesAPI.grantPermission(fileId, userId, access),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      queryClient.invalidateQueries({ queryKey: ['my-permissions'] })
-      queryClient.invalidateQueries({ queryKey: ['my-sent-permissions'] })
-      queryClient.invalidateQueries({ queryKey: ['file-permissions', variables.fileId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.myPermissions() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.mySentPermissions() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.permissions(variables.fileId) })
       addNotification('success', 'File Shared', 'Permission granted successfully')
     },
     onError: (error: any) => {
@@ -205,9 +206,9 @@ export function useRevokePermissionMutation() {
   return useMutation({
     mutationFn: (permissionId: string) => filesAPI.revokePermission(permissionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      queryClient.invalidateQueries({ queryKey: ['my-permissions'] })
-      queryClient.invalidateQueries({ queryKey: ['my-sent-permissions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.myPermissions() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.mySentPermissions() })
       addNotification('success', 'Permission Revoked', 'Access has been revoked')
     },
     onError: (error: any) => {
@@ -219,7 +220,7 @@ export function useRevokePermissionMutation() {
 
 export function useFilePermissionsQuery(fileId: string) {
   return useQuery({
-    queryKey: ['file-permissions', fileId],
+    queryKey: queryKeys.files.permissions(fileId),
     queryFn: () => filesAPI.getFilePermissions(fileId),
     select: (response) => response.data,
     enabled: !!fileId,
@@ -228,7 +229,7 @@ export function useFilePermissionsQuery(fileId: string) {
 
 export function useMyPermissionsQuery() {
   return useQuery({
-    queryKey: ['my-permissions'],
+    queryKey: queryKeys.files.myPermissions(),
     queryFn: () => permissionsAPI.getMyPermissions(),
     select: (response) => response.data,
   })
@@ -236,7 +237,7 @@ export function useMyPermissionsQuery() {
 
 export function useMySentPermissionsQuery() {
   return useQuery({
-    queryKey: ['my-sent-permissions'],
+    queryKey: queryKeys.files.mySentPermissions(),
     queryFn: async () => {
       const response = await permissionsAPI.getMySentPermissions()
       return response.data
@@ -248,7 +249,7 @@ export function useMySentPermissionsQuery() {
 
 export function useDeletedFilesQuery(params?: { page?: number; limit?: number; showAll?: boolean }) {
   return useQuery({
-    queryKey: ['deletedFiles', params],
+    queryKey: queryKeys.files.deleted(params),
     queryFn: () => filesAPI.getDeletedFiles(params),
     select: (response) => response.data,
   })
@@ -277,7 +278,7 @@ export function useDownloadFileMutation() {
 
 export function useVersionHistoryQuery(fileId: string) {
   return useQuery({
-    queryKey: ['versions', fileId],
+    queryKey: queryKeys.files.versions(fileId),
     queryFn: () => filesAPI.getVersions(fileId),
     select: (response) => response.data,
     enabled: !!fileId,
@@ -291,9 +292,9 @@ export function useRollbackVersionMutation() {
     mutationFn: ({ fileId, versionNumber }: { fileId: string; versionNumber: number }) =>
       filesAPI.rollback(fileId, versionNumber),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['file', variables.fileId] })
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      queryClient.invalidateQueries({ queryKey: ['versions', variables.fileId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.detail(variables.fileId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.versions(variables.fileId) })
       addNotification('success', 'Version Restored', 'File has been rolled back to selected version.')
     },
     onError: (error: any) => {
@@ -305,7 +306,7 @@ export function useRollbackVersionMutation() {
 
 export function useSupportedTypesQuery() {
   return useQuery({
-    queryKey: ['supportedTypes'],
+    queryKey: queryKeys.files.supportedTypes(),
     queryFn: () => filesAPI.getSupportedTypes(),
     select: (response) => response.data,
   })

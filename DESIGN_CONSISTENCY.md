@@ -12,6 +12,24 @@
 - **Animations**: Prefer `DESIGN.animation.*` (fade, slide, gentle)
 - **Forms**: Always wrap with `<Label>` + proper spacing (space-y-2.5 or tighter)
 
+## Query Keys (React Query / TanStack Query)
+
+**Always import from `@/lib/query-keys.ts`**
+
+Example:
+```ts
+import { queryKeys } from '@/lib/query-keys'
+
+// Queries
+useQuery({ queryKey: queryKeys.files.list(params) })
+
+// Invalidations in mutations
+queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+queryClient.invalidateQueries({ queryKey: queryKeys.scanner.pending.stats() })
+```
+
+Never hardcode `['files']`, `['auth-user']`, etc. anymore.
+
 ## How to Use the Design System
 
 ```tsx
@@ -34,6 +52,7 @@ import { DESIGN, designCard, designModal } from '@/lib/design-system'
 - Use only lucide-react icons
 - Keep consistent 8px / 12px / 16px spacing rhythm
 - Use gentle 200-300ms transitions
+- **Always use query keys from `@/lib/query-keys`** (never hardcode strings)
 
 **Don't**
 - Hardcode colors like `bg-blue-500` outside of design tokens (use `bg-primary`)
