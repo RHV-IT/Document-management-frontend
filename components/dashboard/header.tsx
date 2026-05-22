@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth'
+import { useAccessControl } from '@/hooks/useAccessControl'
 import { useNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutation } from '@/hooks/useNotifications'
 import type { Notification } from '@/services/api/notifications'
 import { Bell, Search, User, Settings, LogOut, Check, X, ChevronRight } from 'lucide-react'
@@ -45,6 +46,7 @@ const NOTIFICATION_COLORS: Record<string, string> = {
 
 export function DashboardHeader() {
   const { user, logout } = useAuth()
+  const { clearanceBadge } = useAccessControl()
   const router = useRouter()
   const { data: notificationsData, isLoading } = useNotificationsQuery({ limit: 5 })
   const markAsRead = useMarkAsReadMutation()
@@ -206,7 +208,10 @@ export function DashboardHeader() {
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                    <span className={`text-[9px] px-1 py-px rounded border font-medium tracking-tight ${clearanceBadge.color}`}>{clearanceBadge.label}</span>
+                  </div>
                 </div>
               </div>
             </Button>
@@ -215,9 +220,12 @@ export function DashboardHeader() {
             <div className="px-3 py-2 bg-gray-50 rounded-lg mb-2">
               <p className="font-semibold text-gray-900">{user?.name}</p>
               <p className="text-xs text-gray-500">{user?.email}</p>
-              {user?.department && (
-                <p className="text-xs text-blue-600 mt-1">{user.department}</p>
-              )}
+              <div className="mt-1">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${clearanceBadge.color}`}>{clearanceBadge.label}</span>
+                {user?.department && (
+                  <span className="text-xs text-blue-600 ml-2">{(user.department as any)?.name || user.department}</span>
+                )}
+              </div>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem

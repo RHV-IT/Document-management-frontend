@@ -65,6 +65,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { formatBytes, getMachineId } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { useAccessControl } from '@/hooks/useAccessControl'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 import { FileItem } from '@/services/api/files'
 import { Lock, Shield } from 'lucide-react'
@@ -131,6 +132,7 @@ export default function FilesPage() {
 
   // Auth
   const { user } = useAuth()
+  const { canView, filterFiles, clearanceBadge, isAdmin, userDepartment } = useAccessControl()
 
   // Queries
   const { data: usersData } = useUsersListQuery({ search: undefined, limit: 50 })
@@ -194,16 +196,18 @@ export default function FilesPage() {
   const scannerCancel = useScannerCancelMutation()
 
 
-  // Data
-  const ownedFiles = ownedFilesData?.files || []
-  const scannedFiles = scannedFilesData?.files || []
-  // Ensure only truly scanned files are shown on the Scanned tab
-  const scannedOnlyFiles = scannedFiles.filter((f: any) => f.isScanned === true)
+  // Data - strict frontend filtering applied before any render/pagination/counters/search
+  const ownedRaw = ownedFilesData?.files || []
+  const ownedFiles = useMemo(() => filterFiles(ownedRaw as any), [ownedRaw, filterFiles])
+  const scannedRaw = scannedFilesData?.files || []
+  const scannedFiles = useMemo(() => filterFiles(scannedRaw as any), [scannedRaw, filterFiles])
+  const scannedOnlyFiles = useMemo(() => scannedFiles.filter((f: any) => f.isScanned === true), [scannedFiles])
   const scannerFiles = scannerFilesData || []
   const scannerStats = scannerStatsData || { pending: 0 }
 
   const ownedTotal = ownedFilesData?.total || 0
-  const archiveFiles = archiveFilesData?.files || []
+  const archiveRaw = archiveFilesData?.files || []
+  const archiveFiles = useMemo(() => filterFiles(archiveRaw as any), [archiveRaw, filterFiles])
 
   // Build permission lists
   const buildList = useCallback((data: any) => {
@@ -218,8 +222,8 @@ export default function FilesPage() {
       }))
   }, [])
 
-  const receivedFilesList = useMemo(() => buildList(myPermissionsData || []), [myPermissionsData, buildList])
-  const sentFilesList = useMemo(() => buildList(sentPermissionsData || []), [sentPermissionsData, buildList])
+  const receivedFilesList = useMemo(() => buildList(myPermissionsData || []).filter((f: any) => canView(f)), [myPermissionsData, buildList, canView])
+  const sentFilesList = useMemo(() => buildList(sentPermissionsData || []).filter((f: any) => canView(f)), [sentPermissionsData, buildList, canView])
 
   const availableUsers = useMemo(() => {
     const usersList = usersData?.users || []
@@ -228,12 +232,12 @@ export default function FilesPage() {
   }, [usersData, myPermissionsData, user])
 
   const stats = useMemo(() => ({
-    total: ownedTotal,
-    scanned: ownedFiles.filter((f: any) => f.isScanned).length,
+    total: ownedFiles.length,
+    scanned: scannedOnlyFiles.length,
     sharedWithMe: receivedFilesList.length,
     sharedByMe: sentFilesList.length,
     pending: scannerStats.pending || scannerFiles.length
-  }), [ownedTotal, ownedFiles, receivedFilesList, sentFilesList, scannerStats.pending, scannerFiles])
+  }), [ownedFiles.length, scannedOnlyFiles.length, receivedFilesList.length, sentFilesList.length, scannerStats.pending, scannerFiles])
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -332,6 +336,10 @@ export default function FilesPage() {
   }
 
   const handlePreview = async (file: FileItem) => {
+    if (!canView(file)) {
+      addNotification('error', 'Access Denied', 'You do not have permission to access this file.')
+      return
+    }
     if (file.restricted) {
       addNotification('warning', 'Access Restricted', file.restrictionReason || 'Cannot preview highly confidential files.')
       return

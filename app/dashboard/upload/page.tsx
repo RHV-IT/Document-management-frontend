@@ -11,7 +11,7 @@ import { useUploadFileMutation, useBulkUploadMutation, useFilesQuery } from '@/h
 import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
 import {
   Upload, X, FileIcon, CheckCircle, AlertCircle,
-  Cloud, FileText, Trash2, File, Layers, FileBox, ArrowUpCircle
+  Cloud, FileText, Trash2, File, Layers, FileBox, ArrowUpCircle, Shield, Lock
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import type { FileItem } from '@/services/api/files'
 import { useAuth } from '@/hooks/useAuth'
+import { useAccessControl } from '@/hooks/useAccessControl'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 
 interface FileStatus {
@@ -60,6 +61,7 @@ export default function UploadPage() {
 
   // Auth
   const { user } = useAuth()
+  const { canUpload, clearanceBadge, isAdmin, userDepartment } = useAccessControl()
 
   // Mutations
   const uploadFile = useUploadFileMutation()
@@ -118,6 +120,10 @@ export default function UploadPage() {
 
   const handleSingleUpload = () => {
     if (!singleFile) return
+    if (!canUpload(confidentiality)) {
+      addNotification('error', 'Upload Blocked', `Your clearance (${clearanceBadge.label}) does not allow uploading ${confidentiality} files.`)
+      return
+    }
     const formData = new FormData()
     formData.append('file', singleFile)
     if (alias) formData.append('alias', alias)
@@ -193,15 +199,34 @@ export default function UploadPage() {
   }
 
   const handleBulkUpload = () => {
-    const pendingItems = bulkFiles.filter(f => f.status === 'pending')
-    const files = pendingItems.map(f => f.file)
+    let pendingItems = bulkFiles.filter(f => f.status === 'pending')
+
+    // per-file validation for clearance - block invalid, show error inline, proceed with valid
+    const validatedItems = pendingItems.map(item => {
+      const lvl = item.confidentialityLevel || 'internal'
+      if (!canUpload(lvl)) {
+        return { ...item, status: 'error' as const, error: `Blocked: exceeds your ${clearanceBadge.label} clearance` }
+      }
+      return item
+    })
+
+    const invalidCount = validatedItems.filter(i => i.status === 'error').length
+    if (invalidCount > 0) {
+      setBulkFiles(prev => prev.map(p => {
+        const match = validatedItems.find(v => v.id === p.id)
+        return match ? match : p
+      }))
+    }
+
+    const validPending = validatedItems.filter(i => i.status === 'pending')
+    const files = validPending.map(f => f.file)
 
     if (files.length === 0) {
+      if (invalidCount > 0) return
       addNotification('error', 'No Files', 'No files selected for upload')
       return
     }
 
-    // Filter out any null/undefined files
     const validFiles = files.filter(f => f && typeof f === 'object' && f.constructor.name === 'File') as File[]
 
     if (validFiles.length === 0) {
@@ -209,13 +234,13 @@ export default function UploadPage() {
       return
     }
 
-    const metadata = pendingItems.map(f => ({
+    const metadata = validPending.map(f => ({
       confidentialityLevel: f.confidentialityLevel || 'internal',
       ...(f.alias && f.alias.trim() ? { alias: f.alias.trim() } : {})
     }))
 
     setBulkUploadProgress(0)
-    setBulkFiles(prev => prev.map(f => f.status === 'pending' ? { ...f, status: 'uploading' as const } : f ))
+    setBulkFiles(prev => prev.map(f => f.status === 'pending' && validPending.some(v => v.id === f.id) ? { ...f, status: 'uploading' as const } : f ))
 
     bulkUpload.mutate(
       { files: validFiles, metadata, onProgress: (p: number) => setBulkUploadProgress(p) },
@@ -408,6 +433,14 @@ export default function UploadPage() {
                         userLevel={user?.confidentialityLevel}
                         placeholder="Select level"
                       />
+                      {confidentiality === 'highly_confidential' && (
+                        <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-md flex gap-2">
+                          <Shield className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div className="text-[11px] text-red-700 leading-snug">
+                            Only the uploader and administrators can access this file. Visibility locked.
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -537,16 +570,21 @@ export default function UploadPage() {
                                 </div>
                                  <div>
                                    <label className="text-xs font-medium text-gray-600 block mb-1">Confidentiality</label>
-                                   <ConfidentialityLevelSelect
-                                     value={file.confidentialityLevel || 'internal'}
-                                     onValueChange={(val) => updateBulkFileMetadata(file.id, { confidentialityLevel: val })}
-                                     userLevel={user?.confidentialityLevel}
-                                     placeholder="Select level"
-                                     className="h-8 text-sm"
-                                   />
-                                 </div>
-                              </div>
-                            )}
+                                    <ConfidentialityLevelSelect
+                                      value={file.confidentialityLevel || 'internal'}
+                                      onValueChange={(val) => updateBulkFileMetadata(file.id, { confidentialityLevel: val })}
+                                      userLevel={user?.confidentialityLevel}
+                                      placeholder="Select level"
+                                      className="h-8 text-sm"
+                                    />
+                                    {(file.confidentialityLevel || 'internal') === 'highly_confidential' && (
+                                      <div className="mt-1 flex items-center gap-1 text-[10px] text-red-600">
+                                        <Lock className="h-3 w-3" /> Visibility locked to you + admins
+                                      </div>
+                                    )}
+                                  </div>
+                               </div>
+                             )}
                             {file.status === 'error' && file.error && (
                               <p className="text-xs text-red-600 mt-1 truncate">{file.error}</p>
                             )}

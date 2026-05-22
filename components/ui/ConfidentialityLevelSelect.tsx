@@ -3,44 +3,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useConfidentialityLevelsConfigQuery } from '@/hooks/useSettings'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
+import { getAllowedUploadLevels, CONFIDENTIALITY_LEVELS } from '@/lib/access-control'
 
 interface ConfidentialityLevelSelectProps {
   value?: string
   onValueChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
-  userLevel?: string // current user's confidentiality level for restrictions
-  userRole?: string // current user's role for admin permissions
+  userLevel?: string
+  userRole?: string
   className?: string
 }
 
 const CONFIDENTIALITY_COLORS: Record<string, string> = {
-  public: '#10b981', // green
-  internal: '#3b82f6', // blue
-  confidential: '#f59e0b', // orange
-  highly_confidential: '#ef4444', // red
+  public: '#10b981',
+  internal: '#3b82f6',
+  confidential: '#f59e0b',
+  highly_confidential: '#ef4444'
 }
 
 const CONFIDENTIALITY_LABELS: Record<string, string> = {
   public: 'Everyone Can See',
   internal: 'Company Only',
   confidential: 'Limited Access Only',
-  highly_confidential: 'Very Secret - Few People Only',
+  highly_confidential: 'Very Secret - Few People Only'
 }
 
-const CONFIDENTIALITY_LEVEL_ORDER = ['public', 'internal', 'confidential', 'highly_confidential']
-
 function getAllowedLevels(userLevel?: string, userRole?: string): string[] {
-  // Admins can see all levels
-  if (userRole === 'admin') return CONFIDENTIALITY_LEVEL_ORDER
-
-  if (!userLevel) return CONFIDENTIALITY_LEVEL_ORDER
-
-  const userIndex = CONFIDENTIALITY_LEVEL_ORDER.indexOf(userLevel)
-  if (userIndex === -1) return CONFIDENTIALITY_LEVEL_ORDER
-
-  // User can choose their level and below
-  return CONFIDENTIALITY_LEVEL_ORDER.slice(0, userIndex + 1)
+  const tempUser = userRole || userLevel ? { role: userRole, confidentialityLevel: userLevel } : null
+  return getAllowedUploadLevels(tempUser as any)
 }
 
 export function ConfidentialityLevelSelect({
@@ -74,7 +65,7 @@ export function ConfidentialityLevelSelect({
   const options = levels && levels.length > 0
     ? levels
         .filter(level => allowedLevels.includes(level.value))
-        .sort((a, b) => CONFIDENTIALITY_LEVEL_ORDER.indexOf(a.value) - CONFIDENTIALITY_LEVEL_ORDER.indexOf(b.value))
+        .sort((a, b) => CONFIDENTIALITY_LEVELS.indexOf(a.value as any) - CONFIDENTIALITY_LEVELS.indexOf(b.value as any))
         .map(level => ({
           value: level.value,
           label: CONFIDENTIALITY_LABELS[level.value] || level.label,

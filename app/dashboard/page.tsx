@@ -1,8 +1,9 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import Link from 'next/link'
 import { useAuthContext } from '@/contexts/auth'
+import { useAccessControl } from '@/hooks/useAccessControl'
 import { useDashboardStats, useRecentFiles, useRecentActivity } from '@/hooks/useDashboard'
 import { 
   FileText, Upload, Clock, HardDrive, Users, Share2, 
@@ -46,8 +47,10 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function DashboardPage() {
   const { user, canAccess, isLoading, isFirstLogin } = useAuthContext()
+  const { filterFiles, clearanceBadge } = useAccessControl()
   const { data: stats, isLoading: statsLoading } = useDashboardStats()
-  const { data: recentFiles, isLoading: filesLoading } = useRecentFiles()
+  const { data: recentFilesRaw, isLoading: filesLoading } = useRecentFiles()
+  const recentFiles = useMemo(() => filterFiles((recentFilesRaw || []) as any), [recentFilesRaw, filterFiles])
   const { data: recentActivity, isLoading: activityLoading } = useRecentActivity()
 
   const getActionIcon = (action: string) => {
@@ -268,7 +271,7 @@ export default function DashboardPage() {
                     <TableRow key={file.fileId} className="hover:bg-gray-50/50 cursor-pointer">
                       <TableCell className="py-3">
                         <div className="flex items-center gap-3">
-                          <span className="text-lg">{getFileTypeIcon(file.type)}</span>
+                           <span className="text-lg">{getFileTypeIcon(file.type || 'unknown')}</span>
                           <div>
                             <p className="font-medium text-gray-900 text-sm">{file.alias || file.name}</p>
                             {file.alias && <p className="text-xs text-gray-400">{file.name}</p>}
@@ -281,7 +284,7 @@ export default function DashboardPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="py-3 text-right text-xs text-gray-500">
-                        {formatDistanceToNow(new Date(file.createdAt), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(file.createdAt || Date.now()), { addSuffix: true })}
                       </TableCell>
                     </TableRow>
                   ))}
