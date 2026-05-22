@@ -44,11 +44,23 @@ export default function ScannerUserGuidePage() {
     return () => { const s = document.getElementById('guide-print-styles'); if (s) s.remove() }
   }, [])
 
-  // Realtime scanner status polling every 5 seconds - ALWAYS pass userId
+  // Realtime scanner status polling every 5 seconds - ALWAYS pass userId (backend requires it)
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const data = await scannerService.getHealth(user?._id || user?.id)
+        // Get userId from auth context first, then fallback to storage (guaranteed)
+        let userId = user?._id || user?.id
+
+        if (!userId && typeof window !== 'undefined') {
+          userId = 
+            localStorage.getItem('userId') || 
+            sessionStorage.getItem('userId') || 
+            ''
+        }
+
+        // Always call with userId so the URL becomes /health?userId=xxx
+        const data = await scannerService.getHealth(userId || undefined)
+
         setAgentStatus({
           connected: Boolean(data.connected || data.success || data.online || data.agentConnected),
           version: data.version,
