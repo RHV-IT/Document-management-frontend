@@ -47,10 +47,10 @@ export interface ScannerPendingFile {
   _id: string
   id: string
   fileName: string
-  originalName: string
+  originalName?: string
   filePath: string
   fileSize: number
-  mimeType: string
+  mimeType?: string
   previewUrl?: string
   isImage: boolean
   status: 'pending' | 'confirming' | 'confirmed' | 'cancelled' | 'failed'
@@ -212,7 +212,7 @@ export function ScannerConfirmModal({
                           
                           {/* Professional extension badge */}
                           <div className="absolute bottom-2 right-2 text-[9px] font-mono font-semibold text-gray-500 bg-white/90 px-1.5 py-0.5 rounded border border-gray-200">
-                            {pendingFile.originalName.split('.').pop()?.toUpperCase()}
+                             {(pendingFile.originalName || '').split('.').pop()?.toUpperCase()}
                           </div>
                           
                           {/* Subtle scanned watermark */}

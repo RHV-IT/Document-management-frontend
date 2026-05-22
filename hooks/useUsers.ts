@@ -66,7 +66,7 @@ export function useUpdateUserMutation() {
 export function useResetPasswordMutation() {
   return useMutation({
     mutationFn: (variables: { userId: string; newPassword: string }) =>
-      usersAPI.resetPassword(variables.userId, variables.newPassword),
+      usersAPI.resetPassword({ id: variables.userId, newPassword: variables.newPassword }),
     onSuccess: () => {
       toast.success('Password reset successfully')
     },

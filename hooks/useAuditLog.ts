@@ -10,6 +10,7 @@ export function useAuditLogsQuery(params?: {
   fromDate?: string
   toDate?: string
   search?: string
+  machineId?: string
 }) {
   return useQuery({
     queryKey: ['audit-logs', params],

@@ -150,7 +150,7 @@ export function useDeleteFileMutation() {
 
   return useMutation({
     mutationFn: (variables: { fileId: string; permanent?: boolean }) =>
-      filesAPI.deleteFile(variables.fileId, variables.permanent),
+      filesAPI.deleteFile(variables.fileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.deleted() })

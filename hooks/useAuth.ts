@@ -186,7 +186,7 @@ export function useUpdateProfileMutation() {
 export function useChangePasswordMutation() {
   return useMutation({
     mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
-      authAPI.changePassword(currentPassword, newPassword),
+      authAPI.changePassword({ currentPassword, newPassword }),
     onSuccess: () => {
       addNotification('success', 'Password Changed', 'Your password has been changed successfully.')
     },

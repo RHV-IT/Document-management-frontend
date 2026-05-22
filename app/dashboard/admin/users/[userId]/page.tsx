@@ -95,7 +95,7 @@ export default function UserActivityPage() {
 
    if (!canAccess(['admin', 'hod'])) {
      return (
-       <ResponsiveContainer title="Access Denied" description="You do not have permission to view user activity. Please use a larger screen or contact admin.">
+        <ResponsiveContainer>
          <div className="flex-1 flex items-center justify-center p-8">
            <div className="text-center">
              <Activity className="h-16 w-16 text-red-400 mx-auto mb-4" />

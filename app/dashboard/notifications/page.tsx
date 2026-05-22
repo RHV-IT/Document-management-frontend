@@ -402,7 +402,7 @@ export default function NotificationsPage() {
                               className="cursor-pointer bg-blue-600 hover:bg-blue-700"
                               onClick={() => {
                                 handleMarkAsRead(selectedNotification._id)
-                                setSelectedNotification(prev => prev ? { ...prev, isRead: true } : null)
+                                 setSelectedNotification((prev: any) => prev ? { ...prev, isRead: true } : null)
                               }}
                               disabled={markAsRead.isPending}
                             >

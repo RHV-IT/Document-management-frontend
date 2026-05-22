@@ -4,10 +4,10 @@ export interface PendingScan {
   _id: string
   id: string
   fileName: string
-  originalName: string
+  originalName?: string
   filePath: string
   fileSize: number
-  mimeType: string
+  mimeType?: string
   previewUrl?: string
   isImage: boolean
   status: 'pending' | 'confirming' | 'confirmed' | 'cancelled' | 'failed'

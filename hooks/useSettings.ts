@@ -37,30 +37,16 @@ export function useConfidentialityLevelsConfigQuery() {
     queryKey: ['config', 'confidentiality-levels'],
     queryFn: async () => {
       try {
-        const apiResponse = await settingsAPI.getConfidentialityLevelsConfig()
-
-        let config
-        // Handle both possible response structures
-        if (apiResponse && apiResponse.levels) {
-          // Direct response: { levels: [], descriptions: {} }
-          config = apiResponse
-        } else if (apiResponse && apiResponse.data && apiResponse.data.levels) {
-          // Wrapped response: { success: true, data: { levels: [], descriptions: {} } }
-          config = apiResponse.data
-        } else {
-
-          return []
-        }
+        const config = await settingsAPI.getConfidentialityLevelsConfig()
 
         if (!config || !config.levels) {
-
           return []
         }
 
         // Transform the API response into the expected format
-        const transformed = config.levels.map(level => ({
-          value: level, // This should be "public", "internal", "confidential", "highly_confidential"
-          label: config.descriptions[level] || level.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        const transformed = config.levels.map((level: any) => ({
+          value: level,
+          label: config.descriptions?.[level] || String(level).replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
         }))
 
 

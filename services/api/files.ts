@@ -366,7 +366,12 @@ export const filesAPI = {
     return response.data
   },
 
-    getPendingStats: async (): Promise<{ success: boolean; data: ScannerStats }> => {
+    getSupportedTypes: async (): Promise<{ success: boolean; data: string[] }> => {
+    // TODO: Replace with real API call when backend supports it
+    return { success: true, data: ['pdf', 'docx', 'xlsx', 'pptx', 'jpg', 'png', 'txt'] };
+  },
+
+  getPendingStats: async (): Promise<{ success: boolean; data: ScannerStats }> => {
       try {
         const response = await apiClient.get('/api/v1/scanner/pending/stats')
         return response.data
@@ -387,10 +392,10 @@ export interface ScannerPendingItem {
   _id: string
   id: string
   fileName: string
-  originalName: string
+  originalName?: string
   filePath: string
   fileSize: number
-  mimeType: string
+  mimeType?: string
   previewUrl?: string
   isImage: boolean
   status: 'pending' | 'confirming' | 'confirmed' | 'cancelled' | 'failed'

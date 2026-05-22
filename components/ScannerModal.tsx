@@ -48,7 +48,8 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-function getFileType(mimeType: string): string {
+function getFileType(mimeType: string | undefined): string {
+  if (!mimeType) return 'Unknown'
   const types: Record<string, string> = {
     'image/jpeg': 'JPG Image',
     'image/png': 'PNG Image',
@@ -64,7 +65,7 @@ function FilePreview({ scan }: { scan: PendingScan }) {
   // Professional thumbnail only - no raw screen/iframe previews (keeps dialog clean & enterprise-grade)
   const ext = ((scan.fileName || '').split('.').pop() || '').toUpperCase()
   const isPdf = scan.mimeType === 'application/pdf' || ext === 'PDF'
-  const isImage = scan.mimeType.startsWith('image/')
+  const isImage = (scan.mimeType || '').startsWith('image/')
 
   return (
     <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-white p-5 border border-slate-200 shadow-sm flex items-center justify-center">
@@ -114,10 +115,10 @@ export function ScannerModal({
   useEffect(() => {
     if (scan) {
       setPhase('initial')
-      setAlias(scan.originalName.replace(/\.[^/.]+$/, ''))
+      setAlias((scan.originalName || '').replace(/\.[^/.]+$/, ''))
       setConfidentialityLevel('')
       setDescription('')
-      setFormat(scan.mimeType === 'application/pdf' ? 'pdf' : scan.mimeType.startsWith('image/') ? 'jpg' : '')
+      setFormat(scan.mimeType === 'application/pdf' ? 'pdf' : (scan.mimeType || '').startsWith('image/') ? 'jpg' : '')
     }
   }, [scan])
 
@@ -207,7 +208,7 @@ export function ScannerModal({
             <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 min-h-0">
               <FilePreview scan={scan} />
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-4">File: {scan.originalName}</p>
+                <p className="text-sm text-gray-600 mb-4">File: {scan.originalName || scan.fileName || 'Unknown'}</p>
                 <p className="text-sm text-gray-600">Size: {formatFileSize(scan.fileSize)}</p>
               </div>
             </div>
@@ -368,9 +369,11 @@ export function ScannerModal({
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 animate-badge-pop stagger-1">
                     <p className="text-xs text-slate-500 font-medium mb-2">File Name</p>
-                    <p className="text-sm font-semibold text-slate-900 truncate" title={scan.originalName}>
-                      {scan.originalName.length > 20 ? scan.originalName.substring(0, 17) + '...' : scan.originalName}
-                    </p>
+                     <p className="text-sm font-semibold text-slate-900 truncate" title={scan.originalName || scan.fileName}>
+                       {(scan.originalName || scan.fileName || '').length > 20 
+                         ? (scan.originalName || scan.fileName || '').substring(0, 17) + '...' 
+                         : (scan.originalName || scan.fileName || '')}
+                     </p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 animate-badge-pop stagger-2">
                     <p className="text-xs text-slate-500 font-medium mb-2">File Size</p>
