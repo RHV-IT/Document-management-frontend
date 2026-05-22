@@ -91,9 +91,9 @@ const FORMAT_OPTIONS = [
 ]
 
 // Professional file type icon renderer (used in preview)
-function getProfessionalFileIcon(mimeType: string, fileName: string, size: number = 48) {
-  const ext = (fileName.split('.').pop() || '').toLowerCase()
-  const mt = mimeType.toLowerCase()
+function getProfessionalFileIcon(mimeType: string | undefined, fileName: string | undefined, size: number = 48) {
+  const ext = ((fileName || '').split('.').pop() || '').toLowerCase()
+  const mt = (mimeType || '').toLowerCase()
 
   if (mt.includes('pdf') || ext === 'pdf') {
     return <FileType className={`text-red-600`} size={size} />
@@ -206,7 +206,7 @@ export function ScannerConfirmModal({
                               {getProfessionalFileIcon(pendingFile.mimeType, pendingFile.originalName, 52)}
                             </div>
                             <div className="text-[10px] font-semibold text-gray-500 tracking-[1px] uppercase">
-                              {pendingFile.mimeType.split('/')[1]?.toUpperCase() || 'DOCUMENT'}
+                               {(pendingFile.mimeType || '').split('/')[1]?.toUpperCase() || 'DOCUMENT'}
                             </div>
                           </div>
                           
@@ -241,7 +241,7 @@ export function ScannerConfirmModal({
                            <span className="text-emerald-600">●</span> {(pendingFile.fileSize / (1024 * 1024)).toFixed(1)} MB
                          </div>
                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700">
-                           {pendingFile.mimeType.split('/')[1]?.toUpperCase() || 'FILE'}
+                            {(pendingFile.mimeType || '').split('/')[1]?.toUpperCase() || 'FILE'}
                          </div>
                          {pendingFile.scannerMetadata && (
                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700" title={new Date(pendingFile.scannerMetadata.scannedAt).toLocaleString()}>

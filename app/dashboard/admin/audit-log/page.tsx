@@ -94,7 +94,7 @@ const ACTION_COLORS: Record<string, string> = {
 const POPULAR_ACTIONS = ['login', 'logout', 'upload', 'download', 'delete', 'file_share', 'permission_grant']
 
 const getHumanReadableActivity = (log: AuditLog): string => {
-  const userName = log.userId?.name || log.userEmail.split('@')[0]
+  const userName = log.userId?.name || (log.userEmail ? log.userEmail.split('@')[0] : 'Unknown User')
   const machineName = log.machine?.machineName || 'Unknown Device'
 
   switch (log.action) {

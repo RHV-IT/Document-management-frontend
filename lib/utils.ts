@@ -17,7 +17,7 @@ export function formatBytes(bytes: number, decimals = 2): string {
 }
 
 export function getFileIcon(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  const ext = (fileName || '').split('.').pop()?.toLowerCase() || ''
 
   const iconMap: Record<string, string> = {
     pdf: '📄',

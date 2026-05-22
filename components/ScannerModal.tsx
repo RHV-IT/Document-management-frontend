@@ -62,7 +62,7 @@ function getFileType(mimeType: string): string {
 
 function FilePreview({ scan }: { scan: PendingScan }) {
   // Professional thumbnail only - no raw screen/iframe previews (keeps dialog clean & enterprise-grade)
-  const ext = (scan.fileName.split('.').pop() || '').toUpperCase()
+  const ext = ((scan.fileName || '').split('.').pop() || '').toUpperCase()
   const isPdf = scan.mimeType === 'application/pdf' || ext === 'PDF'
   const isImage = scan.mimeType.startsWith('image/')
 
