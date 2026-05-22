@@ -28,11 +28,11 @@ export function ScreenSizeGuard({ children, showOnMobile = true }: ScreenSizeGua
         <h1 className="text-3xl font-bold text-white tracking-tight mb-3">
           Screen Too Small
         </h1>
-        
+
         <p className="text-lg text-gray-300 mb-2">
           RHV Hospital DMS is designed for tablets and desktop computers.
         </p>
-        
+
         <p className="text-sm text-gray-400 mb-8">
           Please use a device with a screen width of at least <span className="font-semibold text-white">768px</span> (tablet or larger).
         </p>
@@ -50,9 +50,9 @@ export function ScreenSizeGuard({ children, showOnMobile = true }: ScreenSizeGua
           For security and compliance reasons, this system does not support mobile phones.
         </div>
 
-        <Button 
-          variant="outline" 
-          className="mt-6 border-white/30 text-white hover:bg-white/10"
+        <Button
+          variant="outline"
+          className="mt-6 border-white/30 text-white bg-gray-800 hover:bg-white/10"
           onClick={() => window.location.reload()}
         >
           <AlertTriangle className="h-4 w-4 mr-2" />
