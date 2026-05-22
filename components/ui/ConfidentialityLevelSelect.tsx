@@ -87,38 +87,40 @@ export function ConfidentialityLevelSelect({
 
 
   return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger className={className}>
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: option.color }}
-              />
-              <div>
-                <div className="font-medium">{option.label}</div>
-                {option.description && option.description !== option.label && (
-                  <div className="text-xs text-muted-foreground">{option.description}</div>
-                )}
+    <div className="w-full">
+      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+        <SelectTrigger className={className}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: option.color }}
+                />
+                <div>
+                  <div className="font-medium">{option.label}</div>
+                  {option.description && option.description !== option.label && (
+                    <div className="text-xs text-muted-foreground">{option.description}</div>
+                  )}
+                </div>
               </div>
-            </div>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-    {/* Professional restriction note (A + B) */}
-    {showRestrictionNote && allowedLevels.length < CONFIDENTIALITY_LEVELS.length && currentUserLevel && (
-      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-        <Shield className="h-3 w-3 flex-shrink-0" />
-        <span>
-          Limited to your clearance: <strong className="font-medium">{getClearanceLabel(currentUserLevel)}</strong>
-        </span>
-      </div>
-    )}
+      {/* Professional restriction note (A + B) */}
+      {showRestrictionNote && allowedLevels.length < CONFIDENTIALITY_LEVELS.length && currentUserLevel && (
+        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+          <Shield className="h-3 w-3 flex-shrink-0" />
+          <span>
+            Limited to your clearance: <strong className="font-medium">{getClearanceLabel(currentUserLevel)}</strong>
+          </span>
+        </div>
+      )}
+    </div>
   )
 }
