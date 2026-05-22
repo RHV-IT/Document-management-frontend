@@ -87,13 +87,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Update session cache
       queryClient.setQueryData(['auth-user'], { data: user })
       
-      // Initialize login count for this user if not exists
+      // Sync loginCount from backend response (login API now provides it)
+      const apiLoginCount = (response.data as any)?.loginCount ?? (user as any)?.loginCount ?? 1
       if (typeof window !== 'undefined') {
         const userId = user.id || user._id || ''
         const countKey = getLoginCountKey(userId)
-        if (!localStorage.getItem(countKey)) {
-          localStorage.setItem(countKey, '0')
-        }
+        localStorage.setItem(countKey, apiLoginCount.toString())
       }
     },
   })
@@ -120,18 +119,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   })
 
   // Login wrapper
-  const login = useCallback(async (data: LoginRequest) => {
+    const login = useCallback(async (data: LoginRequest) => {
     try {
       const response = await loginMutation.mutateAsync(data)
       const { user } = response.data
 
-      // Initialize login count for this user if not exists
+      // Use loginCount from backend login API response if provided (per spec: loginCount === 1 triggers onboarding)
+      const apiLoginCount = (response.data as any)?.loginCount ?? (user as any)?.loginCount ?? 1
+
+      // Initialize or sync login count from API response
       if (typeof window !== 'undefined') {
         const userId = user.id || user._id || ''
         const countKey = getLoginCountKey(userId)
-        if (!localStorage.getItem(countKey)) {
-          localStorage.setItem(countKey, '0')
-        }
+        const currentStored = getLoginCount(userId)
+        // Prefer API value for first login detection
+        const effectiveCount = apiLoginCount > 0 ? apiLoginCount : (currentStored || 1)
+        localStorage.setItem(countKey, effectiveCount.toString())
       }
 
       // Sync token to scanner agent on user's machine (browser-only, direct localhost)
@@ -230,7 +233,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user])
 
   const isFirstLogin = useCallback(() => {
-    return loginCount === 0
+    // Per requirements: if loginCount === 1 from login API response, show mandatory onboarding
+    return loginCount === 1 || loginCount === 0 // support both 0 (legacy) and 1 (new backend)
   }, [loginCount])
 
   const value: AuthContextType = {

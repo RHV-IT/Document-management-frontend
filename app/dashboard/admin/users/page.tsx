@@ -7,11 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
-import { ScannerAgentSetupPrompt } from '@/components/tutorial/ScannerAgentSetupPrompt'
+
 import { useAuth } from '@/hooks/useAuth'
-import { useAgentStatusQuery } from '@/hooks/useAgent'
-import { TableSkeleton } from '@/components/loaders/TableSkeleton'
-import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { useUsersQuery, useSuspendUserMutation, useActivateUserMutation, useUpdateUserMutation, useResetPasswordMutation, useRestoreUserMutation, useDeleteUserMutation } from '@/hooks/useUsers'
 import { useAuditLogsQuery } from '@/hooks/useAuditLog'
 import {
@@ -49,6 +46,8 @@ import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, 
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
+import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
+import { TableSkeleton } from '@/components/loaders/TableSkeleton'
 
 type ViewMode = 'grid' | 'table'
 
@@ -89,7 +88,6 @@ export default function AdminUsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [activityUser, setActivityUser] = useState<UserType | null>(null)
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false)
-  const [isSetupPromptOpen, setIsSetupPromptOpen] = useState(false)
 
   // Password reset
   const [resetPwUser, setResetPwUser] = useState<UserType | null>(null)
@@ -103,7 +101,6 @@ export default function AdminUsersPage() {
 
   const { user } = useAuth()
   const router = useRouter()
-  const { data: agentStatus } = useAgentStatusQuery()
 
   const { data, isLoading } = useUsersQuery({
     page,
@@ -124,13 +121,6 @@ export default function AdminUsersPage() {
     limit: 20,
     userId: activityUser?._id || activityUser?.id,
   })
-
-  // Check scanner agent status and show setup prompt if not connected
-  React.useEffect(() => {
-    if (agentStatus && !agentStatus.connected) {
-      setIsSetupPromptOpen(true)
-    }
-  }, [agentStatus])
 
   const handleEditUser = (user: UserType) => {
     setEditingUser(user)
@@ -1050,16 +1040,6 @@ export default function AdminUsersPage() {
             </div>
           </DialogContent>
         </Dialog>
-
-        {/* Scanner Agent Setup Prompt */}
-        <ScannerAgentSetupPrompt
-          isOpen={isSetupPromptOpen}
-          onComplete={() => {
-            setIsSetupPromptOpen(false)
-            router.push('/dashboard')
-          }}
-          onSkip={() => setIsSetupPromptOpen(false)}
-        />
       </div>
     </ResponsiveContainer>
   )

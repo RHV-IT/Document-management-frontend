@@ -16,6 +16,7 @@ import { addNotification } from '@/components/notifications/NotificationCenter'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { getUserFriendlyErrorMessage } from '@/lib/errorUtils'
+import { DESIGN } from '@/lib/design-system'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),

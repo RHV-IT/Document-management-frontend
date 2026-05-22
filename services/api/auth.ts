@@ -121,6 +121,7 @@ export interface User {
   createdAt?: string
   confidentialityLevel?: string
   confidentialityLevels?: string[]
+  loginCount?: number
 }
 
 export interface AuthResponse {

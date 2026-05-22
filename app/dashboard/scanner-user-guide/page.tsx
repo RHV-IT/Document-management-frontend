@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
+import { cn } from '@/lib/utils'
 import {
   LogIn, Download, FolderOpen, Bell, CheckCircle, Printer, ArrowLeft,
   Scan, Monitor, User, FileText, HelpCircle, Shield
@@ -43,26 +44,26 @@ export default function ScannerUserGuidePage() {
     return () => { const s = document.getElementById('guide-print-styles'); if (s) s.remove() }
   }, [])
 
-  // Realtime scanner status polling every 5 seconds
+  // Realtime scanner status polling every 5 seconds - ALWAYS send userId from auth
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const userId = user?._id || user?.id
-        const params = userId ? { userId } : {}
+        let userId = user?._id || user?.id
+        if (!userId && typeof window !== 'undefined') {
+          userId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || ''
+        }
+        const params: any = { userId: userId || '' } // always include
         const res = await apiClient.get('/api/v1/scanner/health', { params })
         const data = res.data || {}
-        const isConnected = Boolean(
-          data.connected || data.success || data.online || data.agentConnected || data.watcherRunning
-        )
         setAgentStatus({
-          connected: isConnected,
+          connected: Boolean(data.connected || data.success || data.online || data.agentConnected),
           version: data.version,
           machineId: data.machineId,
-          status: data.status,
+          status: data.status || (data.connected ? 'Connected' : 'Disconnected'),
           watcherRunning: data.watcherRunning,
         })
       } catch {
-        setAgentStatus({ connected: false })
+        setAgentStatus({ connected: false, status: 'Disconnected' })
       } finally {
         setStatusLoading(false)
       }
@@ -137,32 +138,46 @@ export default function ScannerUserGuidePage() {
             <div className="flex flex-col lg:flex-row lg:items-center gap-6">
               <div className="flex-1">
                 {statusLoading ? (
-                  <div className="text-gray-500">Checking connection...</div>
-                ) : agentStatus.connected ? (
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-3xl">🟢</span>
-                      <span className="text-xl font-semibold text-green-700">Scanner Connected</span>
-                    </div>
-                    <p className="text-sm text-gray-600">Your RHV Scanner Agent is running and ready to use.</p>
-                  </div>
+                  <div className="text-gray-500 flex items-center gap-2">Checking scanner status <span className="animate-pulse">●</span></div>
                 ) : (
                   <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-3xl">🔴</span>
-                      <span className="text-xl font-semibold text-red-700">Scanner Offline</span>
+                    <div className="flex items-center gap-3 mb-2">
+                      {(() => {
+                        const s = (agentStatus.status || (agentStatus.connected ? 'Connected' : 'Disconnected')).toLowerCase()
+                        if (s.includes('connect') || s === 'active') return <><span className="inline-block w-3.5 h-3.5 bg-emerald-500 rounded-full animate-pulse" /> <span className="text-2xl font-semibold text-emerald-700">Connected &amp; Active</span></>
+                        if (s.includes('sync')) return <><span className="inline-block w-3.5 h-3.5 bg-blue-500 rounded-full animate-pulse" /> <span className="text-2xl font-semibold text-blue-700">Syncing</span></>
+                        if (s.includes('install')) return <><span className="inline-block w-3.5 h-3.5 bg-amber-500 rounded-full animate-pulse" /> <span className="text-2xl font-semibold text-amber-700">Installing</span></>
+                        if (s.includes('wait')) return <><span className="inline-block w-3.5 h-3.5 bg-orange-500 rounded-full animate-pulse" /> <span className="text-2xl font-semibold text-orange-700">Waiting for Agent</span></>
+                        if (s.includes('disconnect') || s.includes('offline')) return <><span className="inline-block w-3.5 h-3.5 bg-red-500 rounded-full" /> <span className="text-2xl font-semibold text-red-700">Disconnected</span></>
+                        return <><span className="inline-block w-3.5 h-3.5 bg-gray-400 rounded-full" /> <span className="text-2xl font-semibold text-gray-700">{agentStatus.status || 'Unknown'}</span></>
+                      })()}
                     </div>
-                    <p className="text-sm text-gray-600">Please install the RHV Scanner Agent to continue.</p>
+                    <p className="text-sm text-gray-600">
+                      {agentStatus.connected 
+                        ? 'Your scanner agent is healthy and watching the Scan folder.' 
+                        : 'Start or reinstall the RHV Scanner Agent on this computer.'}
+                    </p>
                   </div>
                 )}
 
-                {agentStatus.connected && (agentStatus.version || agentStatus.machineId) && (
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm bg-green-50 border border-green-100 rounded-xl p-3 text-green-800">
-                    {agentStatus.version && <div><span className="font-medium">Version:</span> {agentStatus.version}</div>}
-                    {agentStatus.machineId && <div><span className="font-medium">Machine ID:</span> {agentStatus.machineId}</div>}
-                    {typeof agentStatus.watcherRunning !== 'undefined' && (
-                      <div><span className="font-medium">Watcher:</span> {agentStatus.watcherRunning ? 'Running' : 'Stopped'}</div>
-                    )}
+                <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                  {['Connected', 'Active', 'Syncing', 'Installing', 'Waiting for Agent', 'Disconnected'].map((label) => {
+                    const active = (agentStatus.status || '').toLowerCase().includes(label.toLowerCase().split(' ')[0])
+                    return (
+                      <span key={label} className={cn(
+                        "px-3 py-1 rounded-full border font-medium transition-all",
+                        active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200"
+                      )}>
+                        {label}
+                      </span>
+                    )
+                  })}
+                </div>
+
+                {(agentStatus.version || agentStatus.machineId) && (
+                  <div className="mt-3 text-xs text-gray-500 bg-gray-50 rounded-xl p-3 font-mono">
+                    {agentStatus.version && <>v{agentStatus.version} • </>}
+                    {agentStatus.machineId && <>{agentStatus.machineId}</>}
                   </div>
                 )}
               </div>

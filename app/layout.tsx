@@ -10,6 +10,7 @@ import ErrorBoundary from '@/components/error-boundary'
 import { ScannerListener } from '@/components/ScannerListener'
 import { ScannerAgentFlow } from '@/components/scanner/ScannerAgentFlow'
 import { AgentEnforcement } from '@/components/AgentEnforcement'
+// Design System: see lib/design-system.ts + DESIGN_CONSISTENCY.md for rules
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });

@@ -7,6 +7,7 @@ import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { debug } from '@/lib/debug'
+import { ScreenSizeGuard } from '@/components/ScreenSizeGuard'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthContext()
@@ -68,7 +69,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <DashboardSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader />
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto">
+          <ScreenSizeGuard>
+            {children}
+          </ScreenSizeGuard>
+        </main>
       </div>
     </div>
   )

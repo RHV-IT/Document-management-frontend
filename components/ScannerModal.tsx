@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import type { PendingScan } from '@/hooks/useScanner'
+import { designModal } from '@/lib/design-system'
 
 interface ScannerModalProps {
   open: boolean
@@ -111,14 +112,17 @@ function FilePreview({ scan }: { scan: PendingScan }) {
     <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 overflow-hidden border border-slate-200 shadow-sm">
       <div className="aspect-video max-h-56 rounded-xl bg-white flex items-center justify-center shadow-inner border border-slate-200">
         <div className="text-center">
-          {scan.mimeType.startsWith('image/') ? (
-            <Image className={`size-20 ${getIconColor(scan.mimeType)} mx-auto mb-2 opacity-30`} />
-          ) : scan.mimeType === 'application/pdf' ? (
-            <FileText className={`size-20 ${getIconColor(scan.mimeType)} mx-auto mb-2 opacity-30`} />
-          ) : (
-            <FileIcon className={`size-20 ${getIconColor(scan.mimeType)} mx-auto mb-2 opacity-30`} />
-          )}
-           <p className="text-sm text-slate-500">Preview unavailable</p>
+          <div className="mx-auto mb-3 opacity-75">
+            {scan.mimeType.startsWith('image/') ? (
+              <Image className={`size-16 ${getIconColor(scan.mimeType)}`} />
+            ) : scan.mimeType === 'application/pdf' ? (
+              <FileText className={`size-16 ${getIconColor(scan.mimeType)}`} />
+            ) : (
+              <FileIcon className={`size-16 ${getIconColor(scan.mimeType)}`} />
+            )}
+          </div>
+          <p className="text-xs text-slate-500 font-medium tracking-wider">PREVIEW UNAVAILABLE</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{scan.mimeType.split('/')[1]?.toUpperCase() || 'FILE'}</p>
         </div>
       </div>
     </div>
@@ -178,7 +182,10 @@ export function ScannerModal({
   if (isMobile && open) {
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
-        <DialogContent className="sm:max-w-[425px] border-0 shadow-2xl p-6" showCloseButton={false}>
+        <DialogContent 
+          className={designModal("sm:max-w-[480px] p-0")} 
+          showCloseButton={false}
+        >
           <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
               <Smartphone className="size-8 text-blue-600" />
@@ -421,11 +428,10 @@ export function ScannerModal({
 
                 {/* Document Alias - Full Width */}
                 <div className="space-y-2 animate-form-field-in stagger-1">
-                  <Label htmlFor="alias" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <span className="text-base">📝</span>
-                    Document Alias
-                    <span className="text-red-500 font-bold">*</span>
-                  </Label>
+                   <Label htmlFor="alias" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                     Document Alias
+                     <span className="text-red-500 font-bold">*</span>
+                   </Label>
                   <Input
                     id="alias"
                     value={alias}
@@ -496,28 +502,21 @@ export function ScannerModal({
                       <SelectTrigger id="format" className="h-11 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-sm">
                         <SelectValue placeholder="Select format" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pdf">
-                          <span>📄 PDF</span>
-                        </SelectItem>
-                        <SelectItem value="jpg">
-                          <span>🖼️ JPG/JPEG</span>
-                        </SelectItem>
-                        <SelectItem value="png">
-                          <span>🖼️ PNG</span>
-                        </SelectItem>
-                      </SelectContent>
+                       <SelectContent>
+                         <SelectItem value="pdf">PDF</SelectItem>
+                         <SelectItem value="jpg">JPG / JPEG</SelectItem>
+                         <SelectItem value="png">PNG</SelectItem>
+                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 {/* Description - Full Width Optional */}
                 <div className="space-y-2 animate-form-field-in stagger-4">
-                  <Label htmlFor="description" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <span className="text-base">💬</span>
-                    Description
-                    <span className="text-slate-400 text-xs font-normal">(optional)</span>
-                  </Label>
+                   <Label htmlFor="description" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                     Description
+                     <span className="text-xs text-slate-400 font-normal">(Optional)</span>
+                   </Label>
                   <Input
                     id="description"
                     value={description}

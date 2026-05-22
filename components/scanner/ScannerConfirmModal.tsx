@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils'
 import { ScannerPendingItem } from '@/services/api/files'
 import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
 import { useAuth } from '@/hooks/useAuth'
+import { DESIGN, designModal } from '@/lib/design-system'
 
 export interface ScannerPendingFile {
   _id: string
@@ -88,6 +89,29 @@ const FORMAT_OPTIONS = [
   { value: 'jpg', label: 'JPG', description: 'JPEG Image' },
   { value: 'png', label: 'PNG', description: 'PNG Image' },
 ]
+
+// Professional file type icon renderer (used in preview)
+function getProfessionalFileIcon(mimeType: string, fileName: string, size: number = 48) {
+  const ext = (fileName.split('.').pop() || '').toLowerCase()
+  const mt = mimeType.toLowerCase()
+
+  if (mt.includes('pdf') || ext === 'pdf') {
+    return <FileType className={`text-red-600`} size={size} />
+  }
+  if (mt.includes('image') || ['jpg','jpeg','png','gif','webp'].includes(ext)) {
+    return <Image className={`text-blue-600`} size={size} />
+  }
+  if (['doc','docx'].includes(ext) || mt.includes('word')) {
+    return <FileText className={`text-indigo-600`} size={size} />
+  }
+  if (['xls','xlsx'].includes(ext) || mt.includes('sheet')) {
+    return <FileText className={`text-emerald-600`} size={size} />
+  }
+  if (['ppt','pptx'].includes(ext)) {
+    return <FileText className={`text-orange-600`} size={size} />
+  }
+  return <FileText className={`text-gray-600`} size={size} />
+}
 
 export function ScannerConfirmModal({
   open,
@@ -137,7 +161,10 @@ export function ScannerConfirmModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 overflow-hidden rounded-2xl flex flex-col" showCloseButton={false}>
+      <DialogContent 
+        className={designModal("max-w-2xl flex flex-col")} 
+        showCloseButton={false}
+      >
         {/* Header - Fixed */}
         <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 shrink-0">
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
@@ -171,62 +198,69 @@ export function ScannerConfirmModal({
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
                 <div className="relative bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50 rounded-2xl border border-slate-200/60 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
                   <div className="flex items-center gap-6">
-                     {/* Preview Image/Icon */}
-                     <div className="relative flex-shrink-0 animate-badge-pop stagger-1">
-                       {pendingFile.isImage && pendingFile.previewUrl ? (
-                         <div className="w-32 h-32 rounded-xl overflow-hidden shadow-md border-3 border-white hover:shadow-lg transition-shadow duration-300">
-                           <img
-                             src={pendingFile.previewUrl}
-                             alt={pendingFile.originalName}
-                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                           />
-                         </div>
-                       ) : pendingFile.isImage ? (
-                         <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-emerald-100 via-teal-100 to-cyan-100 border-3 border-white flex flex-col items-center justify-center shadow-md hover:shadow-lg transition-all">
-                           <FileText className="h-12 w-12 text-emerald-600 opacity-80 mb-1" />
-                           <span className="text-[10px] text-emerald-600/70 font-medium">Preview unavailable</span>
-                         </div>
-                       ) : (
-                         <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-emerald-100 via-teal-100 to-cyan-100 border-3 border-white flex items-center justify-center shadow-md hover:shadow-lg transition-all">
-                           <FileText className="h-16 w-16 text-emerald-600 opacity-80" />
-                         </div>
-                       )}
-                      {/* Status Badge */}
-                      <div className="absolute -bottom-3 -right-3 flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full shadow-lg border border-amber-300 animate-bounce">
-                        <Clock className="h-3.5 w-3.5 text-white" />
-                        <span className="text-xs font-bold text-white">Pending</span>
-                      </div>
-                    </div>
+                      {/* Professional File Preview with Type-Specific Icon */}
+                      <div className="relative flex-shrink-0">
+                        <div className="w-36 h-36 rounded-2xl border border-gray-200 bg-white shadow-inner flex flex-col items-center justify-center overflow-hidden relative">
+                          {pendingFile.previewUrl && pendingFile.isImage ? (
+                            <img 
+                              src={pendingFile.previewUrl} 
+                              alt={pendingFile.originalName}
+                              className="w-full h-full object-contain bg-gray-50"
+                              onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-center p-4">
+                              <div className="mb-2 opacity-90">
+                                {getProfessionalFileIcon(pendingFile.mimeType, pendingFile.originalName, 56)}
+                              </div>
+                              <div className="text-[10px] font-semibold text-gray-500 tracking-wider uppercase">
+                                {pendingFile.mimeType.split('/')[1]?.toUpperCase() || 'DOCUMENT'}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Subtle file type watermark */}
+                          <div className="absolute bottom-2 right-2 text-[9px] font-mono text-gray-400 bg-white/70 px-1.5 rounded">
+                            {pendingFile.originalName.split('.').pop()?.toUpperCase()}
+                          </div>
+                        </div>
 
-                    {/* File Information */}
-                    <div className="flex-1 min-w-0 animate-badge-pop stagger-2">
-                      <h3 className="font-bold text-gray-900 text-lg leading-tight truncate pr-2 mb-1">
-                        {pendingFile.originalName}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        {pendingFile.isImage ? '📸 Image Document' : '📄 Digital Document'}
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-3 py-2 bg-white border border-emerald-200 rounded-full text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors">
-                          {(pendingFile.fileSize / (1024 * 1024)).toFixed(2)} MB
-                        </span>
-                        <span className="px-3 py-2 bg-white border border-teal-200 rounded-full text-xs font-semibold text-teal-700 hover:bg-teal-50 transition-colors">
-                          {pendingFile.mimeType.split('/')[1]?.toUpperCase() || 'FILE'}
-                        </span>
-                        {pendingFile.scannerMetadata && (
-                          <span className="px-3 py-2 bg-white border border-blue-200 rounded-full text-xs font-semibold text-blue-700 hover:bg-blue-50 transition-colors" title={new Date(pendingFile.scannerMetadata.scannedAt).toLocaleString()}>
-                            📅 {new Date(pendingFile.scannerMetadata.scannedAt).toLocaleDateString()}
-                          </span>
-                        )}
+                        {/* Professional Status Badge */}
+                        <div className="absolute -bottom-2 -right-2 px-4 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold tracking-wider rounded-full shadow-md flex items-center gap-1.5 border border-amber-300">
+                          <Clock className="h-3 w-3" /> PENDING REVIEW
+                        </div>
                       </div>
-                      {pendingFile.scannerMetadata && (
-                        <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                          Scanned: {new Date(pendingFile.scannerMetadata.scannedAt).toLocaleTimeString()}
-                        </p>
-                      )}
-                    </div>
+
+                     {/* File Information - Clean Professional */}
+                     <div className="flex-1 min-w-0">
+                       <h3 className="font-semibold text-gray-900 text-xl leading-tight truncate pr-2 mb-1 tracking-[-0.3px]">
+                         {pendingFile.originalName}
+                       </h3>
+                       <p className="text-sm text-gray-500 mb-4">
+                         Scanned document ready for approval
+                       </p>
+
+                       <div className="flex items-center gap-2 flex-wrap">
+                         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700">
+                           <span className="text-emerald-600">●</span> {(pendingFile.fileSize / (1024 * 1024)).toFixed(1)} MB
+                         </div>
+                         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700">
+                           {pendingFile.mimeType.split('/')[1]?.toUpperCase() || 'FILE'}
+                         </div>
+                         {pendingFile.scannerMetadata && (
+                           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700" title={new Date(pendingFile.scannerMetadata.scannedAt).toLocaleString()}>
+                             {new Date(pendingFile.scannerMetadata.scannedAt).toLocaleDateString()}
+                           </div>
+                         )}
+                       </div>
+
+                       {pendingFile.scannerMetadata && (
+                         <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1.5">
+                           <Clock className="h-3 w-3" /> 
+                           Scanned at {new Date(pendingFile.scannerMetadata.scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         </p>
+                       )}
+                     </div>
                   </div>
                 </div>
               </div>
@@ -240,10 +274,9 @@ export function ScannerConfirmModal({
             {/* Alias Field */}
             <div className="space-y-2.5 animate-form-field-in stagger-1">
               <Label htmlFor="alias" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <span className="text-lg">📝</span>
-                Document Alias
-                <span className="text-xs font-normal text-gray-400">(Optional)</span>
-              </Label>
+                 Document Alias
+                 <span className="text-xs font-normal text-gray-400">(Optional)</span>
+               </Label>
               <Input
                 id="alias"
                 placeholder="Give it a memorable name (e.g., Invoice-Jan-2024)..."

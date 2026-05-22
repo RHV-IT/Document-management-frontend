@@ -5,9 +5,8 @@ import { useAuthContext } from '@/contexts/auth'
 import { PasswordChangeDialog } from '@/components/tutorial/PasswordChangeDialog'
 import { FirstLoginTutorial } from '@/components/tutorial/FirstLoginTutorial'
 import { FirstLoginPasswordPrompt } from './FirstLoginPasswordPrompt'
-import { ScannerAgentSetupPrompt } from './ScannerAgentSetupPrompt'
 
-type OnboardingPhase = 'tutorial' | 'password-prompt' | 'change-password' | 'scanner-setup' | 'completed'
+type OnboardingPhase = 'tutorial' | 'password-choice' | 'password-form' | 'completed'
 
 interface OnboardingFlowProps {
   isFirstLogin: boolean
@@ -17,51 +16,70 @@ interface OnboardingFlowProps {
 export function OnboardingFlow({ isFirstLogin, onComplete }: OnboardingFlowProps) {
   const { incrementLoginCount } = useAuthContext()
   const [phase, setPhase] = useState<OnboardingPhase>('tutorial')
+  const [sessionCompleted, setSessionCompleted] = useState(false)
 
-  // Reset when component mounts or when isFirstLogin becomes true
+  // Session guard to never reopen in same session even if count not yet persisted
   useEffect(() => {
-    if (isFirstLogin) {
+    if (typeof window !== 'undefined') {
+      const sessionFlag = localStorage.getItem('onboardingSessionCompleted')
+      if (sessionFlag) setSessionCompleted(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isFirstLogin && !sessionCompleted) {
       setPhase('tutorial')
     }
-  }, [isFirstLogin])
+  }, [isFirstLogin, sessionCompleted])
 
-  // Handle completing the entire flow
-  const handleComplete = () => {
+  const markSessionComplete = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('onboardingSessionCompleted', Date.now().toString())
+    }
+    setSessionCompleted(true)
+  }
+
+  const completeOnboarding = () => {
     incrementLoginCount()
     if (typeof window !== 'undefined') {
       localStorage.setItem('onboardingCompleted', 'true')
     }
+    markSessionComplete()
     setPhase('completed')
     onComplete()
   }
 
-  // Handle password prompt response
-  const handlePasswordPromptClose = (changePassword: boolean) => {
-    if (changePassword) {
-      setPhase('change-password')
+  // Tutorial done -> show professional change password choice
+  const handleTutorialComplete = () => {
+    setPhase('password-choice')
+  }
+
+  // From choice: later = complete all and unlock forever (for count)
+  // change = open the secure form
+  const handlePasswordChoice = (wantsToChange: boolean) => {
+    if (wantsToChange) {
+      setPhase('password-form')
     } else {
-      setPhase('tutorial')
+      // I Will Do This Later: close everything, unlock dashboard, no overlay, no auto reopen same session
+      completeOnboarding()
     }
   }
 
-  // Handle successful password change
-  const handlePasswordChangeSuccess = () => {
-    setPhase('tutorial')
+  const handlePasswordFormClose = () => {
+    completeOnboarding()
   }
 
-  // Handle tutorial completion - move to password prompt
-  const handleTutorialComplete = () => {
-    setPhase('password-prompt')
+  const handlePasswordFormSuccess = () => {
+    completeOnboarding()
   }
 
-  // If not first login or completed, don't render anything
-  if (!isFirstLogin || phase === 'completed') {
+  if (!isFirstLogin || phase === 'completed' || sessionCompleted) {
     return null
   }
 
   return (
     <>
-      {/* Phase 1: Show tutorial */}
+      {/* STEP 1: Welcome Tutorial Modal - Professional fullscreen style, non-technical explanations, PDF guide generator, NO skip */}
       {phase === 'tutorial' && (
         <FirstLoginTutorial
           isOpen={true}
@@ -70,29 +88,20 @@ export function OnboardingFlow({ isFirstLogin, onComplete }: OnboardingFlowProps
         />
       )}
 
-      {/* Phase 2: Ask if user wants to change password */}
-      {phase === 'password-prompt' && (
+      {/* STEP 2a: Change Password choice - modern centered professional modal */}
+      {phase === 'password-choice' && (
         <FirstLoginPasswordPrompt
           isOpen={true}
-          onClose={handlePasswordPromptClose}
+          onClose={handlePasswordChoice}
         />
       )}
 
-      {/* Phase 3: Show password change form */}
-      {phase === 'change-password' && (
+      {/* STEP 2b: Actual secure Change Password form (when user chooses to change now) */}
+      {phase === 'password-form' && (
         <PasswordChangeDialog
           isOpen={true}
-          onClose={() => setPhase('scanner-setup')}
-          onSuccess={() => setPhase('scanner-setup')}
-        />
-      )}
-
-      {/* Phase 4: Scanner Agent Setup */}
-      {phase === 'scanner-setup' && (
-        <ScannerAgentSetupPrompt
-          isOpen={true}
-          onComplete={handleComplete}
-          onSkip={handleComplete}
+          onClose={handlePasswordFormClose}
+          onSuccess={handlePasswordFormSuccess}
         />
       )}
     </>
