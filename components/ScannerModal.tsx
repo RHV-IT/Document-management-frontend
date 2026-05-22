@@ -61,62 +61,34 @@ function getFileType(mimeType: string): string {
 }
 
 function FilePreview({ scan }: { scan: PendingScan }) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewError, setPreviewError] = useState(false)
-
-  useEffect(() => {
-    if (scan.isImage && scan.previewUrl) {
-      setPreviewUrl(scan.previewUrl)
-      setPreviewError(false)
-    }
-  }, [scan])
-
-  // Determine file icon color
-  const getIconColor = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return 'text-blue-600'
-    if (mimeType === 'application/pdf') return 'text-red-600'
-    return 'text-gray-600'
-  }
-
-  if (scan.isImage && previewUrl && !previewError) {
-    return (
-      <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 overflow-hidden border border-slate-200 shadow-sm">
-        <div className="relative aspect-video max-h-56 overflow-hidden rounded-xl bg-white flex items-center justify-center shadow-inner">
-          <img
-            src={previewUrl}
-            alt={scan.fileName}
-            className="max-h-full max-w-full object-contain"
-            onError={() => setPreviewError(true)}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  if (scan.mimeType === 'application/pdf' && !previewError) {
-    return (
-      <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 overflow-hidden border border-slate-200 shadow-sm">
-        <div className="aspect-video max-h-56 rounded-xl bg-white flex items-center justify-center shadow-inner border border-slate-200">
-          <iframe
-            src={scan.previewUrl || `/api/v1/scanner/pending/${scan.id}/preview`}
-            className="w-full h-full rounded-lg border-0"
-            title={scan.fileName}
-            onError={() => setPreviewError(true)}
-          />
-        </div>
-      </div>
-    )
-  }
+  // Professional thumbnail only - no raw screen/iframe previews (keeps dialog clean & enterprise-grade)
+  const ext = (scan.fileName.split('.').pop() || '').toUpperCase()
+  const isPdf = scan.mimeType === 'application/pdf' || ext === 'PDF'
+  const isImage = scan.mimeType.startsWith('image/')
 
   return (
-    <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-4 overflow-hidden border border-slate-200 shadow-sm">
-      <div className="aspect-video max-h-56 rounded-xl bg-white flex items-center justify-center shadow-inner border border-slate-200">
-        <div className="text-center">
-          <div className="mx-auto mb-3 opacity-75">
-            {scan.mimeType.startsWith('image/') ? (
-              <Image className={`size-16 ${getIconColor(scan.mimeType)}`} />
-            ) : scan.mimeType === 'application/pdf' ? (
-              <FileText className={`size-16 ${getIconColor(scan.mimeType)}`} />
+    <div className="relative rounded-2xl bg-gradient-to-br from-slate-50 to-white p-5 border border-slate-200 shadow-sm flex items-center justify-center">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-3">
+          {isPdf ? (
+            <FileText className="size-14 text-red-600" />
+          ) : isImage ? (
+            <Image className="size-14 text-blue-600" />
+          ) : (
+            <FileIcon className="size-14 text-gray-600" />
+          )}
+        </div>
+        <div className="text-[10px] font-semibold tracking-widest text-gray-500 uppercase">
+          {ext || 'FILE'}
+        </div>
+        <div className="mt-1 text-[9px] text-gray-400 font-medium">SCANNED DOCUMENT</div>
+      </div>
+      <div className="absolute bottom-2 right-2 text-[9px] font-mono bg-white/90 border border-gray-200 px-1.5 rounded text-gray-500">
+        {ext}
+      </div>
+    </div>
+  )
+}
             ) : (
               <FileIcon className={`size-16 ${getIconColor(scan.mimeType)}`} />
             )}
@@ -428,15 +400,15 @@ export function ScannerModal({
 
                 {/* Document Alias - Full Width */}
                 <div className="space-y-2 animate-form-field-in stagger-1">
-                   <Label htmlFor="alias" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                     Document Alias
-                     <span className="text-red-500 font-bold">*</span>
-                   </Label>
+                    <Label htmlFor="alias" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      Rename document
+                      <span className="text-xs font-normal text-slate-400">(optional)</span>
+                    </Label>
                   <Input
                     id="alias"
                     value={alias}
                     onChange={(e) => setAlias(e.target.value)}
-                    placeholder="Enter a descriptive name (e.g., Invoice_January_2024)"
+                     placeholder="Give it a memorable name (e.g. Invoice-Jan-2024)"
                     required
                     disabled={isSubmitting}
                     className="h-11 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white placeholder:text-slate-400 text-sm"

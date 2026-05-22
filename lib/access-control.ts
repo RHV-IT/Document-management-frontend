@@ -5,6 +5,7 @@ export interface AccessUser {
   role?: string
   department?: string | { name?: string; _id?: string }
   confidentialityLevel?: string
+  confidentialityLevels?: string[]
   id?: string
   _id?: string
 }
@@ -35,25 +36,53 @@ function getLevelIndex(l?: string): number {
 
 export function canViewFile(user: AccessUser | null, file: AccessFile | null): boolean {
   if (!user || !file) return false
-  if (user.role === 'admin') return true
+
+  const fLevel = file.confidentialityLevel
   const uDept = getDept(user.department)
   const fDept = getDept(file.department)
+
+  // Admin always bypasses department restriction
+  if (user.role === 'admin') {
+    if (Array.isArray(user.confidentialityLevels) && user.confidentialityLevels.length > 0) {
+      if (fLevel && !user.confidentialityLevels.includes(fLevel)) return false
+    }
+    return true
+  }
+
+  // Department restriction for non-admins
   if (uDept && fDept && uDept !== fDept) return false
-  const uIdx = getLevelIndex(user.confidentialityLevel)
-  const fIdx = getLevelIndex(file.confidentialityLevel)
-  if (uIdx === -1 || fIdx === -1) return false
-  if (fIdx > uIdx) return false
-  if (file.confidentialityLevel === 'highly_confidential') {
+
+  // Level check: prefer confidentialityLevels array for every user
+  if (Array.isArray(user.confidentialityLevels) && user.confidentialityLevels.length > 0) {
+    if (fLevel && !user.confidentialityLevels.includes(fLevel)) return false
+  } else {
+    // Fallback to old singular level logic
+    const uIdx = getLevelIndex(user.confidentialityLevel)
+    const fIdx = getLevelIndex(fLevel)
+    if (uIdx === -1 || fIdx === -1) return false
+    if (fIdx > uIdx) return false
+  }
+
+  // Highly confidential special rule: only uploader (still applies)
+  if (fLevel === 'highly_confidential') {
     const upId = file.uploadedBy?._id || file.uploadedBy?.id || file.owner?._id || file.owner?.id
     const uId = user.id || user._id
     if (upId && uId && upId !== uId) return false
     return true
   }
+
   return true
 }
 
 export function getAllowedUploadLevels(user: AccessUser | null): ConfidentialityLevel[] {
   if (!user) return ['public']
+
+  // Use array for every user when available (new backend format)
+  if (Array.isArray(user.confidentialityLevels) && user.confidentialityLevels.length > 0) {
+    return user.confidentialityLevels.filter(l => CONFIDENTIALITY_LEVELS.includes(l as any)) as any
+  }
+
+  // Fallback to singular logic
   if (user.role === 'admin') return [...CONFIDENTIALITY_LEVELS]
   const idx = getLevelIndex(user.confidentialityLevel)
   if (idx === -1) return ['public']

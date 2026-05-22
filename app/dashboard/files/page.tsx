@@ -71,15 +71,17 @@ import { FileItem } from '@/services/api/files'
 import { Lock, Shield } from 'lucide-react'
 import { ScannerConfirmModal } from '@/components/scanner/ScannerConfirmModal'
 
-// Helper Functions
+// Helper Functions - using confidentialityLevels array with rightful professional colors
+const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'confidential', 'highly_confidential'] as const
+
 function getConfidentialityColor(level: any): string {
   const colors: Record<string, string> = {
-    public: 'bg-green-100 text-green-700',
+    public: 'bg-emerald-100 text-emerald-700',
     internal: 'bg-blue-100 text-blue-700',
-    confidential: 'bg-orange-100 text-orange-700',
+    confidential: 'bg-amber-100 text-amber-700',
     highly_confidential: 'bg-red-100 text-red-700'
   }
-  return ['public', 'internal', 'confidential', 'highly_confidential'].includes(level)
+  return CONFIDENTIALITY_LEVELS.includes(level)
     ? colors[level]
     : 'bg-gray-100 text-gray-700'
 }
@@ -91,7 +93,7 @@ function getConfidentialityLabel(level: any): string {
     confidential: 'Limited Access Only',
     highly_confidential: 'Very Secret - Few People Only'
   }
-  return ['public', 'internal', 'confidential', 'highly_confidential'].includes(level)
+  return CONFIDENTIALITY_LEVELS.includes(level)
     ? labels[level]
     : 'Unknown'
 }
@@ -225,6 +227,15 @@ export default function FilesPage() {
   // Shared files (received/sent via explicit permissions) always visible — sharing is the only exception to dept/confidentiality rules
   const receivedFilesList = useMemo(() => buildList(myPermissionsData || []), [myPermissionsData, buildList])
   const sentFilesList = useMemo(() => buildList(sentPermissionsData || []), [sentPermissionsData, buildList])
+
+  // Merge owned + explicitly shared files for the main "My Files" view
+  // (so regular users immediately see files granted to them via sharing)
+  const myAccessibleFiles = useMemo(() => {
+    const map = new Map<string, any>()
+    ownedFiles.forEach((f: any) => { if (f.fileId) map.set(f.fileId, f) })
+    receivedFilesList.forEach((f: any) => { if (f.fileId) map.set(f.fileId, f) })
+    return Array.from(map.values())
+  }, [ownedFiles, receivedFilesList])
 
   const availableUsers = useMemo(() => {
     const usersList = usersData?.users || []
@@ -646,7 +657,7 @@ export default function FilesPage() {
                       </div>
                     ))}
                   </div>
-                ) : ownedFiles.length === 0 ? (
+                ) : myAccessibleFiles.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <div className="text-center p-6">
                       <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
@@ -656,7 +667,7 @@ export default function FilesPage() {
                   </div>
                 ) : viewMode === 'list' ? (
                   <div className="divide-y">
-                    {ownedFiles.map((f: any) => (
+                     {myAccessibleFiles.map((f: any) => (
                       <div key={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
                         <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
                         <div className="flex-1 min-w-0">
@@ -690,7 +701,7 @@ export default function FilesPage() {
                   </div>
                 ) : (
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {ownedFiles.map((f: any) => (
+                     {myAccessibleFiles.map((f: any) => (
                       <Card key={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
                         <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
                           <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">

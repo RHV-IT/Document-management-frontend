@@ -24,6 +24,7 @@ export function useAccessControl() {
       role: user.role,
       department: user.department,
       confidentialityLevel: user.confidentialityLevel,
+      confidentialityLevels: user.confidentialityLevels,
       id: user.id,
       _id: user._id
     }

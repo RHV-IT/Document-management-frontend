@@ -198,30 +198,26 @@ export function ScannerConfirmModal({
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
                 <div className="relative bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50 rounded-2xl border border-slate-200/60 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
                   <div className="flex items-center gap-6">
-                      {/* Professional File Preview with Type-Specific Icon */}
+                      {/* Professional Document Thumbnail (clean & enterprise style) */}
                       <div className="relative flex-shrink-0">
-                        <div className="w-36 h-36 rounded-2xl border border-gray-200 bg-white shadow-inner flex flex-col items-center justify-center overflow-hidden relative">
-                          {pendingFile.previewUrl && pendingFile.isImage ? (
-                            <img 
-                              src={pendingFile.previewUrl} 
-                              alt={pendingFile.originalName}
-                              className="w-full h-full object-contain bg-gray-50"
-                              onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center text-center p-4">
-                              <div className="mb-2 opacity-90">
-                                {getProfessionalFileIcon(pendingFile.mimeType, pendingFile.originalName, 56)}
-                              </div>
-                              <div className="text-[10px] font-semibold text-gray-500 tracking-wider uppercase">
-                                {pendingFile.mimeType.split('/')[1]?.toUpperCase() || 'DOCUMENT'}
-                              </div>
+                        <div className="w-36 h-36 rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 shadow-sm flex flex-col items-center justify-center overflow-hidden relative">
+                          <div className="flex flex-col items-center justify-center text-center p-4">
+                            <div className="mb-2 opacity-95">
+                              {getProfessionalFileIcon(pendingFile.mimeType, pendingFile.originalName, 52)}
                             </div>
-                          )}
+                            <div className="text-[10px] font-semibold text-gray-500 tracking-[1px] uppercase">
+                              {pendingFile.mimeType.split('/')[1]?.toUpperCase() || 'DOCUMENT'}
+                            </div>
+                          </div>
                           
-                          {/* Subtle file type watermark */}
-                          <div className="absolute bottom-2 right-2 text-[9px] font-mono text-gray-400 bg-white/70 px-1.5 rounded">
+                          {/* Professional extension badge */}
+                          <div className="absolute bottom-2 right-2 text-[9px] font-mono font-semibold text-gray-500 bg-white/90 px-1.5 py-0.5 rounded border border-gray-200">
                             {pendingFile.originalName.split('.').pop()?.toUpperCase()}
+                          </div>
+                          
+                          {/* Subtle scanned watermark */}
+                          <div className="absolute top-2 left-2 text-[8px] font-bold tracking-[1.5px] text-gray-400/70 bg-white/80 px-1 rounded">
+                            SCANNED
                           </div>
                         </div>
 
@@ -273,10 +269,10 @@ export function ScannerConfirmModal({
 
             {/* Alias Field */}
             <div className="space-y-2.5 animate-form-field-in stagger-1">
-              <Label htmlFor="alias" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                 Document Alias
-                 <span className="text-xs font-normal text-gray-400">(Optional)</span>
-               </Label>
+               <Label htmlFor="alias" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  Rename document
+                  <span className="text-xs font-normal text-gray-400">(optional)</span>
+                </Label>
               <Input
                 id="alias"
                 placeholder="Give it a memorable name (e.g., Invoice-Jan-2024)..."

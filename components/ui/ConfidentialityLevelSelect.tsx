@@ -29,8 +29,15 @@ const CONFIDENTIALITY_LABELS: Record<string, string> = {
   highly_confidential: 'Very Secret - Few People Only'
 }
 
-function getAllowedLevels(userLevel?: string, userRole?: string): string[] {
-  const tempUser = userRole || userLevel ? { role: userRole, confidentialityLevel: userLevel } : null
+function getAllowedLevels(userRole?: string, userLevel?: string, confidentialityLevels?: string[]): string[] {
+  if (userRole === 'admin' && Array.isArray(confidentialityLevels) && confidentialityLevels.length > 0) {
+    return confidentialityLevels
+  }
+  const tempUser = userRole || userLevel ? { 
+    role: userRole, 
+    confidentialityLevel: userLevel,
+    confidentialityLevels: confidentialityLevels 
+  } : null
   return getAllowedUploadLevels(tempUser as any)
 }
 
@@ -53,7 +60,7 @@ export function ConfidentialityLevelSelect({
     return <Skeleton className={`h-10 w-full ${className}`} />
   }
 
-  const allowedLevels = getAllowedLevels(currentUserLevel, currentUserRole)
+  const allowedLevels = getAllowedLevels(currentUserRole, currentUserLevel, user?.confidentialityLevels)
   // Fallback options in case API doesn't work
   const fallbackOptions = [
     { value: 'public', label: CONFIDENTIALITY_LABELS.public, color: CONFIDENTIALITY_COLORS.public, description: 'Accessible to everyone' },
