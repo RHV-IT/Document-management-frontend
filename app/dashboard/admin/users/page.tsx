@@ -100,6 +100,14 @@ export default function AdminUsersPage() {
   const [actionType, setActionType] = useState<string>('')
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
 
+  // Helper: always show the highest (last) level from the array
+  const getUserClearanceLevel = (u: UserType): string => {
+    if (u.confidentialityLevels && u.confidentialityLevels.length > 0) {
+      return u.confidentialityLevels[u.confidentialityLevels.length - 1]
+    }
+    return u.confidentialityLevel || ''
+  }
+
   const { user } = useAuth()
   const router = useRouter()
 
@@ -260,34 +268,36 @@ export default function AdminUsersPage() {
                         <Badge className={STATUS_COLORS[user.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'}>
                           {user.status || 'active'}
                         </Badge>
-                        {(user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0, 2).map((lvl: string) => (
-                          <Badge
-                            key={lvl}
-                            className="text-xs"
-                            style={{
-                              backgroundColor: {
-                                public: '#10b981',
-                                internal: '#3b82f6',
-                                confidential: '#f59e0b',
-                                highly_confidential: '#ef4444'
-                              }[lvl] + '20',
-                              color: {
-                                public: '#065f46',
-                                internal: '#1e40af',
-                                confidential: '#92400e',
-                                highly_confidential: '#991b1b'
-                              }[lvl],
-                              border: `1px solid ${{
-                                public: '#10b981',
-                                internal: '#3b82f6',
-                                confidential: '#f59e0b',
-                                highly_confidential: '#ef4444'
-                              }[lvl]}`
-                            }}
-                          >
-                            {lvl.replace(/_/g, ' ')}
-                          </Badge>
-                        ))}
+                        {(() => {
+                          const lvl = getUserClearanceLevel(user)
+                          return lvl ? (
+                            <Badge
+                              className="text-xs"
+                              style={{
+                                backgroundColor: {
+                                  public: '#10b981',
+                                  internal: '#3b82f6',
+                                  confidential: '#f59e0b',
+                                  highly_confidential: '#ef4444'
+                                }[lvl] + '20',
+                                color: {
+                                  public: '#065f46',
+                                  internal: '#1e40af',
+                                  confidential: '#92400e',
+                                  highly_confidential: '#991b1b'
+                                }[lvl],
+                                border: `1px solid ${{
+                                  public: '#10b981',
+                                  internal: '#3b82f6',
+                                  confidential: '#f59e0b',
+                                  highly_confidential: '#ef4444'
+                                }[lvl]}`
+                              }}
+                            >
+                              {lvl.replace(/_/g, ' ')}
+                            </Badge>
+                          ) : null
+                        })()}
                       </div>
 
                       <div className="mt-3 space-y-1 text-sm text-muted-foreground">
@@ -401,35 +411,38 @@ export default function AdminUsersPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]) ? (
-                            <Badge
-                              className="text-xs"
-                              style={{
-                                backgroundColor: {
-                                  public: '#10b981',
-                                  internal: '#3b82f6',
-                                  confidential: '#f59e0b',
-                                  highly_confidential: '#ef4444'
-                                }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])] + '20',
-                                color: {
-                                  public: '#065f46',
-                                  internal: '#1e40af',
-                                  confidential: '#92400e',
-                                  highly_confidential: '#991b1b'
-                                }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])],
-                                border: `1px solid ${{
-                                  public: '#10b981',
-                                  internal: '#3b82f6',
-                                  confidential: '#f59e0b',
-                                  highly_confidential: '#ef4444'
-                                }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])]}`
-                              }}
-                            >
-                              {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]).replace(/_/g, ' ')}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
+                          {(() => {
+                            const lvl = getUserClearanceLevel(user)
+                            return lvl ? (
+                              <Badge
+                                className="text-xs"
+                                style={{
+                                  backgroundColor: {
+                                    public: '#10b981',
+                                    internal: '#3b82f6',
+                                    confidential: '#f59e0b',
+                                    highly_confidential: '#ef4444'
+                                  }[lvl] + '20',
+                                  color: {
+                                    public: '#065f46',
+                                    internal: '#1e40af',
+                                    confidential: '#92400e',
+                                    highly_confidential: '#991b1b'
+                                  }[lvl],
+                                  border: `1px solid ${{
+                                    public: '#10b981',
+                                    internal: '#3b82f6',
+                                    confidential: '#f59e0b',
+                                    highly_confidential: '#ef4444'
+                                  }[lvl]}`
+                                }}
+                              >
+                                {lvl.replace(/_/g, ' ')}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDistanceToNow(new Date(user.createdAt || ''), { addSuffix: true })}
@@ -884,33 +897,36 @@ export default function AdminUsersPage() {
                     <Badge className={STATUS_COLORS[activityUser?.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'}>
                       {activityUser?.status || 'active'}
                     </Badge>
-                    {((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0]) && (
-                      <Badge
-                        className="text-xs"
-                        style={{
-                          backgroundColor: {
-                            public: '#10b981',
-                            internal: '#3b82f6',
-                            confidential: '#f59e0b',
-                            highly_confidential: '#ef4444'
-                          }[((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0])] + '20',
-                          color: {
-                            public: '#065f46',
-                            internal: '#1e40af',
-                            confidential: '#92400e',
-                            highly_confidential: '#991b1b'
-                          }[((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0])],
-                          border: `1px solid ${{
-                            public: '#10b981',
-                            internal: '#3b82f6',
-                            confidential: '#f59e0b',
-                            highly_confidential: '#ef4444'
-                          }[((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0])]}`
-                        }}
-                      >
-                        {((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0]).replace(/_/g, ' ')}
-                      </Badge>
-                    )}
+                    {(() => {
+                      const lvl = activityUser ? getUserClearanceLevel(activityUser) : ''
+                      return lvl ? (
+                        <Badge
+                          className="text-xs"
+                          style={{
+                            backgroundColor: {
+                              public: '#10b981',
+                              internal: '#3b82f6',
+                              confidential: '#f59e0b',
+                              highly_confidential: '#ef4444'
+                            }[lvl] + '20',
+                            color: {
+                              public: '#065f46',
+                              internal: '#1e40af',
+                              confidential: '#92400e',
+                              highly_confidential: '#991b1b'
+                            }[lvl],
+                            border: `1px solid ${{
+                              public: '#10b981',
+                              internal: '#3b82f6',
+                              confidential: '#f59e0b',
+                              highly_confidential: '#ef4444'
+                            }[lvl]}`
+                          }}
+                        >
+                          {lvl.replace(/_/g, ' ')}
+                        </Badge>
+                      ) : null
+                    })()}
                   </div>
                   <p className="text-sm text-muted-foreground font-normal mt-1">Activity Log</p>
                 </div>
