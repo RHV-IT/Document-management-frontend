@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { useIsMobile } from '@/hooks/useMediaQuery'
-import { Monitor, Tablet, AlertTriangle } from 'lucide-react'
+import { Monitor, Tablet, AlertTriangle, Laptop } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DESIGN } from '@/lib/design-system'
 
@@ -30,11 +30,11 @@ export function ScreenSizeGuard({ children, showOnMobile = true }: ScreenSizeGua
         </h1>
 
         <p className="text-lg text-gray-300 mb-2">
-          RHV Hospital DMS is designed for tablets and desktop computers.
+          RHV Hospital DMS is designed for desktop computers only.
         </p>
 
         <p className="text-sm text-gray-400 mb-8">
-          Please use a device with a screen width of at least <span className="font-semibold text-white">768px</span> (tablet or larger).
+          Please use a device with a screen width of at least <span className="font-semibold text-white">1024px</span> (Laptop or larger).
         </p>
 
         <div className="flex items-center justify-center gap-3 text-xs text-gray-500 mb-8">
@@ -42,7 +42,7 @@ export function ScreenSizeGuard({ children, showOnMobile = true }: ScreenSizeGua
             <Monitor className="h-3.5 w-3.5" /> Desktop Recommended
           </div>
           <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-            <Tablet className="h-3.5 w-3.5" /> Tablet Minimum
+            <Laptop className="h-3.5 w-3.5" /> Laptops Minimum
           </div>
         </div>
 
@@ -57,7 +57,7 @@ export function ScreenSizeGuard({ children, showOnMobile = true }: ScreenSizeGua
         >
           {/* Animated futuristic glow ring */}
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 via-cyan-400/10 to-blue-500/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-          
+
           {/* Spinning holographic core */}
           <div className="relative flex h-5 w-5 items-center justify-center">
             <div className="absolute h-5 w-5 animate-[spin_2s_linear_infinite] rounded-full border border-white/30" />

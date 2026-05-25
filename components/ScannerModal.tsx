@@ -23,6 +23,7 @@ import {
 import { Label } from '@/components/ui/label'
 import type { PendingScan } from '@/hooks/useScanner'
 import { designModal } from '@/lib/design-system'
+import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
 
 interface ScannerModalProps {
   open: boolean
@@ -415,41 +416,13 @@ export function ScannerModal({
                       Confidentiality Level
                       <span className="text-red-500 font-bold">*</span>
                     </Label>
-                    <Select
+                    <ConfidentialityLevelSelect
                       value={confidentialityLevel}
                       onValueChange={setConfidentialityLevel}
+                      placeholder="Select level"
                       disabled={isSubmitting}
-                    >
-                      <SelectTrigger id="confidentiality" className="h-11 rounded-lg border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-sm">
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="public">
-                          <div className="flex items-center gap-2">
-                            <span className="size-2.5 rounded-full bg-green-500 block" />
-                            Everyone Can See
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="internal">
-                          <div className="flex items-center gap-2">
-                            <span className="size-2.5 rounded-full bg-blue-500 block" />
-                            Company Only
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="confidential">
-                          <div className="flex items-center gap-2">
-                            <span className="size-2.5 rounded-full bg-amber-500 block" />
-                            Limited Access Only
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="highly_confidential">
-                          <div className="flex items-center gap-2">
-                            <span className="size-2.5 rounded-full bg-red-500 block" />
-                            Very Secret - Few People Only
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                      showRestrictionNote
+                    />
                   </div>
 
                   <div className="space-y-2 animate-form-field-in stagger-3">

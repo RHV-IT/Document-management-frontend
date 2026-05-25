@@ -23,11 +23,11 @@ export function useMediaQuery(query: string): boolean {
 }
 
 export function useIsMobile() {
-  return useMediaQuery('(max-width: 767px)')
+  return useMediaQuery('(max-width: 1024px)')
 }
 
 export function useIsTablet() {
-  return useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
+  return useMediaQuery('(min-width: 1023px) and (max-width: 1024px)')
 }
 
 export function useIsDesktop() {

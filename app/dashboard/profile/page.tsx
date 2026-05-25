@@ -161,12 +161,12 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
           <p className="text-gray-500 mt-1">View your account details, notifications, and scanner status</p>
         </div>
-        {user?.confidentialityLevel && (
+        {user?.confidentialityLevels && user.confidentialityLevels.length > 0 && (
           <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
             <Shield className="h-4 w-4" />
             <span className="font-medium">Clearance:</span>
-            <Badge className={`${getLevelColor(user.confidentialityLevel)} text-xs px-2.5 py-0.5`}>
-              {user.confidentialityLevel.replace(/_/g, ' ')}
+            <Badge className={`${getLevelColor(user.confidentialityLevels[user.confidentialityLevels.length-1])} text-xs px-2.5 py-0.5`}>
+              {user.confidentialityLevels[user.confidentialityLevels.length-1].replace(/_/g, ' ')}
             </Badge>
           </div>
         )}
@@ -210,19 +210,20 @@ export default function ProfilePage() {
                       {user.role === 'admin' ? 'Administrator' : user.role === 'hod' ? 'Head of Dept' : 'User'}
                     </Badge>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Confidentiality Level</p>
-                    {user.confidentialityLevel ? (
-                      <Badge
-                        className={`${getLevelColor(user.confidentialityLevel)} mt-1`}
-                      >
-                        <Shield className="h-3 w-3 mr-1" />
-                        {user.confidentialityLevel.replace(/_/g, ' ')}
-                      </Badge>
-                    ) : (
-                      <p className="text-sm text-gray-500 mt-1">Not assigned</p>
-                    )}
-                  </div>
+                   <div>
+                     <p className="text-sm font-medium text-gray-500">Confidentiality Level</p>
+                     {user.confidentialityLevels && user.confidentialityLevels.length > 0 ? (
+                       <Badge
+                         className={`${getLevelColor(user.confidentialityLevels[user.confidentialityLevels.length-1])} mt-1`}
+                       >
+                         <Shield className="h-3 w-3 mr-1" />
+                         {user.confidentialityLevels[user.confidentialityLevels.length-1].replace(/_/g, ' ')}
+                       </Badge>
+                     ) : (
+                       <p className="text-sm text-gray-500 mt-1">Not assigned</p>
+                     )}
+                   </div>
+
                 </div>
 
                 {/* Confidentiality Levels */}

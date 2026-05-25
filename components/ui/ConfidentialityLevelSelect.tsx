@@ -2,8 +2,8 @@ import React from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useConfidentialityLevelsConfigQuery } from '@/hooks/useSettings'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAuth } from '@/hooks/useAuth'
-import { getAllowedUploadLevels, CONFIDENTIALITY_LEVELS, getClearanceLabel } from '@/lib/access-control'
+import { useAccessControl } from '@/hooks/useAccessControl'
+import { CONFIDENTIALITY_LEVELS, getClearanceLabel, getHighestConfidentialityLevel } from '@/lib/access-control'
 import { Shield } from 'lucide-react'
 
 interface ConfidentialityLevelSelectProps {
@@ -11,10 +11,12 @@ interface ConfidentialityLevelSelectProps {
   onValueChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  /** @deprecated - component now sources allowed levels exclusively from logged-in user's confidentialityLevels via useAccessControl */
   userLevel?: string
+  /** @deprecated - component now sources allowed levels exclusively from logged-in user's confidentialityLevels via useAccessControl */
   userRole?: string
   className?: string
-  showRestrictionNote?: boolean   // Professional helper note when options are limited by user's clearance
+  showRestrictionNote?: boolean
 }
 
 const CONFIDENTIALITY_COLORS: Record<string, string> = {
@@ -31,23 +33,6 @@ const CONFIDENTIALITY_LABELS: Record<string, string> = {
   highly_confidential: 'Very Secret - Few People Only'
 }
 
-function getAllowedLevels(userRole?: string, userLevel?: string, confidentialityLevels?: string[]): string[] {
-  // Admins always get full list (or their provided list)
-  if (userRole === 'admin') {
-    if (Array.isArray(confidentialityLevels) && confidentialityLevels.length > 0) {
-      return confidentialityLevels.filter(l => CONFIDENTIALITY_LEVELS.includes(l as any))
-    }
-    return [...CONFIDENTIALITY_LEVELS]
-  }
-
-  const tempUser = userRole || userLevel ? { 
-    role: userRole, 
-    confidentialityLevel: userLevel,
-    confidentialityLevels: confidentialityLevels 
-  } : null
-  return getAllowedUploadLevels(tempUser as any)
-}
-
 export function ConfidentialityLevelSelect({
   value,
   onValueChange,
@@ -59,17 +44,15 @@ export function ConfidentialityLevelSelect({
   showRestrictionNote = false,
 }: ConfidentialityLevelSelectProps) {
   const { data: levels, isLoading } = useConfidentialityLevelsConfigQuery()
-  const { user } = useAuth()
-
-  const currentUserRole = userRole || user?.role
-  const currentUserLevel = userLevel || user?.confidentialityLevel
+  const { allowedLevels } = useAccessControl()
 
   if (isLoading) {
     return <Skeleton className={`h-10 w-full ${className}`} />
   }
 
-  const allowedLevels = getAllowedLevels(currentUserRole, currentUserLevel, user?.confidentialityLevels)
-  // Fallback options in case API doesn't work
+  // PRIMARY UI AUTHORITY: ONLY levels from current user's confidentialityLevels array (post-login normalized)
+  const allowed = (allowedLevels || []) as string[]
+
   const fallbackOptions = [
     { value: 'public', label: CONFIDENTIALITY_LABELS.public, color: CONFIDENTIALITY_COLORS.public, description: 'Accessible to everyone' },
     { value: 'internal', label: CONFIDENTIALITY_LABELS.internal, color: CONFIDENTIALITY_COLORS.internal, description: 'Internal company use only' },
@@ -79,17 +62,17 @@ export function ConfidentialityLevelSelect({
 
   const options = levels && levels.length > 0
     ? levels
-        .filter(level => allowedLevels.includes(level.value))
+        .filter((level) => allowed.includes(level.value))
         .sort((a, b) => CONFIDENTIALITY_LEVELS.indexOf(a.value as any) - CONFIDENTIALITY_LEVELS.indexOf(b.value as any))
-        .map(level => ({
+        .map((level) => ({
           value: level.value,
           label: CONFIDENTIALITY_LABELS[level.value] || level.label,
           color: CONFIDENTIALITY_COLORS[level.value] || '#6b7280',
           description: level.label,
         }))
-    : fallbackOptions.filter(option => allowedLevels.includes(option.value))
+    : fallbackOptions.filter((option) => allowed.includes(option.value))
 
-
+  const effectiveHighest = getHighestConfidentialityLevel(allowed)
 
   return (
     <div className="w-full">
@@ -98,31 +81,34 @@ export function ConfidentialityLevelSelect({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: option.color }}
-                />
-                <div>
-                  <div className="font-medium">{option.label}</div>
-                  {option.description && option.description !== option.label && (
-                    <div className="text-xs text-muted-foreground">{option.description}</div>
-                  )}
+          {options.length > 0 ? (
+            options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: option.color }}
+                  />
+                  <div>
+                    <div className="font-medium">{option.label}</div>
+                    {option.description && option.description !== option.label && (
+                      <div className="text-xs text-muted-foreground">{option.description}</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </SelectItem>
-          ))}
+              </SelectItem>
+            ))
+          ) : (
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">No levels available for your access</div>
+          )}
         </SelectContent>
       </Select>
 
-      {/* Professional restriction note (A + B) */}
-      {showRestrictionNote && allowedLevels.length < CONFIDENTIALITY_LEVELS.length && currentUserLevel && (
+      {showRestrictionNote && allowed.length > 0 && allowed.length < CONFIDENTIALITY_LEVELS.length && (
         <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
           <Shield className="h-3 w-3 flex-shrink-0" />
           <span>
-            Limited to your clearance: <strong className="font-medium">{getClearanceLabel(currentUserLevel)}</strong>
+            Limited to your clearance: <strong className="font-medium">{getClearanceLabel(effectiveHighest)}</strong>
           </span>
         </div>
       )}

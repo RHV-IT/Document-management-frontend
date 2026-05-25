@@ -6,6 +6,10 @@ import {
   canViewFile,
   canUploadLevel,
   getAllowedUploadLevels,
+  getAllowedLevels,
+  canAccess as canAccessLevelLib,
+  canUpload as canUploadLevelLib,
+  canView as canViewLevelLib,
   getClearanceLabel,
   getClearanceColor,
   filterAllowedFiles,
@@ -23,7 +27,6 @@ export function useAccessControl() {
     return {
       role: user.role,
       department: user.department,
-      confidentialityLevel: user.confidentialityLevel,
       confidentialityLevels: user.confidentialityLevels,
       id: user.id,
       _id: user._id
@@ -39,6 +42,7 @@ export function useAccessControl() {
   }, [accessUser])
 
   const allowedUploadLevels = useMemo(() => getAllowedUploadLevels(accessUser), [accessUser])
+  const allowedLevels = useMemo(() => getAllowedLevels(accessUser), [accessUser])
 
   const clearanceBadge = useMemo(() => getUserClearanceBadge(accessUser), [accessUser])
 
@@ -59,17 +63,29 @@ export function useAccessControl() {
     color: getClearanceColor(level)
   }), [])
 
+  // New spec helpers bound to current user (primary UI authority) - level based
+  const canAccessLevel = useCallback((level: string) => canAccessLevelLib(level, accessUser), [accessUser])
+  const canUploadLevelFn = useCallback((level: string) => canUploadLevelLib(level, accessUser), [accessUser])
+  const canViewLevelFn = useCallback((level: string) => canViewLevelLib(level, accessUser), [accessUser])
+  const getUserAllowedLevels = useCallback(() => getAllowedLevels(accessUser), [accessUser])
+
   return {
     user: accessUser,
-    canView,
-    canUpload,
+    canView,           // file visibility (existing)
+    canUpload,         // level upload check (existing)
     allowedUploadLevels,
+    allowedLevels,
     clearanceBadge,
     userDepartment,
     isAdmin,
     filterFiles,
     getClearanceInfo,
     getClearanceLabel,
-    getClearanceColor
+    getClearanceColor,
+    // new helpers per frontend authority spec
+    canAccessLevel,
+    canUploadLevel: canUploadLevelFn,
+    canViewLevel: canViewLevelFn,
+    getAllowedLevels: getUserAllowedLevels
   }
 }

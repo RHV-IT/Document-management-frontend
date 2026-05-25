@@ -150,7 +150,7 @@ export default function UserActivityPage() {
                     <Badge className={STATUS_COLORS[user.status] || 'bg-gray-100'}>
                       {user.status || 'active'}
                     </Badge>
-                    {user.confidentialityLevel && (
+                    {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]) && (
                       <Badge
                         className="text-xs"
                         style={{
@@ -159,24 +159,24 @@ export default function UserActivityPage() {
                             internal: '#3b82f6',
                             confidential: '#f59e0b',
                             highly_confidential: '#ef4444'
-                          }[user.confidentialityLevel] + '20',
+                          }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])] + '20',
                           color: {
                             public: '#065f46',
                             internal: '#1e40af',
                             confidential: '#92400e',
                             highly_confidential: '#991b1b'
-                          }[user.confidentialityLevel],
+                          }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])],
                           border: `1px solid ${
                             {
                               public: '#10b981',
                               internal: '#3b82f6',
                               confidential: '#f59e0b',
                               highly_confidential: '#ef4444'
-                            }[user.confidentialityLevel]
+                            }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])]
                           }`
                         }}
                       >
-                        {user.confidentialityLevel.replace(/_/g, ' ')}
+                        {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]).replace(/_/g, ' ')}
                       </Badge>
                     )}
                   </div>

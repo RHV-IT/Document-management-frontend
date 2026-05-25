@@ -134,7 +134,7 @@ export default function FilesPage() {
 
   // Auth
   const { user } = useAuth()
-  const { canView, filterFiles, clearanceBadge, isAdmin, userDepartment } = useAccessControl()
+  const { canView, filterFiles, clearanceBadge, isAdmin, userDepartment, allowedLevels } = useAccessControl()
 
   // Queries
   const { data: usersData } = useUsersListQuery({ search: undefined, limit: 50 })
@@ -556,27 +556,30 @@ export default function FilesPage() {
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Confidentiality" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Levels</SelectItem>
-                  {confidentialityLevels?.map((level) => (
-                    <SelectItem key={level.value} value={level.value}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor: {
-                              public: '#10b981',
-                              internal: '#3b82f6',
-                              confidential: '#f59e0b',
-                              highly_confidential: '#ef4444'
-                            }[level.value] || '#6b7280'
-                          }}
-                        />
-                        {level.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                 <SelectContent>
+                   <SelectItem value="all">All Levels</SelectItem>
+                   {confidentialityLevels
+                     ?.filter((level) => (allowedLevels as string[] || []).includes(level.value))
+                     .map((level) => (
+                       <SelectItem key={level.value} value={level.value}>
+                         <div className="flex items-center gap-2">
+                           <div
+                             className="w-3 h-3 rounded-full"
+                             style={{
+                               backgroundColor: {
+                                 public: '#10b981',
+                                 internal: '#3b82f6',
+                                 confidential: '#f59e0b',
+                                 highly_confidential: '#ef4444'
+                               }[level.value] || '#6b7280'
+                             }}
+                           />
+                           {level.label}
+                         </div>
+                       </SelectItem>
+                     ))}
+                 </SelectContent>
+
               </Select>
 
               {/* View Mode - Affects All Tabs */}
@@ -1098,18 +1101,25 @@ export default function FilesPage() {
 
                       <div className="w-36">
                         <label className="text-sm font-medium text-gray-600 mb-1.5 block">Level</label>
-                        <Select value={archiveConfidentiality || "all"} onValueChange={(value) => setArchiveConfidentiality(value === "all" ? "" : value)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="All levels" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All levels</SelectItem>
-                            <SelectItem value="public">Everyone Can See</SelectItem>
-                            <SelectItem value="internal">Company Only</SelectItem>
-                            <SelectItem value="confidential">Limited Access Only</SelectItem>
-                            <SelectItem value="highly_confidential">Very Secret - Few People Only</SelectItem>
-                          </SelectContent>
-                        </Select>
+                         <Select value={archiveConfidentiality || "all"} onValueChange={(value) => setArchiveConfidentiality(value === "all" ? "" : value)}>
+                           <SelectTrigger>
+                             <SelectValue placeholder="All levels" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="all">All levels</SelectItem>
+                             {(allowedLevels || []).map((lvl) => (
+                               <SelectItem key={lvl} value={lvl}>
+                                 {{
+                                   public: 'Everyone Can See',
+                                   internal: 'Company Only',
+                                   confidential: 'Limited Access Only',
+                                   highly_confidential: 'Very Secret - Few People Only'
+                                 }[lvl] || lvl}
+                               </SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+
                       </div>
 
                       <div className="w-32">

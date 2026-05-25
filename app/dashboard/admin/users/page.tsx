@@ -60,6 +60,7 @@ interface UserType {
   department: string
   status: string
   confidentialityLevel?: string
+  confidentialityLevels?: string[]
   createdAt?: string
 }
 
@@ -124,7 +125,10 @@ export default function AdminUsersPage() {
 
   const handleEditUser = (user: UserType) => {
     setEditingUser(user)
-    setEditingConfidentialityLevel(user.confidentialityLevel || '')
+    const highest = (user.confidentialityLevels && user.confidentialityLevels.length > 0)
+      ? user.confidentialityLevels[user.confidentialityLevels.length - 1]
+      : (user.confidentialityLevel || '')
+    setEditingConfidentialityLevel(highest)
     setIsEditDialogOpen(true)
   }
 
@@ -256,8 +260,9 @@ export default function AdminUsersPage() {
                         <Badge className={STATUS_COLORS[user.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'}>
                           {user.status || 'active'}
                         </Badge>
-                        {user.confidentialityLevel && (
+                        {(user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0, 2).map((lvl: string) => (
                           <Badge
+                            key={lvl}
                             className="text-xs"
                             style={{
                               backgroundColor: {
@@ -265,25 +270,24 @@ export default function AdminUsersPage() {
                                 internal: '#3b82f6',
                                 confidential: '#f59e0b',
                                 highly_confidential: '#ef4444'
-                              }[user.confidentialityLevel] + '20',
+                              }[lvl] + '20',
                               color: {
                                 public: '#065f46',
                                 internal: '#1e40af',
                                 confidential: '#92400e',
                                 highly_confidential: '#991b1b'
-                              }[user.confidentialityLevel],
+                              }[lvl],
                               border: `1px solid ${{
                                 public: '#10b981',
                                 internal: '#3b82f6',
                                 confidential: '#f59e0b',
                                 highly_confidential: '#ef4444'
-                              }[user.confidentialityLevel]
-                                }`
+                              }[lvl]}`
                             }}
                           >
-                            {user.confidentialityLevel.replace(/_/g, ' ')}
+                            {lvl.replace(/_/g, ' ')}
                           </Badge>
-                        )}
+                        ))}
                       </div>
 
                       <div className="mt-3 space-y-1 text-sm text-muted-foreground">
@@ -397,7 +401,7 @@ export default function AdminUsersPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {user.confidentialityLevel ? (
+                          {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]) ? (
                             <Badge
                               className="text-xs"
                               style={{
@@ -406,23 +410,22 @@ export default function AdminUsersPage() {
                                   internal: '#3b82f6',
                                   confidential: '#f59e0b',
                                   highly_confidential: '#ef4444'
-                                }[user.confidentialityLevel] + '20',
+                                }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])] + '20',
                                 color: {
                                   public: '#065f46',
                                   internal: '#1e40af',
                                   confidential: '#92400e',
                                   highly_confidential: '#991b1b'
-                                }[user.confidentialityLevel],
+                                }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])],
                                 border: `1px solid ${{
                                   public: '#10b981',
                                   internal: '#3b82f6',
                                   confidential: '#f59e0b',
                                   highly_confidential: '#ef4444'
-                                }[user.confidentialityLevel]
-                                  }`
+                                }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])]}`
                               }}
                             >
-                              {user.confidentialityLevel.replace(/_/g, ' ')}
+                              {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]).replace(/_/g, ' ')}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
@@ -827,13 +830,13 @@ export default function AdminUsersPage() {
                           <Lock className="h-4 w-4" />
                           Confidentiality Level
                         </label>
-                         <ConfidentialityLevelSelect
-                           value={editingConfidentialityLevel}
-                           onValueChange={setEditingConfidentialityLevel}
-                           userRole={user?.role}
-                           placeholder="Select confidentiality level"
-                           showRestrictionNote
-                         />
+                          <ConfidentialityLevelSelect
+                            value={editingConfidentialityLevel}
+                            onValueChange={setEditingConfidentialityLevel}
+                            placeholder="Select confidentiality level"
+                            showRestrictionNote
+                          />
+
                       </div>
                     </div>
                   </div>
@@ -881,7 +884,7 @@ export default function AdminUsersPage() {
                     <Badge className={STATUS_COLORS[activityUser?.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'}>
                       {activityUser?.status || 'active'}
                     </Badge>
-                    {activityUser?.confidentialityLevel && (
+                    {((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0]) && (
                       <Badge
                         className="text-xs"
                         style={{
@@ -890,23 +893,22 @@ export default function AdminUsersPage() {
                             internal: '#3b82f6',
                             confidential: '#f59e0b',
                             highly_confidential: '#ef4444'
-                          }[activityUser.confidentialityLevel] + '20',
+                          }[((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0])] + '20',
                           color: {
                             public: '#065f46',
                             internal: '#1e40af',
                             confidential: '#92400e',
                             highly_confidential: '#991b1b'
-                          }[activityUser.confidentialityLevel],
+                          }[((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0])],
                           border: `1px solid ${{
                             public: '#10b981',
                             internal: '#3b82f6',
                             confidential: '#f59e0b',
                             highly_confidential: '#ef4444'
-                          }[activityUser.confidentialityLevel]
-                            }`
+                          }[((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0])]}`
                         }}
                       >
-                        {activityUser.confidentialityLevel.replace(/_/g, ' ')}
+                        {((activityUser?.confidentialityLevels && activityUser.confidentialityLevels.length > 0 ? activityUser.confidentialityLevels : (activityUser?.confidentialityLevel ? [activityUser.confidentialityLevel] : [])).slice(0,1)[0]).replace(/_/g, ' ')}
                       </Badge>
                     )}
                   </div>
