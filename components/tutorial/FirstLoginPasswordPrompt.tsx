@@ -45,7 +45,7 @@ export function FirstLoginPasswordPrompt({ isOpen, onClose }: FirstLoginPassword
           <Button
             variant="outline"
             onClick={() => onClose(false)}
-            className="flex-1 h-12 text-base border-gray-300 hover:bg-white"
+            className="flex-1 h-12 text-base border-gray-300 hover:bg-white hover:border-gray-400 text-gray-700"
           >
             I Will Do This Later
           </Button>

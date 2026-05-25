@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { 
-  X, ArrowRight, Download, BookOpen, Shield, Upload, FolderOpen, 
+import {
+  X, ArrowRight, Download, BookOpen, Shield, Upload, FolderOpen,
   Users, Edit3, Eye, FileText, CheckCircle, Monitor, Lock, Search
 } from 'lucide-react'
 import jsPDF from 'jspdf'
@@ -178,7 +178,7 @@ export function FirstLoginTutorial({ isOpen, onComplete, onSkip }: FirstLoginTut
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/70 backdrop-blur-xl p-4 overflow-y-auto">
       <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden my-8">
         {/* Professional Header - Fullscreen onboarding feel */}
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 px-8 py-6 text-white flex items-center justify-between">
@@ -226,8 +226,8 @@ export function FirstLoginTutorial({ isOpen, onComplete, onSkip }: FirstLoginTut
                   onClick={() => setCurrentSection(index)}
                   className={cn(
                     "text-left p-4 rounded-2xl border transition-all hover:shadow-md flex gap-3",
-                    index === currentSection 
-                      ? "border-blue-500 bg-blue-50 shadow-inner" 
+                    index === currentSection
+                      ? "border-blue-500 bg-blue-50 shadow-inner"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
