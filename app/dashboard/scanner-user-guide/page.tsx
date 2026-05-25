@@ -81,14 +81,11 @@ export default function ScannerUserGuidePage() {
   }, [user])
 
   const handleDownloadAgent = () => {
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'
-    const url = `${base}/api/v1/scanner/auto-install-download/direct`
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'RHV-Scanner-Agent.exe'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // Simplified: only trigger the backend download
+    window.open(
+      'https://rhv-dms-backend.vercel.app/api/v1/scanner/auto-install-download',
+      '_blank'
+    )
   }
 
   const handleDownloadGuide = () => {

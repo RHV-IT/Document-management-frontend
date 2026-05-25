@@ -457,14 +457,18 @@ export default function SettingsPage() {
                         <div className="ml-12 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
                           <h5 className="font-semibold text-gray-900 mb-2">Download the Installer</h5>
                           <p className="text-sm text-gray-600 mb-3">Click below to download the scanner setup file directly from the server</p>
-                          <a
-                            href={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.4.213:5000'}/api/v1/scanner/auto-install-download/direct`}
-                            download="scanner-setup.bat"
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md hover:shadow-lg"
+                          <Button
+                            onClick={() => {
+                              window.open(
+                                'https://rhv-dms-backend.vercel.app/api/v1/scanner/auto-install-download',
+                                '_blank'
+                              )
+                            }}
+                            className="gap-2"
                           >
                             <Download className="h-4 w-4" />
                             Download scanner-setup.bat
-                          </a>
+                          </Button>
                           <p className="text-xs text-gray-500 mt-2">File size: ~50 KB</p>
                         </div>
                       </div>
