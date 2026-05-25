@@ -30,44 +30,12 @@ export function ScannerAgentModal({ isOpen, onAgentDetected, onRetry }: ScannerA
     }
   }, [isOpen])
 
-  const handleDownload = async () => {
-    setModalState('downloading')
-    setDownloadProgress(0)
-
-    try {
-      // Simulate download progress
-      const progressInterval = setInterval(() => {
-        setDownloadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(progressInterval)
-            setModalState('installing')
-            return 100
-          }
-          return prev + Math.random() * 15
-        })
-      }, 200)
-
-      // Create download link
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'}/api/v1/scanner/auto-install-download/direct`
-      const link = document.createElement('a')
-      link.href = apiUrl
-      link.download = 'RHV-DMS-Scanner-Setup.exe'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // After download starts, move to installing state
-      setTimeout(() => {
-        clearInterval(progressInterval)
-        setDownloadProgress(100)
-        setModalState('installing')
-        startDetectionPolling()
-      }, 2000)
-
-    } catch (error) {
-      setErrorMessage('Failed to download installer. Please try again.')
-      setModalState('error')
-    }
+  const handleDownload = () => {
+    // Simplified per requirement: only trigger the backend download
+    window.open(
+      'https://rhv-dms-backend.vercel.app/api/v1/scanner/auto-install-download',
+      '_blank'
+    )
   }
 
   const startDetectionPolling = () => {
