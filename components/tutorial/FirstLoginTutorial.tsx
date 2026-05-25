@@ -6,7 +6,6 @@ import {
   X, ArrowRight, Download, BookOpen, Shield, Upload, FolderOpen,
   Users, Edit3, Eye, FileText, CheckCircle, Monitor, Lock, Search
 } from 'lucide-react'
-import jsPDF from 'jspdf'
 import { cn } from '@/lib/utils'
 
 interface FirstLoginTutorialProps {
@@ -94,6 +93,9 @@ export function FirstLoginTutorial({ isOpen, onComplete, onSkip }: FirstLoginTut
   const generateUserGuidePDF = async () => {
     setIsGeneratingPDF(true)
     try {
+      // Dynamically import jspdf only on client when needed (fixes fflate/node Worker SSR error)
+      const { default: jsPDF } = await import('jspdf')
+
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
@@ -156,10 +158,16 @@ export function FirstLoginTutorial({ isOpen, onComplete, onSkip }: FirstLoginTut
       doc.save('RHV_DMS_Hospital_User_Guide.pdf')
     } catch (err) {
       // Fallback: simple text PDF if advanced fails
-      const doc = new jsPDF()
-      doc.text('RHV DMS User Guide', 20, 20)
-      doc.text('Please refer to the on-screen tutorial for step-by-step instructions.', 20, 30)
-      doc.save('RHV_DMS_User_Guide.pdf')
+      try {
+        const { default: jsPDF } = await import('jspdf')
+        const doc = new jsPDF()
+        doc.text('RHV DMS User Guide', 20, 20)
+        doc.text('Please refer to the on-screen tutorial for step-by-step instructions.', 20, 30)
+        doc.save('RHV_DMS_User_Guide.pdf')
+      } catch {
+        // Last resort - just notify user
+        alert('Could not generate PDF. Please try again or contact support.')
+      }
     } finally {
       setIsGeneratingPDF(false)
     }
