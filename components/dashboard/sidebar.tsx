@@ -130,21 +130,24 @@ export function DashboardSidebar() {
         collapsed ? "w-20" : "w-72"
       )}
     >
-       {/* Logo Section - Futuristic & Compact */}
-       <div className={cn("border-b border-gray-100/70 flex items-center", collapsed ? "p-4 justify-center" : "p-6")}>
-         <div className="flex items-center gap-4">
-           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/30 ring-1 ring-blue-500/20">
-             <Image src="/images/rhv-logo.png" alt="RHV DMS" width={24} height={24} className="object-contain" />
-           </div>
-           {!collapsed && (
-             <div className="transition-opacity duration-200">
-               <h1 className="text-[24px] font-bold tracking-[-0.5px] text-gray-900">
-                 Document management System
-               </h1>
-             </div>
-           )}
-         </div>
-       </div>
+      {/* Logo Section - Futuristic & Compact */}
+      <div className={cn("border-b border-gray-100/70 flex items-center", collapsed ? "p-4 justify-center" : "p-6")}>
+        <div className="flex items-center gap-4">
+          <div className={cn(
+            "w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/30",
+            collapsed && "w-8 h-8"
+          )}>
+            <img src="/images/rhv-logo.png" alt="RHV DMS" className="w-fit h-fit" />
+          </div>
+          {!collapsed && (
+            <div className="transition-opacity duration-200">
+              <h1 className="text-[20px] font-bold tracking-[-0.5px] text-gray-900">
+                DMS
+              </h1>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* User Card - Modern & Adaptive */}
       {user && (
@@ -263,19 +266,19 @@ export function DashboardSidebar() {
           )}
 
           {/* Premium Collapse Toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleCollapse}
-          className="h-10 w-10 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all active:scale-95"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-5 w-5" />
-          ) : (
-            <ChevronLeft className="h-5 w-5" />
-          )}
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleCollapse}
+            className="h-10 w-10 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all active:scale-95"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-5 w-5" />
+            ) : (
+              <ChevronLeft className="h-5 w-5" />
+            )}
+          </Button>
         </div>
 
         {/* Scanner Status */}
