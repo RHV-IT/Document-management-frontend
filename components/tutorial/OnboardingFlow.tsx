@@ -3,8 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useAuthContext } from '@/contexts/auth'
 import { PasswordChangeDialog } from '@/components/tutorial/PasswordChangeDialog'
-import { FirstLoginTutorial } from '@/components/tutorial/FirstLoginTutorial'
+import dynamic from 'next/dynamic'
 import { FirstLoginPasswordPrompt } from './FirstLoginPasswordPrompt'
+
+const FirstLoginTutorial = dynamic(
+  () => import('@/components/tutorial/FirstLoginTutorial'),
+  { ssr: false }
+)
 
 type OnboardingPhase = 'tutorial' | 'password-choice' | 'password-form' | 'completed'
 
