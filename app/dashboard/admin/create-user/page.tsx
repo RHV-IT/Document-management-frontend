@@ -38,7 +38,7 @@ const ROLE_OPTIONS = [
   },
   {
     value: 'hod',
-    label: 'Head of Department',
+    label: 'Manager',
     description: 'Department-level access and oversight',
     color: '#8b5cf6',
     icon: Briefcase
@@ -173,6 +173,7 @@ export default function CreateUserPage() {
         email: data.email,
         password: data.password,
         department: data.department.toUpperCase(),
+        role: data.role,
         confidentialityLevel,
       })
 

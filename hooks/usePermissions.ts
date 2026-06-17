@@ -68,10 +68,10 @@ export function useHodOverrideMutation() {
       permissionsAPI.hodOverride(variables.fileId, variables.userId, variables.access),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['permissions'] })
-      toast.success('HOD override applied successfully')
+      toast.success('Manager override applied successfully')
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Failed to apply HOD override'
+      const message = error.response?.data?.message || 'Failed to apply Manager override'
       toast.error(message)
     },
   })

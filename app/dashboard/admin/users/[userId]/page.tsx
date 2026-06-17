@@ -37,17 +37,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow, format } from 'date-fns'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
+import { getRoleBadgeColor, getRoleLabel } from '@/lib/roles'
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-green-100 text-green-800',
   suspended: 'bg-orange-100 text-orange-800',
   deleted: 'bg-red-100 text-red-800',
-}
-
-const ROLE_COLORS: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-800',
-  hod: 'bg-blue-100 text-blue-800',
-  user: 'bg-gray-100 text-gray-800',
 }
 
 const ACTION_COLORS: Record<string, string> = {
@@ -144,8 +139,8 @@ export default function UserActivityPage() {
                     {user.email}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge className={ROLE_COLORS[user.role] || 'bg-gray-100'}>
-                      {user.role}
+                    <Badge className={getRoleBadgeColor(user.role)}>
+                      {getRoleLabel(user.role)}
                     </Badge>
                     <Badge className={STATUS_COLORS[user.status] || 'bg-gray-100'}>
                       {user.status || 'active'}

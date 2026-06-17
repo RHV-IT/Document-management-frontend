@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { GlowCircle } from '@/components/ui/glow-circle'
 import { ScannerStatus } from '@/components/ScannerStatus'
+import { getRoleBadgeColor, getRoleLabel } from '@/lib/roles'
 import {
   Tooltip,
   TooltipContent,
@@ -112,17 +113,6 @@ export function DashboardSidebar() {
 
   debug.render('DashboardSidebar', `user=${user?.name}, visibleItems=${visibleItems.length}, collapsed=${collapsed}`)
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-blue-100 text-blue-700 border-blue-200'
-      case 'hod':
-        return 'bg-purple-100 text-purple-700 border-purple-200'
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200'
-    }
-  }
-
   return (
     <aside
       className={cn(
@@ -164,7 +154,7 @@ export function DashboardSidebar() {
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-gray-900 text-sm truncate leading-tight">{user?.name || 'User'}</p>
                 <span className={cn('inline-flex items-center px-2 py-px rounded-md text-[10px] font-medium border mt-1', getRoleBadgeColor(user?.role || 'user'))}>
-                  {user?.role === 'admin' ? 'Admin' : user?.role === 'hod' ? 'HOD' : 'User'}
+                  {getRoleLabel(user?.role)}
                 </span>
               </div>
             )}

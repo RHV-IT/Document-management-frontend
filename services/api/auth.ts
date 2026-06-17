@@ -107,6 +107,7 @@ export interface RegisterRequest {
   password: string
   name: string
   department?: string
+  role?: string
   confidentialityLevel?: string
 }
 

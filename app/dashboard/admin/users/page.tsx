@@ -48,6 +48,7 @@ import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { TableSkeleton } from '@/components/loaders/TableSkeleton'
+import { getRoleBadgeColor, getRoleLabel, isHodRole } from '@/lib/roles'
 
 type ViewMode = 'grid' | 'table'
 
@@ -68,12 +69,6 @@ const STATUS_COLORS = {
   active: 'bg-green-100 text-green-800',
   suspended: 'bg-orange-100 text-orange-800',
   deleted: 'bg-red-100 text-red-800',
-}
-
-const ROLE_COLORS = {
-  admin: 'bg-purple-100 text-purple-800',
-  hod: 'bg-blue-100 text-blue-800',
-  user: 'bg-gray-100 text-gray-800',
 }
 
 export default function AdminUsersPage() {
@@ -109,6 +104,7 @@ export default function AdminUsersPage() {
   }
 
   const { user } = useAuth()
+  const isManager = isHodRole(user?.role)
   const router = useRouter()
 
   const { data, isLoading } = useUsersQuery({
@@ -116,6 +112,7 @@ export default function AdminUsersPage() {
     limit,
     search: search || undefined,
     role: roleFilter || undefined,
+    department: isManager ? user?.department : undefined,
   })
 
   const { mutate: suspend } = useSuspendUserMutation()
@@ -262,8 +259,8 @@ export default function AdminUsersPage() {
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Badge className={ROLE_COLORS[user.role as keyof typeof ROLE_COLORS]}>
-                          {user.role}
+                        <Badge className={getRoleBadgeColor(user.role)}>
+                          {getRoleLabel(user.role)}
                         </Badge>
                         <Badge className={STATUS_COLORS[user.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'}>
                           {user.status || 'active'}
@@ -400,8 +397,8 @@ export default function AdminUsersPage() {
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell className="text-muted-foreground">{user.email}</TableCell>
                         <TableCell>
-                          <Badge className={ROLE_COLORS[user.role as keyof typeof ROLE_COLORS]}>
-                            {user.role}
+                          <Badge className={getRoleBadgeColor(user.role)}>
+                            {getRoleLabel(user.role)}
                           </Badge>
                         </TableCell>
                         <TableCell>{user.department}</TableCell>
@@ -601,9 +598,9 @@ export default function AdminUsersPage() {
                       <h2 className="text-2xl font-bold text-gray-900 truncate">{selectedUser.name}</h2>
                       <p className="text-base text-gray-600 mt-1">{selectedUser.email}</p>
                       <div className="flex items-center gap-3 mt-2">
-                        <Badge className={`${ROLE_COLORS[selectedUser.role as keyof typeof ROLE_COLORS]} text-white font-medium px-3 py-1`}>
+                        <Badge className={`${getRoleBadgeColor(selectedUser.role)} text-white font-medium px-3 py-1`}>
                           <Shield className="h-3 w-3 mr-1" />
-                          {selectedUser.role}
+                          {getRoleLabel(selectedUser.role)}
                         </Badge>
                         <Badge className={`${STATUS_COLORS[selectedUser.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'} font-medium px-3 py-1`}>
                           <Clock className="h-3 w-3 mr-1" />
@@ -825,7 +822,7 @@ export default function AdminUsersPage() {
                             <SelectItem value="hod">
                               <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                Head of Department
+                                Manager
                               </div>
                             </SelectItem>
                             <SelectItem value="admin">
@@ -891,8 +888,8 @@ export default function AdminUsersPage() {
                 <div className="flex-1">
                   <p>{activityUser?.name}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge className={ROLE_COLORS[activityUser?.role as keyof typeof ROLE_COLORS] || 'bg-gray-100'}>
-                      {activityUser?.role}
+                    <Badge className={getRoleBadgeColor(activityUser?.role) || 'bg-gray-100'}>
+                      {getRoleLabel(activityUser?.role)}
                     </Badge>
                     <Badge className={STATUS_COLORS[activityUser?.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'}>
                       {activityUser?.status || 'active'}

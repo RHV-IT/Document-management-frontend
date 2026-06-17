@@ -28,11 +28,12 @@ import {
   Activity,
   Building2
 } from 'lucide-react'
+import { getRoleBadgeColor, getRoleLabel, isHodRole } from '@/lib/roles'
 import Link from 'next/link'
 
 export default function ProfilePage() {
   const { user } = useAuth()
-  const isHod = user?.role?.toLowerCase() === 'hod'
+  const isManager = isHodRole(user?.role)
 
   // Fetch recent notifications (top 5)
   const { data: notificationsData, isLoading: notificationsLoading } = useNotificationsQuery({
@@ -40,7 +41,7 @@ export default function ProfilePage() {
     page: 1
   })
 
-  // Fetch department users if HOD
+  // Fetch department users if Manager
   const { data: departmentUsersData, isLoading: departmentUsersLoading } = useUsersQuery({
     department: user?.department,
     status: 'active'
@@ -105,7 +106,7 @@ export default function ProfilePage() {
     return (notificationsData?.notifications || []).slice(0, 5)
   }, [notificationsData])
 
-  // Department users (for HOD)
+  // Department users (for Manager)
   const departmentUsers = useMemo(() => {
     return (departmentUsersData?.users || []).filter(u => u._id !== user?._id)
   }, [departmentUsersData, user])
@@ -124,18 +125,6 @@ export default function ProfilePage() {
       'highly_confidential': 'bg-red-100 text-red-700 border-red-200',
     }
     return colors[level] || 'bg-gray-100 text-gray-700 border-gray-200'
-  }
-
-  // Get role badge color
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-blue-100 text-blue-700 border-blue-200'
-      case 'hod':
-        return 'bg-purple-100 text-purple-700 border-purple-200'
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200'
-    }
   }
 
   if (!user) {
@@ -207,7 +196,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Role</p>
                     <Badge className={`${getRoleBadgeColor(user.role || 'user')} mt-1`}>
-                      {user.role === 'admin' ? 'Administrator' : user.role === 'hod' ? 'Head of Dept' : 'User'}
+                      {getRoleLabel(user.role)}
                     </Badge>
                   </div>
                    <div>
@@ -247,8 +236,8 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* HOD Department Users Section */}
-        {isHod && (
+        {/* Manager Department Users Section */}
+        {isManager && (
           <Card className="border-0 shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -289,7 +278,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={getRoleBadgeColor(deptUser.role || 'user')}>
-                          {deptUser.role === 'admin' ? 'Admin' : deptUser.role === 'hod' ? 'HOD' : 'User'}
+                          {getRoleLabel(deptUser.role)}
                         </Badge>
                         {deptUser.confidentialityLevels && deptUser.confidentialityLevels.length > 0 && (
                           <div className="flex gap-1">
