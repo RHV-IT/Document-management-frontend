@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth'
 import { useAccessControl } from '@/hooks/useAccessControl'
 import { useNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutation } from '@/hooks/useNotifications'
 import type { Notification } from '@/services/api/notifications'
-import { Bell, Search, User, Settings, LogOut, Check, X, ChevronRight } from 'lucide-react'
+import { Bell, Search, User, Settings, LogOut, Check, ChevronRight, Shield, Building2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -23,6 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { getRoleBadgeColor, getRoleLabel } from '@/lib/roles'
 
 const NOTIFICATION_ICONS: Record<string, string> = {
   file_shared: '📄',
@@ -53,6 +53,16 @@ export function DashboardHeader() {
   const markAllAsRead = useMarkAllAsReadMutation()
 
   const unreadCount = notificationsData?.unreadCount || 0
+  const userInitial = user?.name?.charAt(0).toUpperCase() || '?'
+  const departmentValue = user?.department as any
+  const departmentName = !departmentValue
+    ? 'Not assigned'
+    : typeof departmentValue === 'string'
+      ? departmentValue
+      : departmentValue.name || departmentValue._id || 'Not assigned'
+  const confidentialityLevel = user?.confidentialityLevels?.length
+    ? user.confidentialityLevels[user.confidentialityLevels.length - 1]
+    : user?.confidentialityLevel
 
   const getNotificationIcon = (type: string) => {
     return NOTIFICATION_ICONS[type] || NOTIFICATION_ICONS.default
@@ -201,50 +211,120 @@ export function DashboardHeader() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="hover:bg-blue-50 cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white text-sm font-semibold shadow-md">
-                  {user?.name.charAt(0).toUpperCase()}
+            <Button variant="ghost" size="sm" className="max-w-xs sm:max-w-sm hover:bg-blue-50 cursor-pointer">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-sm font-bold shadow-sm ring-2 ring-white">
+                  {userInitial}
                 </div>
-                <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                <div className="min-w-0 text-left">
+                  <p className="text-sm font-semibold text-gray-900 truncate max-w-[170px] sm:max-w-[220px]" title={user?.name}>
+                    {user?.name || 'User'}
+                  </p>
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                    <p className="text-xs text-gray-500 truncate max-w-[150px] sm:max-w-[190px]" title={user?.role}>
+                      {getRoleLabel(user?.role)}
+                    </p>
                     <span className={`text-[9px] px-1 py-px rounded border font-medium tracking-tight ${clearanceBadge.color}`}>{clearanceBadge.label}</span>
                   </div>
                 </div>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 p-2">
-            <div className="px-3 py-2 bg-gray-50 rounded-lg mb-2">
-              <p className="font-semibold text-gray-900">{user?.name}</p>
-              <p className="text-xs text-gray-500">{user?.email}</p>
-              <div className="mt-1">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${clearanceBadge.color}`}>{clearanceBadge.label}</span>
-                {user?.department && (
-                  <span className="text-xs text-blue-600 ml-2">{(user.department as any)?.name || user.department}</span>
-                )}
+          <DropdownMenuContent align="end" className="w-80 p-3">
+            <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-white to-gray-50 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="h-12 w-12 shrink-0 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-lg font-bold shadow-md">
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 truncate" title={user?.name}>
+                    {user?.name || 'User'}
+                  </p>
+                  <p className="text-sm text-gray-500 truncate mt-0.5" title={user?.email}>
+                    {user?.email || 'Not provided'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 mt-4">
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-white/80 border border-gray-100 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <User className="h-3.5 w-3.5 text-purple-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium text-gray-400">Role</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{getRoleLabel(user?.role)}</p>
+                    </div>
+                  </div>
+                  <Badge className={getRoleBadgeColor(user?.role)}>
+                    {getRoleLabel(user?.role)}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-white/80 border border-gray-100 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <Shield className="h-3.5 w-3.5 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium text-gray-400">Clearance</p>
+                      <p className="text-sm font-semibold text-gray-900">{clearanceBadge.label}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] px-2 py-1 rounded-lg border font-semibold whitespace-nowrap ${clearanceBadge.color}`}>
+                    {clearanceBadge.label}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-white/80 border border-gray-100 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium text-gray-400">Department</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate" title={departmentName}>
+                        {departmentName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-white/80 border border-gray-100 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <Shield className="h-3.5 w-3.5 text-amber-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium text-gray-400">Confidentiality</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate" title={confidentialityLevel || 'Not assigned'}>
+                        {confidentialityLevel?.replace(/_/g, ' ') || 'Not assigned'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <DropdownMenuSeparator />
+
+            <DropdownMenuSeparator className="my-3" />
             <DropdownMenuItem
-              className="cursor-pointer"
+              className="cursor-pointer rounded-xl focus:bg-blue-50"
               onClick={() => router.push('/dashboard/profile')}
             >
-              <User className="h-4 w-4 mr-2" />
+              <User className="h-4 w-4 mr-2 text-gray-500" />
               Profile Settings
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="cursor-pointer"
+              className="cursor-pointer rounded-xl focus:bg-blue-50"
               onClick={() => router.push('/dashboard/settings')}
             >
-              <Settings className="h-4 w-4 mr-2" />
+              <Settings className="h-4 w-4 mr-2 text-gray-500" />
               Account Settings
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="my-3" />
             <DropdownMenuItem
-              className="text-red-600 cursor-pointer"
+              className="text-red-600 cursor-pointer rounded-xl focus:bg-red-50"
               onClick={() => logout()}
             >
               <LogOut className="h-4 w-4 mr-2" />
