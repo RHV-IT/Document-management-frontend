@@ -9,7 +9,7 @@ import { addNotification } from '@/components/notifications/NotificationCenter'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   User, Lock, Bell, Shield, Building2, FileLock2,
-  Save, RefreshCw, CheckCircle, AlertCircle, Settings as SettingsIcon,
+  Save, RefreshCw, CheckCircle, AlertCircle,
   Eye, EyeOff, Monitor, Download,
   Trash2,
   Plus
@@ -21,11 +21,20 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { getDepartmentDefinition } from '@/lib/department-info'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
+import type { Department } from '@/services/api/settings'
 
 export default function SettingsPage() {
-  const { user, canAccess, isLoading: authLoading } = useAuthContext()
+  const { user, isLoading: authLoading } = useAuthContext()
   const isAdmin = user?.role === 'admin' || user?.role === 'Admin' || user?.role === 'ADMIN'
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -89,6 +98,8 @@ export default function SettingsPage() {
 
 
   const [newDepartment, setNewDepartment] = useState({ name: '', code: '', description: '' })
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null)
+  const selectedDepartmentInfo = selectedDepartment ? getDepartmentDefinition(selectedDepartment) : null
 
 
   // Controlled tab state synced with URL
@@ -664,29 +675,50 @@ export default function SettingsPage() {
                         {departments.map((dept, index) => (
                           <div
                             key={dept._id}
-                            className="flex items-center justify-between p-4 bg-white border rounded-lg hover:shadow-sm transition-shadow animate-slide-in-up"
+                            className="group flex items-center justify-between p-4 bg-white border rounded-lg hover:border-blue-200 hover:shadow-sm hover:bg-blue-50/30 transition-all cursor-pointer animate-slide-in-up"
                             style={{ animationDelay: `${index * 50}ms` }}
+                            onClick={() => setSelectedDepartment(dept)}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 shrink-0 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                 {dept.code}
                               </div>
-                              <div>
-                                <p className="font-medium text-gray-900">{dept.name}</p>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-gray-900 truncate">{dept.name}</p>
+                                  <Eye className="h-3.5 w-3.5 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
                                 {dept.description && (
-                                  <p className="text-sm text-gray-500">{dept.description}</p>
+                                  <p className="text-sm text-gray-500 truncate">{dept.description}</p>
+                                )}
+                                {!dept.description && (
+                                  <p className="text-sm text-gray-400">Click to view department meaning and responsibilities</p>
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               <Badge className={dept.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
                                 {dept.isActive ? 'Active' : 'Inactive'}
                               </Badge>
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className="cursor-pointer text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedDepartment(dept)
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => deleteDepartment.mutate(dept._id)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  deleteDepartment.mutate(dept._id)
+                                }}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -703,6 +735,85 @@ export default function SettingsPage() {
                     )}
                   </CardContent>
                 </Card>
+
+                <Dialog open={!!selectedDepartment} onOpenChange={(open) => !open && setSelectedDepartment(null)}>
+                  <DialogContent size="lg" className="max-h-[90vh]">
+                    {selectedDepartment && selectedDepartmentInfo && (
+                      <>
+                        <DialogHeader>
+                          <div className="flex items-start gap-4">
+                            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shrink-0">
+                              <Building2 className="h-6 w-6" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <DialogTitle>{selectedDepartment.name}</DialogTitle>
+                                <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                                  {selectedDepartment.code}
+                                </Badge>
+                                <Badge className={selectedDepartment.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
+                                  {selectedDepartment.isActive ? 'Active' : 'Inactive'}
+                                </Badge>
+                              </div>
+                              <DialogDescription className="mt-2 text-gray-600">
+                                {selectedDepartmentInfo.meaning}
+                              </DialogDescription>
+                            </div>
+                          </div>
+                        </DialogHeader>
+
+                        <div className="space-y-4 overflow-y-auto pr-1">
+                          {selectedDepartment.description && (
+                            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Eye className="h-4 w-4 text-blue-600" />
+                                <p className="font-semibold text-blue-900">Stored department description</p>
+                              </div>
+                              <p className="text-sm text-blue-900/80">{selectedDepartment.description}</p>
+                            </div>
+                          )}
+
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                                <Building2 className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <p className="font-semibold text-gray-900">What this department means</p>
+                            </div>
+                            <p className="text-sm leading-6 text-gray-600">{selectedDepartmentInfo.meaning}</p>
+                          </div>
+
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="h-7 w-7 rounded-lg bg-purple-50 flex items-center justify-center">
+                                <CheckCircle className="h-4 w-4 text-purple-600" />
+                              </div>
+                              <p className="font-semibold text-gray-900">What the department does</p>
+                            </div>
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {selectedDepartmentInfo.responsibilities.map((item) => (
+                                <li key={item} className="flex gap-2 text-sm text-gray-600">
+                                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="h-7 w-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                                <User className="h-4 w-4 text-amber-700" />
+                              </div>
+                              <p className="font-semibold text-amber-900">HR meaning and records to keep</p>
+                            </div>
+                            <p className="text-sm leading-6 text-amber-900/80">{selectedDepartmentInfo.hrNote}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </TabsContent>
             )}
 
