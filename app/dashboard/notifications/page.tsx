@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useNotificationsQuery, useMarkAsReadMutation, useDeleteNotificationMutation, useMarkAllAsReadMutation } from '@/hooks/useNotifications'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -60,6 +61,7 @@ const NOTIFICATION_BG: Record<string, string> = {
 }
 
 export default function NotificationsPage() {
+  const searchParams = useSearchParams()
   const [page, setPage] = useState(1)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [selectedNotification, setSelectedNotification] = useState<any>(null)
@@ -74,6 +76,15 @@ export default function NotificationsPage() {
   const unreadCount = data?.unreadCount || 0
   const currentPage = data?.currentPage || 1
   const hasMore = notifications.length === 50
+
+  useEffect(() => {
+    const notificationId = searchParams.get('notificationId')
+    if (!notificationId) return
+    const notification = notifications.find((item: any) => item._id === notificationId)
+    if (notification) {
+      handleCardClick(notification)
+    }
+  }, [searchParams])
 
   const handleMarkAsRead = (notificationId: string) => {
     if (!notificationId) return

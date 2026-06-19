@@ -13,7 +13,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
   login: (data: LoginRequest) => Promise<{ success: boolean; user?: User; error?: string }>
-  logout: () => Promise<void>
+  logout: (options?: { skipRedirect?: boolean; message?: string }) => Promise<void>
   setUser: (user: User | null) => void
   canAccess: (requiredRoles?: string[]) => boolean
   loginCount: number
@@ -21,7 +21,7 @@ interface AuthContextType {
   resetLoginCount: () => void
   isFirstLogin: () => boolean
   loginMutation: UseMutationResult<AuthResponse, Error, LoginRequest>
-  logoutMutation: UseMutationResult<{ success: boolean; message: string }, Error, void>
+  logoutMutation: UseMutationResult<{ success: boolean; message: string }, Error, { skipRedirect?: boolean; message?: string }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -100,8 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout mutation
   const logoutMutation = useMutation({
-    mutationFn: () => authAPI.logout(),
-    onSuccess: async () => {
+    mutationFn: (_: { skipRedirect?: boolean; message?: string } = {}) => authAPI.logout(),
+    onSuccess: async (_, variables) => {
+      const { skipRedirect, message } = variables || {}
       // Clear agent token
       try {
         await agentService.setToken({ token: null, userId: null, machineId: null })
@@ -110,8 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       // Clear session cache
       queryClient.removeQueries({ queryKey: queryKeys.auth.user() })
-      addNotification('success', 'Logged Out', 'You have been successfully logged out.')
-      router.push('/login')
+      addNotification('success', 'Logged Out', message || 'You have been successfully logged out.')
+      if (!skipRedirect) {
+        router.push('/login')
+      }
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Logout failed'
@@ -187,9 +190,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Logout wrapper
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (options?: { skipRedirect?: boolean; message?: string }) => {
     try {
-      await logoutMutation.mutateAsync()
+      await logoutMutation.mutateAsync(options || {})
     } catch (error) {
       // Error already handled by mutation's onError
     }

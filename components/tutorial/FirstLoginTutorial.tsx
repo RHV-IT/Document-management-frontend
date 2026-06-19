@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface FirstLoginTutorialProps {
+export interface FirstLoginTutorialProps {
   isOpen: boolean
   onComplete: () => void
   onSkip?: () => void

@@ -5,9 +5,10 @@ import { useAuthContext } from '@/contexts/auth'
 import { PasswordChangeDialog } from '@/components/tutorial/PasswordChangeDialog'
 import dynamic from 'next/dynamic'
 import { FirstLoginPasswordPrompt } from './FirstLoginPasswordPrompt'
+import type { FirstLoginTutorialProps } from './FirstLoginTutorial'
 
-const FirstLoginTutorial = dynamic(
-  () => import('@/components/tutorial/FirstLoginTutorial'),
+const FirstLoginTutorial = dynamic<FirstLoginTutorialProps>(
+  () => import('@/components/tutorial/FirstLoginTutorial').then((mod) => mod.FirstLoginTutorial),
   { ssr: false }
 )
 

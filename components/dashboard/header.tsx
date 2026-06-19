@@ -6,10 +6,9 @@ import { useAuth } from '@/contexts/auth'
 import { useAccessControl } from '@/hooks/useAccessControl'
 import { useNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutation } from '@/hooks/useNotifications'
 import type { Notification } from '@/services/api/notifications'
-import { Bell, Search, User, Settings, LogOut, Check, ChevronRight, Shield, Building2 } from 'lucide-react'
+import { Bell, User, Settings, LogOut, Check, ChevronRight, Shield, Building2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
+import { GlobalSearch } from '@/components/dashboard/global-search'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { getRoleBadgeColor, getRoleLabel } from '@/lib/roles'
@@ -85,25 +85,16 @@ export function DashboardHeader() {
 
   return (
     <header className="h-16 border-b border-gray-200/50 bg-white/80 backdrop-blur-sm flex items-center justify-between px-6 gap-4 sticky top-0 z-40">
-      {/* Search */}
-      <div className="flex-1 max-w-md">
-        <div className="relative group">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-          <Input 
-            placeholder="Search files, tags, aliases..." 
-            className="pl-10 bg-gray-50/50 border-gray-200/50 focus:bg-white focus:border-blue-500 focus:ring-blue-500/20 transition-all"
-          />
-        </div>
+      <div className="flex-1 max-w-xl">
+        <GlobalSearch />
       </div>
 
-      {/* Right section */}
       <div className="flex items-center gap-3">
-        {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="relative hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer"
             >
               <Bell className="h-5 w-5" />
@@ -115,7 +106,6 @@ export function DashboardHeader() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-96 p-0 overflow-hidden">
-            {/* Notification Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4" />
@@ -138,7 +128,6 @@ export function DashboardHeader() {
               )}
             </div>
 
-            {/* Notifications List */}
             <ScrollArea className="h-96">
               {isLoading ? (
                 <div className="p-4 space-y-3">
@@ -195,10 +184,9 @@ export function DashboardHeader() {
               )}
             </ScrollArea>
 
-            {/* View All Link */}
             <div className="p-3 border-t border-gray-100 bg-gray-50/50">
-              <Link 
-                href="/dashboard/notifications" 
+              <Link
+                href="/dashboard/notifications"
                 className="flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors cursor-pointer"
               >
                 View all notifications
@@ -208,7 +196,6 @@ export function DashboardHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="max-w-xs sm:max-w-sm hover:bg-blue-50 cursor-pointer">
@@ -268,7 +255,6 @@ export function DashboardHeader() {
                       <Shield className="h-3.5 w-3.5 text-blue-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium text-gray-400">Clearance</p>
                       <p className="text-sm font-semibold text-gray-900">{clearanceBadge.label}</p>
                     </div>
                   </div>
@@ -283,7 +269,6 @@ export function DashboardHeader() {
                       <Building2 className="h-3.5 w-3.5 text-emerald-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium text-gray-400">Department</p>
                       <p className="text-sm font-semibold text-gray-900 truncate" title={departmentName}>
                         {departmentName}
                       </p>
@@ -297,7 +282,6 @@ export function DashboardHeader() {
                       <Shield className="h-3.5 w-3.5 text-amber-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium text-gray-400">Confidentiality</p>
                       <p className="text-sm font-semibold text-gray-900 truncate" title={confidentialityLevel || 'Not assigned'}>
                         {confidentialityLevel?.replace(/_/g, ' ') || 'Not assigned'}
                       </p>

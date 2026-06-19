@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -72,7 +72,8 @@ const STATUS_COLORS = {
 }
 
 export default function AdminUsersPage() {
-  const [search, setSearch] = useState('')
+  const searchParams = useSearchParams()
+  const [search, setSearch] = useState(searchParams.get('search') || '')
   const [roleFilter, setRoleFilter] = useState<string>('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
@@ -106,6 +107,14 @@ export default function AdminUsersPage() {
   const { user } = useAuth()
   const isManager = isHodRole(user?.role)
   const router = useRouter()
+
+  useEffect(() => {
+    const searchFromUrl = searchParams.get('search') || ''
+    if (searchFromUrl !== search) {
+      setSearch(searchFromUrl)
+      setPage(1)
+    }
+  }, [searchParams])
 
   const { data, isLoading } = useUsersQuery({
     page,

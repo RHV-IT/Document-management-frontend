@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -74,6 +75,97 @@ import { ScannerConfirmModal } from '@/components/scanner/ScannerConfirmModal'
 // Helper Functions - using confidentialityLevels array with rightful professional colors
 const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'confidential', 'highly_confidential'] as const
 
+type FileTab = 'myfiles' | 'received' | 'sent' | 'scanned' | 'scanner' | 'archive'
+
+const FILE_TYPE_OPTIONS = [
+  { value: 'all', label: 'All Types' },
+  { value: 'pdf', label: 'PDF' },
+  { value: 'document', label: 'Documents' },
+  { value: 'spreadsheet', label: 'Spreadsheets' },
+  { value: 'presentation', label: 'Presentations' },
+  { value: 'image', label: 'Images' },
+  { value: 'text', label: 'Text Files' },
+  { value: 'archive', label: 'Archives' },
+] as const
+
+function normalizeSearch(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function getDepartmentName(department: any) {
+  if (!department) return ''
+  return typeof department === 'object' ? (department.name || department._id || '') : department
+}
+
+function getFileName(file: FileItem) {
+  return file.alias || file.name || ''
+}
+
+function getFileExtension(file: FileItem) {
+  const name = file.name || ''
+  const parts = name.split('.')
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
+}
+
+function fileMatchesType(file: FileItem, typeFilter: string) {
+  if (typeFilter === 'all') return true
+  const extension = getFileExtension(file)
+  const type = (file.type || '').toLowerCase()
+  const name = (file.name || '').toLowerCase()
+
+  if (typeFilter === 'pdf') return extension === 'pdf' || type.includes('pdf')
+  if (typeFilter === 'document') return ['doc', 'docx'].includes(extension) || type.includes('word') || type.includes('msword')
+  if (typeFilter === 'spreadsheet') return ['xls', 'xlsx'].includes(extension) || type.includes('excel') || type.includes('spreadsheet')
+  if (typeFilter === 'presentation') return ['ppt', 'pptx'].includes(extension) || type.includes('powerpoint') || type.includes('presentation')
+  if (typeFilter === 'image') return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension) || type.includes('image')
+  if (typeFilter === 'text') return ['txt', 'rtf', 'md'].includes(extension) || type.includes('text') || type.includes('plain')
+  if (typeFilter === 'archive') return ['zip', 'rar', '7z', 'tar', 'gz'].includes(extension) || type.includes('zip') || type.includes('archive')
+  return true
+}
+
+function fileMatchesSearch(file: FileItem, searchTerm: string) {
+  const query = normalizeSearch(searchTerm)
+  if (!query) return true
+  const searchable = [
+    getFileName(file),
+    file.name,
+    file.alias,
+    file.type,
+    file.tags?.join(' '),
+    getDepartmentName(file.department),
+    file.owner?.name,
+    file.uploadedBy?.name,
+    file.confidentialityLevel ? getConfidentialityLabel(file.confidentialityLevel) : '',
+  ].join(' ')
+  return normalizeSearch(searchable).includes(query)
+}
+
+function fileMatchesConfidentiality(file: FileItem, confidentialityFilter: string) {
+  return confidentialityFilter === 'all' || file.confidentialityLevel === confidentialityFilter
+}
+
+function getServerTypeValue(typeFilter: string) {
+  if (typeFilter === 'all') return undefined
+  if (typeFilter === 'document') return 'doc,docx'
+  if (typeFilter === 'spreadsheet') return 'xls,xlsx'
+  if (typeFilter === 'presentation') return 'ppt,pptx'
+  return typeFilter
+}
+
+function getSearchableFileText(file: FileItem) {
+  return [
+    getFileName(file),
+    file.name,
+    file.alias,
+    file.type,
+    file.tags?.join(' '),
+    getDepartmentName(file.department),
+    file.owner?.name,
+    file.uploadedBy?.name,
+    file.confidentialityLevel ? getConfidentialityLabel(file.confidentialityLevel) : '',
+  ].join(' ')
+}
+
 function getConfidentialityColor(level: any): string {
   const colors: Record<string, string> = {
     public: 'bg-emerald-100 text-emerald-700',
@@ -99,12 +191,18 @@ function getConfidentialityLabel(level: any): string {
 }
 
 export default function FilesPage() {
-  const [activeTab, setActiveTab] = useState('myfiles')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialTab = (searchParams.get('tab') || 'myfiles') as FileTab
+  const initialSearch = searchParams.get('q') || ''
+  const initialType = searchParams.get('type') || 'all'
+  const initialConfidentiality = searchParams.get('confidentiality') || 'all'
+  const [activeTab, setActiveTab] = useState<FileTab>(initialTab)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState('all')
-  const [confidentialityFilter, setConfidentialityFilter] = useState('all')
+  const [search, setSearch] = useState(initialSearch)
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
+  const [typeFilter, setTypeFilter] = useState(initialType)
+  const [confidentialityFilter, setConfidentialityFilter] = useState(initialConfidentiality)
   const [page, setPage] = useState(1)
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [accessLevel, setAccessLevel] = useState<'view' | 'download' | 'edit'>('view')
@@ -126,6 +224,30 @@ export default function FilesPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const q = searchParams.get('q')
+    const type = searchParams.get('type')
+    const confidentiality = searchParams.get('confidentiality')
+    const fileId = searchParams.get('fileId')
+
+    if (tab && ['myfiles', 'received', 'sent', 'scanned', 'scanner', 'archive'].includes(tab)) {
+      setActiveTab(tab as FileTab)
+    }
+    if (q !== null && q !== search) setSearch(q)
+    if (type && FILE_TYPE_OPTIONS.some(option => option.value === type)) setTypeFilter(type)
+    if (confidentiality && confidentiality !== 'all') setConfidentialityFilter(confidentiality)
+    if (fileId) {
+      const timer = setTimeout(() => {
+        const element = document.querySelector(`[data-file-id="${CSS.escape(fileId)}"]`)
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        element?.classList.add('ring-2', 'ring-blue-500')
+        setTimeout(() => element?.classList.remove('ring-2', 'ring-blue-500'), 2500)
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams])
+
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 500)
@@ -143,9 +265,9 @@ export default function FilesPage() {
   const { data: ownedFilesData, isLoading: ownedLoading } = useFilesQuery({
     owner: user?._id,
     page,
-    limit: 20,
+    limit: 50,
     search: debouncedSearch || undefined,
-    type: typeFilter !== 'all' ? typeFilter : undefined,
+    type: getServerTypeValue(typeFilter),
     confidentiality: confidentialityFilter !== 'all' ? confidentialityFilter : undefined,
   })
 
@@ -155,7 +277,7 @@ export default function FilesPage() {
   const { data: scannedFilesData, isLoading: scannedLoading } = useFilesQuery({
     isScanned: true,
     page,
-    limit: 20,
+    limit: 50,
     search: debouncedSearch || undefined,
   })
 
@@ -198,19 +320,6 @@ export default function FilesPage() {
   const scannerCancel = useScannerCancelMutation()
 
 
-  // Data - strict frontend filtering applied before any render/pagination/counters/search
-  const ownedRaw = ownedFilesData?.files || []
-  const ownedFiles = useMemo(() => filterFiles(ownedRaw as any), [ownedRaw, filterFiles])
-  const scannedRaw = scannedFilesData?.files || []
-  const scannedFiles = useMemo(() => filterFiles(scannedRaw as any), [scannedRaw, filterFiles])
-  const scannedOnlyFiles = useMemo(() => scannedFiles.filter((f: any) => f.isScanned === true), [scannedFiles])
-  const scannerFiles = scannerFilesData || []
-  const scannerStats = scannerStatsData || { pending: 0 }
-
-  const ownedTotal = ownedFilesData?.total || 0
-  const archiveRaw = archiveFilesData?.files || []
-  const archiveFiles = useMemo(() => filterFiles(archiveRaw as any), [archiveRaw, filterFiles])
-
   // Build permission lists
   const buildList = useCallback((data: any) => {
     if (!Array.isArray(data)) return []
@@ -224,12 +333,32 @@ export default function FilesPage() {
       }))
   }, [])
 
+  const applyFileFilters = useCallback((files: FileItem[]) => {
+    return files.filter((file) =>
+      fileMatchesSearch(file, search) &&
+      fileMatchesType(file, typeFilter) &&
+      fileMatchesConfidentiality(file, confidentialityFilter)
+    )
+  }, [search, typeFilter, confidentialityFilter])
+
   // Shared files (received/sent via explicit permissions) always visible — sharing is the only exception to dept/confidentiality rules
-  const receivedFilesList = useMemo(() => buildList(myPermissionsData || []), [myPermissionsData, buildList])
-  const sentFilesList = useMemo(() => buildList(sentPermissionsData || []), [sentPermissionsData, buildList])
+  const receivedFilesList = useMemo(() => applyFileFilters(buildList(myPermissionsData || [])), [myPermissionsData, buildList, applyFileFilters])
+  const sentFilesList = useMemo(() => applyFileFilters(buildList(sentPermissionsData || [])), [sentPermissionsData, buildList, applyFileFilters])
+
+  // Data - strict frontend filtering applied before any render/pagination/counters/search
+  const ownedRaw = ownedFilesData?.files || []
+  const ownedFiles = useMemo(() => applyFileFilters(filterFiles(ownedRaw as any)), [ownedRaw, filterFiles, applyFileFilters])
+  const scannedRaw = scannedFilesData?.files || []
+  const scannedFiles = useMemo(() => applyFileFilters(filterFiles(scannedRaw as any)), [scannedRaw, filterFiles, applyFileFilters])
+  const scannedOnlyFiles = useMemo(() => scannedFiles.filter((f: any) => f.isScanned === true), [scannedFiles])
+  const scannerFiles = scannerFilesData || []
+  const scannerStats = scannerStatsData || { pending: 0 }
+
+  const ownedTotal = ownedFilesData?.total || 0
+  const archiveRaw = archiveFilesData?.files || []
+  const archiveFiles = useMemo(() => applyFileFilters(filterFiles(archiveRaw as any)), [archiveRaw, filterFiles])
 
   // Merge owned + explicitly shared files for the main "My Files" view
-  // (so regular users immediately see files granted to them via sharing)
   const myAccessibleFiles = useMemo(() => {
     const map = new Map<string, any>()
     ownedFiles.forEach((f: any) => { if (f.fileId) map.set(f.fileId, f) })
@@ -250,6 +379,33 @@ export default function FilesPage() {
     sharedByMe: sentFilesList.length,
     pending: scannerStats.pending || scannerFiles.length
   }), [ownedFiles.length, scannedOnlyFiles.length, receivedFilesList.length, sentFilesList.length, scannerStats.pending, scannerFiles])
+
+  const resetPage = useCallback(() => setPage(1), [])
+
+  const handleClearFilters = () => {
+    setSearch('')
+    setTypeFilter('all')
+    setConfidentialityFilter('all')
+    setArchiveSearch('')
+    setArchiveDepartment('')
+    setArchiveUploadedBy('')
+    setArchiveConfidentiality('')
+    setArchiveRestrictedOnly(false)
+    setPage(1)
+  }
+
+  const renderPagination = (currentPage: number, totalPages: number, onChange: (page: number) => void) => {
+    const safeTotalPages = Math.max(1, totalPages || 1)
+    return (
+      <div className="border-t px-4 py-3 flex items-center justify-between text-sm text-muted-foreground">
+        <span>Page {currentPage} of {safeTotalPages}</span>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => onChange(currentPage - 1)}>Previous</Button>
+          <Button variant="outline" size="sm" disabled={currentPage >= safeTotalPages} onClick={() => onChange(currentPage + 1)}>Next</Button>
+        </div>
+      </div>
+    )
+  }
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -533,26 +689,41 @@ export default function FilesPage() {
                 <Input
                   placeholder="Search files..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    resetPage()
+                  }}
+                  className="pl-9 pr-10"
                 />
+                {search && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSearch('')
+                      resetPage()
+                    }}
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
 
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-[140px]">
+              <Select value={typeFilter} onValueChange={(value) => { setTypeFilter(value); resetPage() }}>
+                <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="File Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="doc,docx">Document</SelectItem>
-                  <SelectItem value="xls,xlsx">Spreadsheet</SelectItem>
-                  <SelectItem value="ppt,pptx">Presentation</SelectItem>
-                  <SelectItem value="image">Image</SelectItem>
+                  {FILE_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
-              <Select value={confidentialityFilter} onValueChange={setConfidentialityFilter}>
+              <Select value={confidentialityFilter} onValueChange={(value) => { setConfidentialityFilter(value); resetPage() }}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Confidentiality" />
                 </SelectTrigger>
@@ -601,6 +772,12 @@ export default function FilesPage() {
                   <List className="h-4 w-4" />
                 </Button>
               </div>
+
+              {(search || typeFilter !== 'all' || confidentialityFilter !== 'all') && (
+                <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -634,7 +811,7 @@ export default function FilesPage() {
 
         {/* Tabs */}
         <div className="px-6 pb-6 flex-1 flex flex-col min-h-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as FileTab)} className="flex-1 flex flex-col">
             <TabsList className="w-full justify-start rounded-xl bg-muted p-1 mb-4">
               <TabsTrigger value="myfiles">My Files</TabsTrigger>
               <TabsTrigger value="received">Shared With Me</TabsTrigger>
@@ -671,7 +848,7 @@ export default function FilesPage() {
                 ) : viewMode === 'list' ? (
                   <div className="divide-y">
                      {myAccessibleFiles.map((f: any) => (
-                      <div key={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
+                      <div key={f.fileId} data-file-id={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
                         <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -705,7 +882,7 @@ export default function FilesPage() {
                 ) : (
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                      {myAccessibleFiles.map((f: any) => (
-                      <Card key={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
+                      <Card key={f.fileId} data-file-id={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
                         <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
                           <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
                             {getFileIcon(f)}
@@ -762,9 +939,12 @@ export default function FilesPage() {
                     ))}
                   </div>
                 )}
+                {myAccessibleFiles.length > 0 && renderPagination(
+                  page,
+                  Math.ceil((ownedFilesData?.total || myAccessibleFiles.length) / 50),
+                  (nextPage) => setPage(Math.max(1, nextPage))
+                )}
               </TabsContent>
-
-              {/* ==================== SHARED WITH ME ==================== */}
               <TabsContent value="received" className="m-0 h-full flex flex-col p-6">
                 {receivedFilesList.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -776,7 +956,7 @@ export default function FilesPage() {
                 ) : viewMode === 'list' ? (
                   <div className="space-y-3">
                     {receivedFilesList.map((f: any) => (
-                      <Card key={f.permissionId} className="p-4">
+                      <Card key={f.permissionId} data-file-id={f.fileId} className="p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
@@ -803,7 +983,7 @@ export default function FilesPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {receivedFilesList.map((f: any) => (
-                      <Card key={f.permissionId} className="group overflow-hidden">
+                      <Card key={f.permissionId} data-file-id={f.fileId} className="group overflow-hidden">
                         <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
                           <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl">{getFileIcon(f)}</div>
                         </div>
@@ -840,7 +1020,7 @@ export default function FilesPage() {
                 ) : viewMode === 'list' ? (
                   <div className="space-y-3">
                     {sentFilesList.map((f: any) => (
-                      <Card key={f.permissionId} className="p-4">
+                      <Card key={f.permissionId} data-file-id={f.fileId} className="p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
@@ -864,7 +1044,7 @@ export default function FilesPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {sentFilesList.map((f: any) => (
-                      <Card key={f.permissionId} className="group overflow-hidden">
+                      <Card key={f.permissionId} data-file-id={f.fileId} className="group overflow-hidden">
                         <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
                           <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl">{getFileIcon(f)}</div>
                         </div>
@@ -969,7 +1149,7 @@ export default function FilesPage() {
                 ) : viewMode === 'list' ? (
                   <div className="divide-y">
                     {scannedOnlyFiles.map((f: any) => (
-                      <div key={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
+                      <div key={f.fileId} data-file-id={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
                         <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -1003,7 +1183,7 @@ export default function FilesPage() {
                 ) : (
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {scannedOnlyFiles.map((f: any) => (
-                      <Card key={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
+                      <Card key={f.fileId} data-file-id={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
                         <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
                           <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
                             {getFileIcon(f)}
@@ -1059,6 +1239,11 @@ export default function FilesPage() {
                       </Card>
                     ))}
                   </div>
+                )}
+                {scannedOnlyFiles.length > 0 && renderPagination(
+                  page,
+                  Math.ceil((scannedFilesData?.total || scannedOnlyFiles.length) / 50),
+                  (nextPage) => setPage(Math.max(1, nextPage))
                 )}
               </TabsContent>
 
@@ -1195,7 +1380,7 @@ export default function FilesPage() {
                 ) : viewMode === 'list' ? (
                   <div className="divide-y">
                     {archiveFiles.map((f: any) => (
-                      <div key={f.fileId} className="flex items-center gap-3 p-4 hover:bg-accent/50 transition-colors group">
+                      <div key={f.fileId} data-file-id={f.fileId} className="flex items-center gap-3 p-4 hover:bg-accent/50 transition-colors group">
                         <div className="p-1.5 sm:p-2 bg-muted rounded-lg sm:rounded-xl flex-shrink-0">{getFileIcon(f)}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -1285,7 +1470,7 @@ export default function FilesPage() {
                 ) : (
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {archiveFiles.map((f: any) => (
-                      <Card key={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
+                      <Card key={f.fileId} data-file-id={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
                         <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
                           <div className="p-3 sm:p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
                             {getFileIcon(f)}
@@ -1417,8 +1602,14 @@ export default function FilesPage() {
                         <p className="text-gray-600 text-sm">
                           Highly confidential file. HODs can only view metadata.
                         </p>
-                      </div>
-                    </div>
+              </div>
+
+              {(search || typeFilter !== 'all' || confidentialityFilter !== 'all') && (
+                <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              )}
+            </div>
                   ) : previewType === 'image' ? (
                     <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-6">
                       <img src={blobUrl} alt={previewFile?.name} className="max-w-full max-h-full object-contain rounded-lg" />

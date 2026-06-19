@@ -74,7 +74,7 @@ export default function UploadPage() {
 
   const MAX_BULK_FILES = 10
   const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
-  const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt']
+  const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
 
   const validateFile = (file: File): string | null => {
     const ext = '.' + (file.name.split('.').pop() || '').toLowerCase()
@@ -90,7 +90,13 @@ export default function UploadPage() {
   // Single file handlers
   const handleSingleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) setSingleFile(file)
+    if (!file) return
+    const validationError = validateFile(file)
+    if (validationError) {
+      addNotification('error', 'Invalid File', `${file.name}: ${validationError}`)
+      return
+    }
+    setSingleFile(file)
   }
 
   const handleSingleDragOver = (e: React.DragEvent) => {
@@ -110,9 +116,9 @@ export default function UploadPage() {
     if (files.length > 0) {
       const file = files[0]
       // Check if it's an accepted file type
-      const acceptedTypes = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt']
+      const acceptedTypes = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
       const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
-      if (acceptedTypes.includes(fileExtension) || file.type.startsWith('application/') || file.type.startsWith('text/')) {
+      if (acceptedTypes.includes(fileExtension) || file.type.startsWith('application/') || file.type.startsWith('text/') || file.type.startsWith('image/')) {
         setSingleFile(file)
       }
     }
@@ -120,6 +126,11 @@ export default function UploadPage() {
 
   const handleSingleUpload = () => {
     if (!singleFile) return
+    const validationError = validateFile(singleFile)
+    if (validationError) {
+      addNotification('error', 'Invalid File', `${singleFile.name}: ${validationError}`)
+      return
+    }
     if (!canUpload(confidentiality)) {
       addNotification('error', 'Upload Blocked', `Your clearance (${clearanceBadge.label}) does not allow uploading ${confidentiality} files.`)
       return
@@ -391,7 +402,7 @@ export default function UploadPage() {
                       type="file"
                       className="hidden"
                       onChange={handleSingleFileChange}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,image/*"
                     />
                     <div className={`transition-transform duration-200 ${isDraggingSingle ? 'scale-110' : ''}`}>
                       <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingSingle ? 'text-blue-500' : 'text-gray-400'
@@ -411,7 +422,7 @@ export default function UploadPage() {
                           }`}>
                           {isDraggingSingle ? 'Drop your file here' : 'Drag & drop or click to select'}
                         </p>
-                        <p className="text-sm text-gray-400 mt-2">PDF, Word, Excel, PowerPoint, Text files</p>
+                        <p className="text-sm text-gray-400 mt-2">PDF, Word, Excel, PowerPoint, Text, and image files</p>
                       </>
                     )}
                   </div>
@@ -523,7 +534,7 @@ export default function UploadPage() {
                       multiple
                       onChange={handleBulkFilesChange}
                       className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,image/*"
                     />
                     <div className={`transition-transform duration-200 ${isDraggingBulk ? 'scale-110' : ''}`}>
                       <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingBulk ? 'text-blue-500' : 'text-gray-400'
@@ -533,7 +544,7 @@ export default function UploadPage() {
                       }`}>
                       {isDraggingBulk ? 'Drop your files here' : 'Drag & drop or click to browse'}
                     </p>
-                    <p className="text-sm text-gray-400 mt-2">Maximum 10 files • PDF, Word, Excel, PowerPoint, Text</p>
+                    <p className="text-sm text-gray-400 mt-2">Maximum 10 files • PDF, Word, Excel, PowerPoint, Text, and images</p>
                   </div>
 
                   {bulkFiles.length > 0 && (

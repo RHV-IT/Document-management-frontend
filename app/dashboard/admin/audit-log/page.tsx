@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useEffect, useState, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth'
 import { useAuditLogsQuery, useAuditActionsQuery, useExportAuditLogsMutation, useAuditLogStatsQuery } from '@/hooks/useAuditLog'
 import type { AuditLog } from '@/services/api/audit'
@@ -147,10 +147,11 @@ const getHumanReadableActivity = (log: AuditLog): string => {
 
 export default function AuditLogPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { canAccess } = useAuth()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(searchParams.get('search') || '')
   const [actionFilter, setActionFilter] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
@@ -195,6 +196,14 @@ export default function AuditLogPage() {
   }, [filteredData])
 
   const groupedDates = Object.keys(logsByDate).sort((a, b) => b.localeCompare(a))
+
+  useEffect(() => {
+    const searchFromUrl = searchParams.get('search') || ''
+    if (searchFromUrl !== search) {
+      setSearch(searchFromUrl)
+      setPage(1)
+    }
+  }, [searchParams])
 
   const getActionIcon = (action: string) => ACTION_ICONS[action] || ACTION_ICONS.default
   const getActionColor = (action: string) => ACTION_COLORS[action] || ACTION_COLORS.default
