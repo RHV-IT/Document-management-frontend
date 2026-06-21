@@ -68,20 +68,21 @@ export interface ShareResponse {
 
 export const filesAPI = {
   // Get all files
-  getFiles: async (params?: {
-    page?: number
-    limit?: number
-    type?: string
-    owner?: string
-    department?: string
-    fromDate?: string
-    toDate?: string
-    confidentiality?: string
-    search?: string
-    sortBy?: string
-    sortOrder?: 'asc' | 'desc'
-    isScanned?: boolean
-  }): Promise<FilesResponse> => {
+   getFiles: async (params?: {
+     page?: number
+     limit?: number
+     type?: string
+     fileCategory?: string
+     owner?: string
+     department?: string
+     fromDate?: string
+     toDate?: string
+     confidentiality?: string
+     search?: string
+     sortBy?: string
+     sortOrder?: 'asc' | 'desc'
+     isScanned?: boolean
+   }): Promise<FilesResponse> => {
     const response = await apiClient.get('/api/v1/files', { params })
     return response.data
   },

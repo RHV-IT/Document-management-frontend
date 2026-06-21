@@ -84,8 +84,7 @@ const FILE_TYPE_OPTIONS = [
   { value: 'spreadsheet', label: 'Spreadsheets' },
   { value: 'presentation', label: 'Presentations' },
   { value: 'image', label: 'Images' },
-  { value: 'text', label: 'Text Files' },
-  { value: 'archive', label: 'Archives' },
+  { value: 'zip', label: 'Archives' },
 ] as const
 
 function normalizeSearch(value: string) {
@@ -107,20 +106,36 @@ function getFileExtension(file: FileItem) {
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
 }
 
+function getFileCategory(file: FileItem): string | undefined {
+  const ext = getFileExtension(file)
+  const type = (file.type || '').toLowerCase()
+
+  // PDF
+  if (ext === 'pdf' || type.includes('pdf')) return 'pdf'
+  // Document
+  if (['doc', 'docx', 'odt', 'txt', 'rtf'].includes(ext) ||
+      type.includes('word') || type.includes('msword') ||
+      type.includes('opendocument.text') || type.includes('plain') ||
+      type.includes('rtf')) return 'document'
+  // Spreadsheet
+  if (['xls', 'xlsx', 'ods', 'csv'].includes(ext) ||
+      type.includes('excel') || type.includes('spreadsheet')) return 'spreadsheet'
+  // Presentation
+  if (['ppt', 'pptx', 'odp'].includes(ext) ||
+      type.includes('powerpoint') || type.includes('presentation')) return 'presentation'
+  // Image
+  if (['jpg', 'jpeg', 'png', 'gif', 'tiff', 'tif', 'bmp', 'webp'].includes(ext) ||
+      type.includes('image')) return 'image'
+  // Archive/Zip
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext) ||
+      type.includes('zip') || type.includes('archive')) return 'zip'
+  return undefined
+}
+
 function fileMatchesType(file: FileItem, typeFilter: string) {
   if (typeFilter === 'all') return true
-  const extension = getFileExtension(file)
-  const type = (file.type || '').toLowerCase()
-  const name = (file.name || '').toLowerCase()
-
-  if (typeFilter === 'pdf') return extension === 'pdf' || type.includes('pdf')
-  if (typeFilter === 'document') return ['doc', 'docx'].includes(extension) || type.includes('word') || type.includes('msword')
-  if (typeFilter === 'spreadsheet') return ['xls', 'xlsx'].includes(extension) || type.includes('excel') || type.includes('spreadsheet')
-  if (typeFilter === 'presentation') return ['ppt', 'pptx'].includes(extension) || type.includes('powerpoint') || type.includes('presentation')
-  if (typeFilter === 'image') return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension) || type.includes('image')
-  if (typeFilter === 'text') return ['txt', 'rtf', 'md'].includes(extension) || type.includes('text') || type.includes('plain')
-  if (typeFilter === 'archive') return ['zip', 'rar', '7z', 'tar', 'gz'].includes(extension) || type.includes('zip') || type.includes('archive')
-  return true
+  const fileCategory = getFileCategory(file)
+  return fileCategory === typeFilter
 }
 
 function fileMatchesSearch(file: FileItem, searchTerm: string) {
@@ -145,11 +160,7 @@ function fileMatchesConfidentiality(file: FileItem, confidentialityFilter: strin
 }
 
 function getServerTypeValue(typeFilter: string) {
-  if (typeFilter === 'all') return undefined
-  if (typeFilter === 'document') return 'doc,docx'
-  if (typeFilter === 'spreadsheet') return 'xls,xlsx'
-  if (typeFilter === 'presentation') return 'ppt,pptx'
-  return typeFilter
+  return typeFilter === 'all' ? undefined : typeFilter
 }
 
 function getSearchableFileText(file: FileItem) {
@@ -267,7 +278,7 @@ export default function FilesPage() {
     page,
     limit: 50,
     search: debouncedSearch || undefined,
-    type: getServerTypeValue(typeFilter),
+    fileCategory: getServerTypeValue(typeFilter),
     confidentiality: confidentialityFilter !== 'all' ? confidentialityFilter : undefined,
   })
 
@@ -279,6 +290,7 @@ export default function FilesPage() {
     page,
     limit: 50,
     search: debouncedSearch || undefined,
+    fileCategory: getServerTypeValue(typeFilter),
   })
 
   const { data: scannerFilesData = [], isLoading: scannerLoading } = usePendingScans()

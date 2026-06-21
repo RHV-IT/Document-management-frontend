@@ -8,6 +8,7 @@ export interface FilesQueryParams {
   page?: number
   limit?: number
   type?: string
+  fileCategory?: string
   owner?: string
   department?: string
   fromDate?: string
