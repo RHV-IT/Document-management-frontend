@@ -76,16 +76,16 @@ export default function UploadPage() {
   const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
   const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
 
-  const validateFile = (file: File): string | null => {
+const validateFile = (file: File): string | null => {
     const ext = '.' + (file.name.split('.').pop() || '').toLowerCase()
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      return `Unsupported file type: ${ext}`
+        return 'This file type isn’t supported. Please upload a PDF, Word, Excel, PowerPoint, Text, or image file.'
     }
     if (file.size > MAX_FILE_SIZE) {
-      return `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 50MB`
+        return 'This file is too large. Maximum file size is 50 MB.'
     }
     return null
-  }
+}
 
   // Single file handlers
   const handleSingleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,10 +131,10 @@ export default function UploadPage() {
       addNotification('error', 'Invalid File', `${singleFile.name}: ${validationError}`)
       return
     }
-    if (!canUpload(confidentiality)) {
-      addNotification('error', 'Upload Blocked', `Your clearance (${clearanceBadge.label}) does not allow uploading ${confidentiality} files.`)
-      return
-    }
+     if (!canUpload(confidentiality)) {
+       addNotification('error', 'Upload Blocked', 'You don’t have permission to upload files with this confidentiality level.')
+       return
+     }
     const formData = new FormData()
     formData.append('file', singleFile)
     if (alias) formData.append('alias', alias)
@@ -157,23 +157,23 @@ export default function UploadPage() {
     const newFiles: FileStatus[] = []
 
     for (const file of filesArray) {
-      if (bulkFiles.length + newFiles.length >= MAX_BULK_FILES) {
-        addNotification('error', 'Upload Limit', 'Maximum 10 files allowed per bulk upload')
-        break
-      }
-      const validationError = validateFile(file)
-      if (validationError) {
-        addNotification('error', 'Invalid File', `${file.name}: ${validationError}`)
-        continue
-      }
-      newFiles.push({
-        file,
-        id: generateId(),
-        status: 'pending' as const,
-        confidentialityLevel: 'internal',
-        alias: ''
-      })
-    }
+       if (bulkFiles.length + newFiles.length >= MAX_BULK_FILES) {
+         addNotification('error', 'Upload Limit', 'You can upload a maximum of 10 files at a time. Please remove some files and try again.')
+         break
+       }
+       const validationError = validateFile(file)
+       if (validationError) {
+         addNotification('error', 'Invalid File', `${file.name}: ${validationError}`)
+         continue
+       }
+       newFiles.push({
+         file,
+         id: generateId(),
+         status: 'pending' as const,
+         confidentialityLevel: 'internal',
+         alias: ''
+       })
+     }
 
     if (newFiles.length > 0) {
       setBulkFiles(prev => [...prev, ...newFiles])
@@ -213,13 +213,13 @@ export default function UploadPage() {
     let pendingItems = bulkFiles.filter(f => f.status === 'pending')
 
     // per-file validation for clearance - block invalid, show error inline, proceed with valid
-    const validatedItems = pendingItems.map(item => {
-      const lvl = item.confidentialityLevel || 'internal'
-      if (!canUpload(lvl)) {
-        return { ...item, status: 'error' as const, error: `Blocked: exceeds your ${clearanceBadge.label} clearance` }
-      }
-      return item
-    })
+     const validatedItems = pendingItems.map(item => {
+       const lvl = item.confidentialityLevel || 'internal'
+       if (!canUpload(lvl)) {
+         return { ...item, status: 'error' as const, error: `You don’t have permission to upload files with this confidentiality level.` }
+       }
+       return item
+     })
 
     const invalidCount = validatedItems.filter(i => i.status === 'error').length
     if (invalidCount > 0) {
@@ -233,17 +233,17 @@ export default function UploadPage() {
     const files = validPending.map(f => f.file)
 
     if (files.length === 0) {
-      if (invalidCount > 0) return
-      addNotification('error', 'No Files', 'No files selected for upload')
-      return
-    }
+       if (invalidCount > 0) return
+       addNotification('error', 'No Files', 'Please select at least one file to upload.')
+       return
+     }
 
     const validFiles = files.filter(f => f && typeof f === 'object' && f.constructor.name === 'File') as File[]
 
     if (validFiles.length === 0) {
-      addNotification('error', 'Invalid Files', 'No valid files found for upload')
-      return
-    }
+       addNotification('error', 'Invalid Files', 'None of the selected files are valid. Please check file type and size.')
+       return
+     }
 
     const metadata = validPending.map(f => ({
       confidentialityLevel: f.confidentialityLevel || 'internal',

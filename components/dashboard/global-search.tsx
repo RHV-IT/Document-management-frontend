@@ -35,8 +35,6 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
-import React from 'react'
-
 type GlobalSearchCategory = 'file' | 'page' | 'user' | 'notification' | 'activity' | 'audit'
 
 type GlobalSearchResult = {
@@ -123,12 +121,6 @@ const getFileTab = (file: FileItem, userId: string) => {
   if (file.isScanned) return 'scanned'
   if (userId && getOwnerId(file) === userId) return 'myfiles'
   return 'received'
-}
-
-const getFileTabLabel = (tab: string) => {
-  if (tab === 'scanned') return 'Scanned Files'
-  if (tab === 'received') return 'Shared With Me'
-  return 'My Files'
 }
 
 const getFileExtension = (file: FileItem) => {
@@ -246,7 +238,7 @@ export function GlobalSearch() {
   })
 
   const notificationsQuery = useQuery({
-    queryKey: ['global-search', 'notifications', normalizedQuery],
+    queryKey: ['global-search', 'notifications'],
     queryFn: () => notificationsAPI.getNotifications({ page: 1, limit: 8 }),
     select: (response) => response.data.notifications,
     enabled: hasSearched,
