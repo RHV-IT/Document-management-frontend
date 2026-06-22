@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, type ElementType, useMemo, useState } from 'react'
+import { Fragment, type ElementType, useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth'
@@ -12,6 +12,7 @@ import { dashboardAPI, type RecentActivity } from '@/services/api/dashboard'
 import type { User as UserType } from '@/services/api/auth'
 import { formatBytes } from '@/lib/utils'
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -24,7 +25,6 @@ import {
   Activity,
   Bell,
   ChevronRight,
-  Command,
   FileText,
   Home,
   Loader2,
@@ -34,7 +34,11 @@ import {
   Trash2,
   Upload,
   Users,
+  X,
+  Command as CommandIcon,
+  Sparkles,
 } from 'lucide-react'
+
 type GlobalSearchCategory = 'file' | 'page' | 'user' | 'notification' | 'activity' | 'audit'
 
 type GlobalSearchResult = {
@@ -90,6 +94,15 @@ const CATEGORY_ICON: Record<GlobalSearchCategory, ElementType> = {
   notification: Bell,
   activity: Activity,
   audit: Activity,
+}
+
+const CATEGORY_COLORS: Record<GlobalSearchCategory, string> = {
+  file: 'bg-blue-50 text-blue-600',
+  page: 'bg-violet-50 text-violet-600',
+  user: 'bg-emerald-50 text-emerald-600',
+  notification: 'bg-amber-50 text-amber-600',
+  activity: 'bg-cyan-50 text-cyan-600',
+  audit: 'bg-rose-50 text-rose-600',
 }
 
 const normalize = (value = '') => value.toString().trim().toLowerCase()
@@ -204,6 +217,7 @@ const groupResults = (results: GlobalSearchResult[]) => {
       category,
       label: CATEGORY_LABEL[category],
       Icon: CATEGORY_ICON[category],
+      color: CATEGORY_COLORS[category],
       items: items
         .sort((a, b) => a.score - b.score || a.title.localeCompare(b.title))
         .slice(0, 8),
@@ -218,6 +232,30 @@ export function GlobalSearch() {
   const normalizedQuery = normalize(query)
   const hasSearched = normalizedQuery.length > 0
   const userId = getId(user)
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !open)) {
+        if (
+          (e.target instanceof HTMLElement && e.target.isContentEditable) ||
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          e.target instanceof HTMLSelectElement
+        ) {
+          if (e.key === 'k' && (e.metaKey || e.ctrlKey)) return
+          if (e.key === '/' && !open) return
+        }
+        e.preventDefault()
+        setOpen((prev) => !prev)
+      }
+      if (e.key === 'Escape' && open) {
+        e.preventDefault()
+        setOpen(false)
+      }
+    }
+    document.addEventListener('keydown', down)
+    return () => document.removeEventListener('keydown', down)
+  }, [open])
 
   const filesQuery = useQuery({
     queryKey: ['global-search', 'files', normalizedQuery],
@@ -247,165 +285,216 @@ export function GlobalSearch() {
   })
 
   const activityQuery = useQuery({
-    queryKey: ['global-search', 'activity', normalizedQuery],
+    queryKey: ['global-search', 'activity'],
     queryFn: () => dashboardAPI.getRecentActivity(),
-    select: (response) => response.data,
+    select: (response): RecentActivity[] => response.data,
     enabled: hasSearched,
     retry: false,
     staleTime: 1000 * 30,
   })
 
   const auditQuery = useQuery({
-    queryKey: ['global-search', 'audit', normalizedQuery],
-    queryFn: () => auditAPI.getLogs({ page: 1, limit: 8, search: normalizedQuery || undefined }),
+    queryKey: ['global-search', 'audit'],
+    queryFn: () => auditAPI.getLogs({ page: 1, limit: 8 }),
     select: (response) => response.data.logs,
     enabled: hasSearched && canAccess(['admin']),
     retry: false,
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 60 * 2,
   })
 
-  const isFetching = [filesQuery, usersQuery, notificationsQuery, activityQuery, auditQuery].some((item) => item.isFetching)
+  const isFetching = filesQuery.isLoading || usersQuery.isLoading || notificationsQuery.isLoading || activityQuery.isLoading || auditQuery.isLoading
 
   const results = useMemo(() => {
-    if (!hasSearched) return []
-
-    const navResults: GlobalSearchResult[] = NAV_ITEMS
-      .filter((item) => !item.roles || canAccess(item.roles))
-      .map((item) => ({
-        id: `page:${item.href}`,
-        category: 'page' as const,
-        title: item.label,
-        subtitle: item.description,
-        href: item.href,
-        score: scoreMatch(normalizedQuery, item.label, item.description),
-      }))
-
     const fileResults = (filesQuery.data || []).map((file) => buildFileResult(file, normalizedQuery, userId))
-    const userResults = (usersQuery.data || []).map((userItem) => buildUserResult(userItem, normalizedQuery))
+    const userResults = (usersQuery.data || []).map((user) => buildUserResult(user, normalizedQuery))
     const notificationResults = (notificationsQuery.data || []).map((notification) => buildNotificationResult(notification, normalizedQuery))
     const activityResults = (activityQuery.data || []).map((activity) => buildActivityResult(activity, normalizedQuery))
-    const auditResults = (auditQuery.data || []).map((log) => buildAuditResult(log, normalizedQuery))
+    const auditResults = (auditQuery.data || []).map((audit) => buildAuditResult(audit, normalizedQuery))
 
-    return [
-      ...fileResults,
-      ...navResults,
-      ...userResults,
-      ...notificationResults,
-      ...activityResults,
-      ...auditResults,
-    ]
-      .filter((result) => result.score < 10)
-      .sort((a, b) => a.score - b.score || CATEGORY_ORDER[a.category as GlobalSearchCategory] - CATEGORY_ORDER[b.category as GlobalSearchCategory] || a.title.localeCompare(b.title))
-  }, [
-    activityQuery.data,
-    auditQuery.data,
-    canAccess,
-    filesQuery.data,
-    hasSearched,
-    normalizedQuery,
-    notificationsQuery.data,
-    userId,
-    usersQuery.data,
-  ])
+    return [...fileResults, ...userResults, ...notificationResults, ...activityResults, ...auditResults]
+  }, [filesQuery.data, usersQuery.data, notificationsQuery.data, activityQuery.data, auditQuery.data, normalizedQuery, userId, canAccess])
 
   const groupedResults = useMemo(() => groupResults(results), [results])
 
+  const filteredNavItems = useMemo(() => {
+    if (!hasSearched) return NAV_ITEMS.filter((item) => !item.roles || canAccess(item.roles))
+    return NAV_ITEMS.filter(
+      (item) =>
+        (!item.roles || canAccess(item.roles)) &&
+        scoreMatch(normalizedQuery, item.label, item.description) < 10
+    ).slice(0, 6)
+  }, [hasSearched, normalizedQuery, canAccess])
+
   const selectResult = (result: GlobalSearchResult) => {
     setOpen(false)
+    setQuery('')
     router.push(result.href)
   }
 
+  const selectNavItem = (item: NavSearchItem) => {
+    setOpen(false)
+    setQuery('')
+    router.push(item.href)
+  }
+
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <div className="relative group w-full">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-        <input
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value)
-            setOpen(true)
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder="Global search..."
-          className="h-10 w-full rounded-md border border-gray-200/70 bg-gray-50/70 pl-10 pr-10 text-sm text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          >
-            ×
-          </button>
-        )}
-      </div>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="group relative w-full flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white/60 px-4 py-2.5 text-sm text-gray-400 shadow-sm backdrop-blur-sm transition-all hover:border-gray-300 hover:bg-white/80 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-300"
+      >
+        <Search className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-gray-500 transition-colors" />
+        <span className="flex-1 text-left text-gray-400 group-hover:text-gray-500 transition-colors">
+          Search anything...
+        </span>
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-400 shadow-sm">
+          <CommandIcon className="h-2.5 w-2.5" />K
+        </kbd>
+      </button>
 
-      <Command className="max-h-[min(70vh,680px)]">
-        <CommandInput
-          value={query}
-          onValueChange={(value) => {
-            setQuery(value)
-            setOpen(true)
-          }}
-          placeholder="Search files, users, notifications, logs, or pages..."
-        />
-        <CommandList className="max-h-[560px]">
-          {!hasSearched && (
-            <CommandGroup heading="Search anything">
-              <CommandItem value="global-search-help" className="cursor-default">
-                <Search className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-muted-foreground">Type to search files, users, notifications, audit logs, activity, and pages.</span>
-              </CommandItem>
-            </CommandGroup>
+      <CommandDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setQuery(''); }}>
+        <Command className="rounded-2xl border-0 shadow-2xl shadow-black/10 overflow-hidden" shouldFilter={false}>
+          <CommandInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search files, users, pages, notifications..."
+            className="h-14 text-base pl-4 pr-10"
+            wrapperClassName="h-12 px-3 relative"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="absolute right-3 top-[18px] z-10 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           )}
 
-          {isFetching && (
-            <CommandGroup>
-              <CommandItem value="search-loading" className="cursor-default">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <span className="text-sm text-muted-foreground">Searching across the application...</span>
-              </CommandItem>
-            </CommandGroup>
-          )}
-
-          {groupedResults.map((group) => (
-            <Fragment key={group.category}>
-              <CommandSeparator />
-              <CommandGroup heading={
-                <div className="flex items-center gap-2">
-                  <group.Icon className="h-3.5 w-3.5 text-gray-500" />
-                  <span>{group.label}</span>
+          <CommandList className="max-h-[420px] scroll-smooth">
+            {!hasSearched && (
+              <div className="px-2 pt-3 pb-2">
+                <div className="flex items-center gap-2 px-3 py-2 mb-1">
+                  <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Quick Navigation</span>
                 </div>
-              }>
-                {group.items.map((result) => {
-                  const Icon = CATEGORY_ICON[result.category]
-                  return (
-                    <CommandItem
-                      key={result.id}
-                      value={result.id}
-                      onSelect={() => selectResult(result)}
-                      className="cursor-pointer"
+                <div className="grid grid-cols-2 gap-1.5 p-1">
+                  {filteredNavItems.map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => selectNavItem(item)}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all hover:bg-blue-50/80 focus:bg-blue-50/80 focus:outline-none group"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                        <Icon className="h-4 w-4" />
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-100 group-hover:from-blue-50 group-hover:to-blue-100 group-hover:border-blue-200 transition-all">
+                        <item.icon className="h-4 w-4 text-gray-500 group-hover:text-blue-600 transition-colors" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-gray-900">{result.title}</p>
-                        <p className="truncate text-xs text-gray-500">{result.subtitle}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900 truncate">{item.label}</p>
+                        <p className="text-[11px] text-gray-400 group-hover:text-gray-500 truncate">{item.description}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </Fragment>
-          ))}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 mt-2 border-t border-gray-50">
+                  <span className="text-[10px] text-gray-400">Type to search across files, users, notifications, audit logs and more</span>
+                </div>
+              </div>
+            )}
 
-          {hasSearched && !isFetching && groupedResults.length === 0 && (
-            <CommandEmpty>No results found</CommandEmpty>
-          )}
-        </CommandList>
-      </Command>
-    </CommandDialog>
+            {hasSearched && isFetching && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="relative">
+                  <div className="h-12 w-12 rounded-full border-2 border-gray-100 border-t-blue-500 animate-spin" />
+                  <Search className="absolute inset-0 m-auto h-5 w-5 text-blue-500" />
+                </div>
+                <p className="mt-4 text-sm text-gray-500">Searching across the application...</p>
+              </div>
+            )}
+
+            {hasSearched && !isFetching && groupedResults.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4">
+                  <Search className="h-7 w-7 text-gray-300" />
+                </div>
+                <p className="text-sm font-medium text-gray-600">No results found</p>
+                <p className="text-xs text-gray-400 mt-1 text-center">
+                  Try different keywords or check your spelling
+                </p>
+              </div>
+            )}
+
+            {groupedResults.map((group, groupIndex) => (
+              <Fragment key={group.category}>
+                {groupIndex > 0 && <CommandSeparator className="mx-2" />}
+                <CommandGroup
+                  heading={
+                    <div className="flex items-center gap-2 py-1">
+                      <div className={`flex h-5 w-5 items-center justify-center rounded-md ${group.color}`}>
+                        <group.Icon className="h-3 w-3" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{group.label}</span>
+                      <span className="ml-auto text-[10px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                        {group.items.length}
+                      </span>
+                    </div>
+                  }
+                  className="px-2 pt-1 pb-2"
+                >
+                  {group.items.map((result, index) => {
+                    const Icon = CATEGORY_ICON[result.category]
+                    const colorClass = CATEGORY_COLORS[result.category]
+                    return (
+                      <CommandItem
+                        key={result.id}
+                        value={result.id}
+                        onSelect={() => selectResult(result)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer data-[selected=true]:bg-blue-50/80 transition-all group"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${colorClass} transition-transform group-hover:scale-105`}>
+                          <Icon className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-800 truncate group-hover:text-gray-900">
+                            {result.title}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate mt-0.5">
+                            {result.subtitle}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 group-hover:text-gray-400 transition-colors" />
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              </Fragment>
+            ))}
+          </CommandList>
+
+          <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                <kbd className="inline-flex items-center rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[9px] shadow-sm">↑↓</kbd>
+                <span>Navigate</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                <kbd className="inline-flex items-center rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[9px] shadow-sm">↵</kbd>
+                <span>Select</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                <kbd className="inline-flex items-center rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[9px] shadow-sm">esc</kbd>
+                <span>Close</span>
+              </div>
+            </div>
+            <div className="text-[10px] text-gray-400">
+              {hasSearched && !isFetching ? (
+                <span>{results.length} result{results.length !== 1 ? 's' : ''}</span>
+              ) : (
+                <span>⌘K to search</span>
+              )}
+            </div>
+          </div>
+        </Command>
+      </CommandDialog>
+    </>
   )
 }

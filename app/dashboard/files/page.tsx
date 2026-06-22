@@ -75,6 +75,20 @@ import { ScannerConfirmModal } from '@/components/scanner/ScannerConfirmModal'
 // Helper Functions - using confidentialityLevels array with rightful professional colors
 const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'confidential', 'highly_confidential'] as const
 
+const CONFIDENTIALITY_COLOR_MAP: Record<string, string> = {
+  public: '#10b981',
+  internal: '#3b82f6',
+  confidential: '#f59e0b',
+  highly_confidential: '#ef4444',
+}
+
+const CONFIDENTIALITY_LABEL_MAP: Record<string, string> = {
+  public: 'Everyone Can See',
+  internal: 'Company Only',
+  confidential: 'Limited Access Only',
+  highly_confidential: 'Very Secret - Few People Only',
+}
+
 type FileTab = 'myfiles' | 'received' | 'sent' | 'scanned' | 'scanner' | 'archive'
 
 const FILE_TYPE_OPTIONS = [
@@ -85,6 +99,7 @@ const FILE_TYPE_OPTIONS = [
   { value: 'presentation', label: 'Presentations' },
   { value: 'image', label: 'Images' },
   { value: 'zip', label: 'Archives' },
+  { value: 'other', label: 'Other' },
 ] as const
 
 function normalizeSearch(value: string) {
@@ -106,7 +121,7 @@ function getFileExtension(file: FileItem) {
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
 }
 
-function getFileCategory(file: FileItem): string | undefined {
+function getFileCategory(file: FileItem): string {
   const ext = getFileExtension(file)
   const type = (file.type || '').toLowerCase()
 
@@ -129,7 +144,8 @@ function getFileCategory(file: FileItem): string | undefined {
   // Archive/Zip
   if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext) ||
       type.includes('zip') || type.includes('archive')) return 'zip'
-  return undefined
+  // Other (fallback for unknown types)
+  return 'other'
 }
 
 function fileMatchesType(file: FileItem, typeFilter: string) {
@@ -204,16 +220,17 @@ function getConfidentialityLabel(level: any): string {
 export default function FilesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialTab = (searchParams.get('tab') || 'myfiles') as FileTab
-  const initialSearch = searchParams.get('q') || ''
-  const initialType = searchParams.get('type') || 'all'
-  const initialConfidentiality = searchParams.get('confidentiality') || 'all'
-  const [activeTab, setActiveTab] = useState<FileTab>(initialTab)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [search, setSearch] = useState(initialSearch)
-  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
-  const [typeFilter, setTypeFilter] = useState(initialType)
-  const [confidentialityFilter, setConfidentialityFilter] = useState(initialConfidentiality)
+   const initialTab = (searchParams.get('tab') || 'myfiles') as FileTab
+   const initialSearch = searchParams.get('q') || ''
+   // Support both 'type' (legacy) and 'fileCategory' (new) parameters for backward compatibility
+   const initialTypeParam = searchParams.get('type') || searchParams.get('fileCategory') || 'all'
+   const initialConfidentiality = searchParams.get('confidentiality') || 'all'
+   const [activeTab, setActiveTab] = useState<FileTab>(initialTab)
+   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+   const [search, setSearch] = useState(initialSearch)
+   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
+   const [typeFilter, setTypeFilter] = useState(initialTypeParam)
+   const [confidentialityFilter, setConfidentialityFilter] = useState(initialConfidentiality)
   const [page, setPage] = useState(1)
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [accessLevel, setAccessLevel] = useState<'view' | 'download' | 'edit'>('view')
@@ -235,43 +252,80 @@ export default function FilesPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    const tab = searchParams.get('tab')
-    const q = searchParams.get('q')
-    const type = searchParams.get('type')
-    const confidentiality = searchParams.get('confidentiality')
-    const fileId = searchParams.get('fileId')
+   useEffect(() => {
+     const tab = searchParams.get('tab')
+     const q = searchParams.get('q')
+     // Support both 'type' and 'fileCategory' parameters
+     const type = searchParams.get('type') || searchParams.get('fileCategory')
+     const confidentiality = searchParams.get('confidentiality')
+     const fileId = searchParams.get('fileId')
 
-    if (tab && ['myfiles', 'received', 'sent', 'scanned', 'scanner', 'archive'].includes(tab)) {
-      setActiveTab(tab as FileTab)
-    }
-    if (q !== null && q !== search) setSearch(q)
-    if (type && FILE_TYPE_OPTIONS.some(option => option.value === type)) setTypeFilter(type)
-    if (confidentiality && confidentiality !== 'all') setConfidentialityFilter(confidentiality)
-    if (fileId) {
-      const timer = setTimeout(() => {
-        const element = document.querySelector(`[data-file-id="${CSS.escape(fileId)}"]`)
-        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        element?.classList.add('ring-2', 'ring-blue-500')
-        setTimeout(() => element?.classList.remove('ring-2', 'ring-blue-500'), 2500)
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [searchParams])
+     if (tab && ['myfiles', 'received', 'sent', 'scanned', 'scanner', 'archive'].includes(tab)) {
+       setActiveTab(tab as FileTab)
+     }
+     if (q !== null && q !== search) setSearch(q)
+     if (type && FILE_TYPE_OPTIONS.some(option => option.value === type)) setTypeFilter(type)
+     if (confidentiality && confidentiality !== 'all') setConfidentialityFilter(confidentiality)
+     if (fileId) {
+       const timer = setTimeout(() => {
+         const element = document.querySelector(`[data-file-id="${CSS.escape(fileId)}"]`)
+         element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+         element?.classList.add('ring-2', 'ring-blue-500')
+         setTimeout(() => element?.classList.remove('ring-2', 'ring-blue-500'), 2500)
+       }, 300)
+       return () => clearTimeout(timer)
+     }
+   }, [searchParams])
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 500)
-    return () => clearTimeout(timer)
-  }, [search])
+   // Debounce search
+   useEffect(() => {
+     const timer = setTimeout(() => setDebouncedSearch(search), 500)
+     return () => clearTimeout(timer)
+   }, [search])
 
-  // Auth
-  const { user } = useAuth()
-  const { canView, filterFiles, clearanceBadge, isAdmin, userDepartment, allowedLevels } = useAccessControl()
+   // Sync URL with filters
+   useEffect(() => {
+     const params = new URLSearchParams()
+     params.set('tab', activeTab)
+     if (search) params.set('q', search)
+     if (typeFilter !== 'all') params.set('fileCategory', typeFilter)
+     if (confidentialityFilter !== 'all') params.set('confidentiality', confidentialityFilter)
+     // Update URL without triggering another useEffect
+     window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+   }, [activeTab, search, typeFilter, confidentialityFilter])
 
-  // Queries
-  const { data: usersData } = useUsersListQuery({ search: undefined, limit: 50 })
-  const { data: confidentialityLevels } = useConfidentialityLevelsConfigQuery()
+   // Auth
+   const { user } = useAuth()
+   const { canView, filterFiles, clearanceBadge, isAdmin, userDepartment, allowedLevels } = useAccessControl()
+
+   // Queries
+   const { data: usersData } = useUsersListQuery({ search: undefined, limit: 50 })
+   const { data: confidentialityLevels } = useConfidentialityLevelsConfigQuery()
+
+   // Build the filter dropdown items from settings config, filtered to only the levels the user has access to.
+   // Falls back to the allowedLevels array ensures it always works even if settings haven't loaded yet.
+   const allowedLevelsForFilter: string[] = useMemo(() => {
+     const allowed = (allowedLevels || []) as string[]
+     if (confidentialityLevels && confidentialityLevels.length > 0) {
+       return confidentialityLevels
+         .filter((l) => allowed.includes(l.value))
+         .map((l) => l.value)
+     }
+     return allowed
+   }, [allowedLevels, confidentialityLevels])
+
+   // Merge settings labels with hardcoded fallback so labels always resolve.
+   const confidentialityLabelMap: Record<string, string> = useMemo(() => {
+     const map: Record<string, string> = { ...CONFIDENTIALITY_LABEL_MAP }
+     if (confidentialityLevels) {
+       confidentialityLevels.forEach((l) => {
+         map[l.value] = l.label
+       })
+     }
+     return map
+   }, [confidentialityLevels])
+
+   const confidentialityColorMap: Record<string, string> = CONFIDENTIALITY_COLOR_MAP
 
   const { data: ownedFilesData, isLoading: ownedLoading } = useFilesQuery({
     owner: user?._id,
@@ -735,35 +789,25 @@ export default function FilesPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={confidentialityFilter} onValueChange={(value) => { setConfidentialityFilter(value); resetPage() }}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Confidentiality" />
-                </SelectTrigger>
+               <Select value={confidentialityFilter} onValueChange={(value) => { setConfidentialityFilter(value); resetPage() }}>
+                 <SelectTrigger className="w-[180px]">
+                   <SelectValue placeholder="Confidentiality" />
+                 </SelectTrigger>
                  <SelectContent>
-                   <SelectItem value="all">All Levels</SelectItem>
-                   {confidentialityLevels
-                     ?.filter((level) => (allowedLevels as string[] || []).includes(level.value))
-                     .map((level) => (
-                       <SelectItem key={level.value} value={level.value}>
-                         <div className="flex items-center gap-2">
-                           <div
-                             className="w-3 h-3 rounded-full"
-                             style={{
-                               backgroundColor: {
-                                 public: '#10b981',
-                                 internal: '#3b82f6',
-                                 confidential: '#f59e0b',
-                                 highly_confidential: '#ef4444'
-                               }[level.value] || '#6b7280'
-                             }}
-                           />
-                           {level.label}
-                         </div>
-                       </SelectItem>
-                     ))}
+                   <SelectItem value="all">All My Levels</SelectItem>
+                   {(allowedLevelsForFilter as string[]).map((level) => (
+                     <SelectItem key={level} value={level}>
+                       <div className="flex items-center gap-2">
+                         <div
+                           className="w-3 h-3 rounded-full shrink-0"
+                           style={{ backgroundColor: confidentialityColorMap[level] || '#6b7280' }}
+                         />
+                         {confidentialityLabelMap[level] || level.replace(/_/g, ' ')}
+                       </div>
+                     </SelectItem>
+                   ))}
                  </SelectContent>
-
-              </Select>
+               </Select>
 
               {/* View Mode - Affects All Tabs */}
               <div className="flex items-center border rounded-lg p-1">
@@ -1304,15 +1348,13 @@ export default function FilesPage() {
                            </SelectTrigger>
                            <SelectContent>
                              <SelectItem value="all">All levels</SelectItem>
-                             {(allowedLevels || []).map((lvl) => (
-                               <SelectItem key={lvl} value={lvl}>
-                                 {{
-                                   public: 'Everyone Can See',
-                                   internal: 'Company Only',
-                                   confidential: 'Limited Access Only',
-                                   highly_confidential: 'Very Secret - Few People Only'
-                                 }[lvl] || lvl}
-                               </SelectItem>
+                              {(allowedLevelsForFilter as string[]).map((lvl) => (
+                                <SelectItem key={lvl} value={lvl}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: confidentialityColorMap[lvl] || '#6b7280' }} />
+                                    {confidentialityLabelMap[lvl] || lvl}
+                                  </div>
+                                </SelectItem>
                              ))}
                            </SelectContent>
                          </Select>
