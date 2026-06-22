@@ -4,6 +4,7 @@ import { Fragment, type ElementType, useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthContext } from '@/contexts/auth'
+import { useAccessControl } from '@/hooks/useAccessControl'
 import { filesAPI, type FileItem } from '@/services/api/files'
 import { usersAPI } from '@/services/api/users'
 import { notificationsAPI, type Notification } from '@/services/api/notifications'
@@ -37,6 +38,8 @@ import {
   X,
   Command as CommandIcon,
   Sparkles,
+  Archive,
+  UserCheck,
 } from 'lucide-react'
 
 type GlobalSearchCategory = 'file' | 'page' | 'user' | 'notification' | 'activity' | 'audit'
@@ -56,18 +59,31 @@ type NavSearchItem = {
   icon: ElementType
   roles?: string[]
   description: string
+  category: 'page'
 }
 
+// Module registry — each searchable module declares its required roles.
+// The global search uses this to gate both quick-nav and result categories.
 const NAV_ITEMS: NavSearchItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: Home, roles: ['user', 'hod', 'admin'], description: 'Overview and recent activity' },
-  { label: 'My Files', href: '/dashboard/files', icon: FileText, roles: ['user', 'hod', 'admin'], description: 'Manage and search documents' },
-  { label: 'Upload', href: '/dashboard/upload', icon: Upload, roles: ['user', 'hod', 'admin'], description: 'Upload, bulk upload, or scan files' },
-  { label: 'Scanner Guide', href: '/dashboard/scanner-user-guide', icon: Scan, roles: ['user', 'hod', 'admin'], description: 'Scanner setup instructions' },
-  { label: 'Recycle Bin', href: '/dashboard/recycle-bin', icon: Trash2, roles: ['user', 'hod', 'admin'], description: 'Deleted files' },
-  { label: 'Users', href: '/dashboard/admin/users', icon: Users, roles: ['admin', 'hod'], description: 'User administration' },
-  { label: 'Audit Logs', href: '/dashboard/admin/audit-log', icon: Activity, roles: ['admin'], description: 'System audit trail' },
-  { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['admin'], description: 'System configuration' },
+  { label: 'Dashboard', href: '/dashboard', icon: Home, roles: ['user', 'hod', 'admin'], description: 'Overview and recent activity', category: 'page' },
+  { label: 'My Files', href: '/dashboard/files', icon: FileText, roles: ['user', 'hod', 'admin'], description: 'Manage and search documents', category: 'page' },
+  { label: 'Upload', href: '/dashboard/upload', icon: Upload, roles: ['user', 'hod', 'admin'], description: 'Upload, bulk upload, or scan files', category: 'page' },
+  { label: 'Scanner Guide', href: '/dashboard/scanner-user-guide', icon: Scan, roles: ['user', 'hod', 'admin'], description: 'Scanner setup instructions', category: 'page' },
+  { label: 'Recycle Bin', href: '/dashboard/recycle-bin', icon: Trash2, roles: ['user', 'hod', 'admin'], description: 'Deleted files', category: 'page' },
+  { label: 'Users', href: '/dashboard/admin/users', icon: Users, roles: ['admin', 'hod'], description: 'User administration', category: 'page' },
+  { label: 'Audit Logs', href: '/dashboard/admin/audit-log', icon: Activity, roles: ['admin'], description: 'System audit trail', category: 'page' },
+  { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['admin'], description: 'System configuration', category: 'page' },
 ]
+
+// Map each result category to the roles that can see it
+const CATEGORY_ROLE_MAP: Record<GlobalSearchCategory, string[]> = {
+  file: ['user', 'hod', 'admin'],
+  page: ['user', 'hod', 'admin'],
+  user: ['admin', 'hod'],
+  notification: ['user', 'hod', 'admin'],
+  activity: ['user', 'hod', 'admin'],
+  audit: ['admin'],
+}
 
 const CATEGORY_ORDER: Record<GlobalSearchCategory, number> = {
   file: 1,
@@ -227,11 +243,30 @@ const groupResults = (results: GlobalSearchResult[]) => {
 export function GlobalSearch() {
   const router = useRouter()
   const { user, canAccess } = useAuthContext()
+  const { filterFiles } = useAccessControl()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const normalizedQuery = normalize(query)
   const hasSearched = normalizedQuery.length > 0
   const userId = getId(user)
+
+  // Derive which result categories this user can see based on their role
+  const allowedCategories = useMemo(() => {
+    const cats: GlobalSearchCategory[] = []
+    for (const [cat, roles] of Object.entries(CATEGORY_ROLE_MAP)) {
+      if (canAccess(roles)) {
+        cats.push(cat as GlobalSearchCategory)
+      }
+    }
+    return cats
+  }, [canAccess])
+
+  // Whether each category is enabled (for query gating)
+  const canSearchUsers = allowedCategories.includes('user')
+  const canSearchAudit = allowedCategories.includes('audit')
+  const canSearchFiles = allowedCategories.includes('file')
+  const canSearchNotifications = allowedCategories.includes('notification')
+  const canSearchActivity = allowedCategories.includes('activity')
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -257,11 +292,12 @@ export function GlobalSearch() {
     return () => document.removeEventListener('keydown', down)
   }, [open])
 
+  // Only fetch data for categories the user can access
   const filesQuery = useQuery({
     queryKey: ['global-search', 'files', normalizedQuery],
     queryFn: () => filesAPI.getFiles({ page: 1, limit: 8, search: normalizedQuery || undefined }),
     select: (response) => response.data.files,
-    enabled: hasSearched,
+    enabled: hasSearched && canSearchFiles,
     retry: false,
     staleTime: 1000 * 60 * 2,
   })
@@ -270,7 +306,7 @@ export function GlobalSearch() {
     queryKey: ['global-search', 'users', normalizedQuery],
     queryFn: () => usersAPI.getUsers({ page: 1, limit: 8, search: normalizedQuery || undefined }),
     select: (response): UserType[] => response.data.users,
-    enabled: hasSearched && canAccess(['admin', 'hod']),
+    enabled: hasSearched && canSearchUsers,
     retry: false,
     staleTime: 1000 * 60 * 2,
   })
@@ -279,7 +315,7 @@ export function GlobalSearch() {
     queryKey: ['global-search', 'notifications'],
     queryFn: () => notificationsAPI.getNotifications({ page: 1, limit: 8 }),
     select: (response) => response.data.notifications,
-    enabled: hasSearched,
+    enabled: hasSearched && canSearchNotifications,
     retry: false,
     staleTime: 1000 * 30,
   })
@@ -288,7 +324,7 @@ export function GlobalSearch() {
     queryKey: ['global-search', 'activity'],
     queryFn: () => dashboardAPI.getRecentActivity(),
     select: (response): RecentActivity[] => response.data,
-    enabled: hasSearched,
+    enabled: hasSearched && canSearchActivity,
     retry: false,
     staleTime: 1000 * 30,
   })
@@ -297,7 +333,7 @@ export function GlobalSearch() {
     queryKey: ['global-search', 'audit'],
     queryFn: () => auditAPI.getLogs({ page: 1, limit: 8 }),
     select: (response) => response.data.logs,
-    enabled: hasSearched && canAccess(['admin']),
+    enabled: hasSearched && canSearchAudit,
     retry: false,
     staleTime: 1000 * 60 * 2,
   })
@@ -305,23 +341,35 @@ export function GlobalSearch() {
   const isFetching = filesQuery.isLoading || usersQuery.isLoading || notificationsQuery.isLoading || activityQuery.isLoading || auditQuery.isLoading
 
   const results = useMemo(() => {
-    const fileResults = (filesQuery.data || []).map((file) => buildFileResult(file, normalizedQuery, userId))
-    const userResults = (usersQuery.data || []).map((user) => buildUserResult(user, normalizedQuery))
-    const notificationResults = (notificationsQuery.data || []).map((notification) => buildNotificationResult(notification, normalizedQuery))
-    const activityResults = (activityQuery.data || []).map((activity) => buildActivityResult(activity, normalizedQuery))
-    const auditResults = (auditQuery.data || []).map((audit) => buildAuditResult(audit, normalizedQuery))
-
-    return [...fileResults, ...userResults, ...notificationResults, ...activityResults, ...auditResults]
-  }, [filesQuery.data, usersQuery.data, notificationsQuery.data, activityQuery.data, auditQuery.data, normalizedQuery, userId, canAccess])
+    const all: GlobalSearchResult[] = []
+    if (canSearchFiles) {
+      const raw = filesQuery.data || []
+      const filtered = filterFiles(raw as any)
+      all.push(...filtered.map((file: any) => buildFileResult(file, normalizedQuery, userId)))
+    }
+    if (canSearchUsers) {
+      all.push(...(usersQuery.data || []).map((u) => buildUserResult(u, normalizedQuery)))
+    }
+    if (canSearchNotifications) {
+      all.push(...(notificationsQuery.data || []).map((n) => buildNotificationResult(n, normalizedQuery)))
+    }
+    if (canSearchActivity) {
+      all.push(...(activityQuery.data || []).map((a) => buildActivityResult(a, normalizedQuery)))
+    }
+    if (canSearchAudit) {
+      all.push(...(auditQuery.data || []).map((log) => buildAuditResult(log, normalizedQuery)))
+    }
+    return all
+  }, [filesQuery.data, usersQuery.data, notificationsQuery.data, activityQuery.data, auditQuery.data, normalizedQuery, userId, canSearchFiles, canSearchUsers, canSearchNotifications, canSearchActivity, canSearchAudit, filterFiles])
 
   const groupedResults = useMemo(() => groupResults(results), [results])
 
+  // Filter quick-nav items to only modules the user can access
   const filteredNavItems = useMemo(() => {
-    if (!hasSearched) return NAV_ITEMS.filter((item) => !item.roles || canAccess(item.roles))
-    return NAV_ITEMS.filter(
-      (item) =>
-        (!item.roles || canAccess(item.roles)) &&
-        scoreMatch(normalizedQuery, item.label, item.description) < 10
+    const accessible = NAV_ITEMS.filter((item) => !item.roles || canAccess(item.roles))
+    if (!hasSearched) return accessible
+    return accessible.filter(
+      (item) => scoreMatch(normalizedQuery, item.label, item.description) < 10
     ).slice(0, 6)
   }, [hasSearched, normalizedQuery, canAccess])
 
@@ -395,7 +443,7 @@ export function GlobalSearch() {
                   ))}
                 </div>
                 <div className="flex items-center gap-2 px-3 py-2 mt-2 border-t border-gray-50">
-                  <span className="text-[10px] text-gray-400">Type to search across files, users, notifications, audit logs and more</span>
+                  <span className="text-[10px] text-gray-400">Type to search across your accessible modules</span>
                 </div>
               </div>
             )}
