@@ -7,6 +7,7 @@ export interface FileItem {
   name: string
   alias?: string
   type: string
+  fileCategory?: 'image' | 'zip' | 'spreadsheet' | 'presentation' | 'pdf' | 'document' | 'other'
   size: number
   owner?: {
     _id: string
@@ -28,8 +29,8 @@ export interface FileItem {
   currentVersion: number
   createdAt: string
   updatedAt?: string
-  restricted?: boolean // For HOD users accessing highly confidential files
-  restrictionReason?: string // Reason for restriction
+  restricted?: boolean
+  restrictionReason?: string
 }
 
 export interface FilesResponse {
@@ -67,42 +68,45 @@ export interface ShareResponse {
 }
 
 export const filesAPI = {
-  // Get all files
-   getFiles: async (params?: {
+   // Get all files
+    getFiles: async (params?: {
+      page?: number
+      limit?: number
+      type?: string
+      fileCategory?: string
+      category?: string
+      owner?: string
+      department?: string
+      fromDate?: string
+      toDate?: string
+      confidentiality?: string
+      search?: string
+      sortBy?: string
+      sortOrder?: 'asc' | 'desc'
+      isScanned?: boolean
+    }): Promise<FilesResponse> => {
+     const response = await apiClient.get('/api/v1/files', { params })
+     return response.data
+   },
+
+   // Get archive files
+   getArchiveFiles: async (params?: {
      page?: number
      limit?: number
-     type?: string
-     fileCategory?: string
-     owner?: string
-     department?: string
-     fromDate?: string
-     toDate?: string
-     confidentiality?: string
      search?: string
+     confidentialityLevel?: string
+     uploadedBy?: string
+     department?: string
      sortBy?: string
      sortOrder?: 'asc' | 'desc'
-     isScanned?: boolean
+     type?: string
+     fileCategory?: string
+     category?: string
+     restrictedOnly?: boolean
    }): Promise<FilesResponse> => {
-    const response = await apiClient.get('/api/v1/files', { params })
-    return response.data
-  },
-
-  // Get archive files
-  getArchiveFiles: async (params?: {
-    page?: number
-    limit?: number
-    search?: string
-    confidentialityLevel?: string
-    uploadedBy?: string
-    department?: string
-    sortBy?: string
-    sortOrder?: 'asc' | 'desc'
-    type?: string
-    restrictedOnly?: boolean
-  }): Promise<FilesResponse> => {
-    const response = await apiClient.get('/api/v1/files/archive', { params })
-    return response.data
-  },
+     const response = await apiClient.get('/api/v1/files/archive', { params })
+     return response.data
+   },
 
   // Get single file
   getFile: async (fileId: string): Promise<{ success: boolean; data: FileItem }> => {
@@ -367,10 +371,25 @@ export const filesAPI = {
     return response.data
   },
 
-    getSupportedTypes: async (): Promise<{ success: boolean; data: string[] }> => {
-    // TODO: Replace with real API call when backend supports it
-    return { success: true, data: ['pdf', 'docx', 'xlsx', 'pptx', 'jpg', 'png', 'txt'] };
-  },
+   getSupportedTypes: async (): Promise<{
+     success: boolean
+     data: {
+       categories: {
+         pdf: { extensions: string[]; mimes: string[] }
+         document: { extensions: string[]; mimes: string[] }
+         spreadsheet: { extensions: string[]; mimes: string[] }
+         presentation: { extensions: string[]; mimes: string[] }
+         image: { extensions: string[]; mimes: string[] }
+         zip: { extensions: string[]; mimes: string[] }
+         other: { extensions: string[]; mimes: string[] }
+       }
+       allExtensions: string[]
+       allMimes: string[]
+     }
+   }> => {
+     const response = await apiClient.get('/api/v1/files/types/supported')
+     return response.data
+   },
 
   getPendingStats: async (): Promise<{ success: boolean; data: ScannerStats }> => {
       try {

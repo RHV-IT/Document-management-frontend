@@ -2,12 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { settingsAPI, Department, ConfidentialityLevel, ConfidentialityLevelConfig } from '@/services/api/settings'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 
-export function useDepartmentsQuery() {
+export function useDepartmentsQuery(includeInactive = false) {
   return useQuery({
-    queryKey: ['settings', 'departments'],
+    queryKey: ['settings', 'departments', includeInactive],
     queryFn: async () => {
       try {
-        const response = await settingsAPI.getDepartments()
+        const response = await settingsAPI.getDepartments({ includeInactive })
         return response.data.departments || []
       } catch (error) {
         console.error('Failed to fetch departments:', error)
@@ -79,7 +79,7 @@ export function useUpdateDepartmentMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string } }) => 
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; code?: string; description?: string; isActive?: boolean } }) =>
       settingsAPI.updateDepartment(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'departments'] })

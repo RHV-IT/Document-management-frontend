@@ -40,7 +40,6 @@ interface FileStatus {
 export default function UploadPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Single file state
   const [singleFile, setSingleFile] = useState<File | null>(null)
   const [alias, setAlias] = useState('')
   const [tags, setTags] = useState('')
@@ -48,46 +47,44 @@ export default function UploadPage() {
   const [activeTab, setActiveTab] = useState('single')
   const [isDraggingSingle, setIsDraggingSingle] = useState(false)
 
-  // Bulk files state
   const [bulkFiles, setBulkFiles] = useState<FileStatus[]>([])
   const [isDraggingBulk, setIsDraggingBulk] = useState(false)
   const [bulkUploadProgress, setBulkUploadProgress] = useState(0)
 
-  // Page-level drag state
   const [isDraggingPage, setIsDraggingPage] = useState(false)
-
-  // Dialog state
   const [viewFile, setViewFile] = useState<FileItem | null>(null)
 
-  // Auth
   const { user } = useAuth()
   const { canUpload, clearanceBadge, isAdmin, userDepartment } = useAccessControl()
 
-  // Mutations
   const uploadFile = useUploadFileMutation()
   const bulkUpload = useBulkUploadMutation()
 
-  // Queries
   const { data: filesData } = useFilesQuery({ limit: 10 })
 
   const generateId = () => Math.random().toString(36).substring(2, 15)
 
   const MAX_BULK_FILES = 10
-  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
-  const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+  const MAX_FILE_SIZE = 50 * 1024 * 1024
+  const ALLOWED_EXTENSIONS = [
+    '.pdf', '.doc', '.docx', '.odt', '.txt', '.rtf',
+    '.xls', '.xlsx', '.ods', '.csv',
+    '.ppt', '.pptx', '.odp',
+    '.jpg', '.jpeg', '.png', '.gif', '.tiff', '.tif', '.bmp', '.webp',
+    '.zip', '.rar', '.7z', '.tar', '.gz',
+  ]
 
-const validateFile = (file: File): string | null => {
+  const validateFile = (file: File): string | null => {
     const ext = '.' + (file.name.split('.').pop() || '').toLowerCase()
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-        return 'This file type isn’t supported. Please upload a PDF, Word, Excel, PowerPoint, Text, or image file.'
+      return 'File type not supported. Upload PDFs, Word, Excel, PowerPoint, images, text, or archives (ZIP/RAR/7Z).'
     }
     if (file.size > MAX_FILE_SIZE) {
-        return 'This file is too large. Maximum file size is 50 MB.'
+      return 'File too large. Maximum size is 50 MB.'
     }
     return null
-}
+  }
 
-  // Single file handlers
   const handleSingleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -115,10 +112,8 @@ const validateFile = (file: File): string | null => {
     const files = e.dataTransfer.files
     if (files.length > 0) {
       const file = files[0]
-      // Check if it's an accepted file type
-      const acceptedTypes = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
       const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
-      if (acceptedTypes.includes(fileExtension) || file.type.startsWith('application/') || file.type.startsWith('text/') || file.type.startsWith('image/')) {
+      if (ALLOWED_EXTENSIONS.includes(fileExtension)) {
         setSingleFile(file)
       }
     }
@@ -131,10 +126,10 @@ const validateFile = (file: File): string | null => {
       addNotification('error', 'Invalid File', `${singleFile.name}: ${validationError}`)
       return
     }
-     if (!canUpload(confidentiality)) {
-       addNotification('error', 'Upload Blocked', 'You don’t have permission to upload files with this confidentiality level.')
-       return
-     }
+    if (!canUpload(confidentiality)) {
+      addNotification('error', 'Upload Blocked', 'You don\'t have permission to upload files with this confidentiality level.')
+      return
+    }
     const formData = new FormData()
     formData.append('file', singleFile)
     if (alias) formData.append('alias', alias)
@@ -149,32 +144,22 @@ const validateFile = (file: File): string | null => {
     })
   }
 
-  // Bulk file handlers
   const handleBulkFileSelect = async (files: FileList | null) => {
     if (!files) return
-
     const filesArray = Array.from(files)
     const newFiles: FileStatus[] = []
-
     for (const file of filesArray) {
-       if (bulkFiles.length + newFiles.length >= MAX_BULK_FILES) {
-         addNotification('error', 'Upload Limit', 'You can upload a maximum of 10 files at a time. Please remove some files and try again.')
-         break
-       }
-       const validationError = validateFile(file)
-       if (validationError) {
-         addNotification('error', 'Invalid File', `${file.name}: ${validationError}`)
-         continue
-       }
-       newFiles.push({
-         file,
-         id: generateId(),
-         status: 'pending' as const,
-         confidentialityLevel: 'internal',
-         alias: ''
-       })
-     }
-
+      if (bulkFiles.length + newFiles.length >= MAX_BULK_FILES) {
+        addNotification('error', 'Upload Limit', 'Maximum 10 files at a time.')
+        break
+      }
+      const validationError = validateFile(file)
+      if (validationError) {
+        addNotification('error', 'Invalid File', `${file.name}: ${validationError}`)
+        continue
+      }
+      newFiles.push({ file, id: generateId(), status: 'pending' as const, confidentialityLevel: 'internal', alias: '' })
+    }
     if (newFiles.length > 0) {
       setBulkFiles(prev => [...prev, ...newFiles])
     }
@@ -201,26 +186,15 @@ const validateFile = (file: File): string | null => {
     await handleBulkFileSelect(e.dataTransfer.files)
   }
 
-  const removeBulkFile = (id: string) => {
-    setBulkFiles(prev => prev.filter(f => f.id !== id))
-  }
-
-  const updateBulkFileMetadata = (id: string, updates: Partial<Pick<FileStatus, 'alias' | 'confidentialityLevel'>>) => {
-    setBulkFiles(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f))
-  }
-
   const handleBulkUpload = () => {
     let pendingItems = bulkFiles.filter(f => f.status === 'pending')
-
-    // per-file validation for clearance - block invalid, show error inline, proceed with valid
-     const validatedItems = pendingItems.map(item => {
-       const lvl = item.confidentialityLevel || 'internal'
-       if (!canUpload(lvl)) {
-         return { ...item, status: 'error' as const, error: `You don’t have permission to upload files with this confidentiality level.` }
-       }
-       return item
-     })
-
+    const validatedItems = pendingItems.map(item => {
+      const lvl = item.confidentialityLevel || 'internal'
+      if (!canUpload(lvl)) {
+        return { ...item, status: 'error' as const, error: 'You don\'t have permission to upload files with this confidentiality level.' }
+      }
+      return item
+    })
     const invalidCount = validatedItems.filter(i => i.status === 'error').length
     if (invalidCount > 0) {
       setBulkFiles(prev => prev.map(p => {
@@ -228,45 +202,34 @@ const validateFile = (file: File): string | null => {
         return match ? match : p
       }))
     }
-
     const validPending = validatedItems.filter(i => i.status === 'pending')
     const files = validPending.map(f => f.file)
-
     if (files.length === 0) {
-       if (invalidCount > 0) return
-       addNotification('error', 'No Files', 'Please select at least one file to upload.')
-       return
-     }
-
+      if (invalidCount > 0) return
+      addNotification('error', 'No Files', 'Please select at least one file to upload.')
+      return
+    }
     const validFiles = files.filter(f => f && typeof f === 'object' && f.constructor.name === 'File') as File[]
-
     if (validFiles.length === 0) {
-       addNotification('error', 'Invalid Files', 'None of the selected files are valid. Please check file type and size.')
-       return
-     }
-
+      addNotification('error', 'Invalid Files', 'None of the selected files are valid.')
+      return
+    }
     const metadata = validPending.map(f => ({
       confidentialityLevel: f.confidentialityLevel || 'internal',
       ...(f.alias && f.alias.trim() ? { alias: f.alias.trim() } : {})
     }))
-
     setBulkUploadProgress(0)
-    setBulkFiles(prev => prev.map(f => f.status === 'pending' && validPending.some(v => v.id === f.id) ? { ...f, status: 'uploading' as const } : f ))
-
+    setBulkFiles(prev => prev.map(f => f.status === 'pending' && validPending.some(v => v.id === f.id) ? { ...f, status: 'uploading' as const } : f))
     bulkUpload.mutate(
       { files: validFiles, metadata, onProgress: (p: number) => setBulkUploadProgress(p) },
       {
         onSuccess: () => {
           setBulkUploadProgress(100)
-          setBulkFiles(prev => prev.map(f => f.status === 'uploading' ? { ...f, status: 'success' as const } : f ))
+          setBulkFiles(prev => prev.map(f => f.status === 'uploading' ? { ...f, status: 'success' as const } : f))
         },
         onError: (error: any) => {
           setBulkUploadProgress(0)
-          setBulkFiles(prev => prev.map(f => f.status === 'uploading' ? {
-            ...f,
-            status: 'error' as const,
-            error: error.response?.data?.message || error.message
-          } : f ))
+          setBulkFiles(prev => prev.map(f => f.status === 'uploading' ? { ...f, status: 'error' as const, error: error.response?.data?.message || error.message } : f))
         }
       }
     )
@@ -277,7 +240,6 @@ const validateFile = (file: File): string | null => {
     setBulkUploadProgress(0)
   }
 
-  // Page-level drag handlers
   const handlePageDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     if (!isDraggingSingle && !isDraggingBulk) {
@@ -287,7 +249,6 @@ const validateFile = (file: File): string | null => {
 
   const handlePageDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
-    // Only hide if we're actually leaving the page
     if (e.clientX === 0 && e.clientY === 0) {
       setIsDraggingPage(false)
     }
@@ -298,366 +259,285 @@ const validateFile = (file: File): string | null => {
     setIsDraggingPage(false)
   }
 
+  const removeBulkFile = (id: string) => {
+    setBulkFiles(prev => prev.filter(f => f.id !== id))
+  }
+
+  const updateBulkFile = (id: string, updates: Partial<FileStatus>) => {
+    setBulkFiles(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f))
+  }
+
   return (
     <ResponsiveContainer>
       <div
-        className={`flex-1 p-8 bg-gradient-to-br from-gray-50/80 to-gray-100/50 overflow-auto animate-fade-in relative ${isDraggingPage ? 'bg-blue-50/30' : ''
-          }`}
+        className={`flex-1 p-8 bg-gradient-to-br from-gray-50/80 to-gray-100/50 overflow-auto animate-fade-in relative ${isDraggingPage ? 'bg-blue-50/30' : ''}`}
         onDragOver={handlePageDragOver}
         onDragLeave={handlePageDragLeave}
         onDrop={handlePageDrop}
       >
-        {/* Page-level drag overlay */}
         {isDraggingPage && (
-          <div className="absolute inset-0 bg-blue-500/5 backdrop-blur-[2px] flex items-center justify-center z-50 pointer-events-none">
-            <div className="bg-white rounded-2xl p-8 shadow-2xl border border-blue-200 animate-in fade-in-0 zoom-in-95 duration-300">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-                  <Cloud className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Drop files anywhere on the page</h3>
-                <p className="text-gray-600">Drag files to the upload areas below</p>
-              </div>
+          <div className="absolute inset-0 z-50 bg-primary/5 backdrop-blur-sm flex items-center justify-center border-2 border-dashed border-primary rounded-lg m-4 pointer-events-none">
+            <div className="text-center">
+              <Upload className="h-16 w-16 text-primary mx-auto mb-4" />
+              <p className="text-xl font-semibold text-primary">Drop files here to upload</p>
+              <p className="text-sm text-muted-foreground mt-1">Switch to Bulk Upload tab for multiple files</p>
             </div>
           </div>
         )}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-            Upload Files
-          </h1>
-          <p className="text-gray-500 mt-2 text-lg">Choose your upload method below</p>
-        </div>
 
-        {/* Upload Type Selection Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <button
-            onClick={() => setActiveTab('single')}
-            className={cn(
-              "group relative p-6 rounded-2xl border-2 shadow-sm transition-all duration-300 cursor-pointer text-left",
-              activeTab === 'single'
-                ? "bg-white border-blue-400 shadow-lg shadow-blue-500/10"
-                : "bg-white border-gray-100 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-500/10"
-            )}
-          >
-            <div className="absolute top-4 right-4 w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-              <File className="h-5 w-5 text-blue-600" />
+        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleBulkFilesChange} />
+
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div>
+            <h1 className="text-3xl font-bold">Upload Files</h1>
+            <p className="text-muted-foreground mt-1">Upload documents, images, archives, and more</p>
+          </div>
+
+          <div className="flex gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              <span>Max file size: 50 MB</span>
             </div>
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4">
-              <ArrowUpCircle className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-2">
+              <File className="h-4 w-4" />
+              <span>PDF, Word, Excel, PowerPoint, Images, Text, Archives</span>
             </div>
-            <h3 className="font-semibold text-gray-900 text-lg">Single</h3>
-            <p className="text-sm text-gray-500 mt-1">Upload one file with metadata</p>
-          </button>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('bulk')}
-            className={cn(
-              "group relative p-6 rounded-2xl border-2 shadow-sm transition-all duration-300 cursor-pointer text-left",
-              activeTab === 'bulk'
-                ? "bg-white border-purple-400 shadow-lg shadow-purple-500/10"
-                : "bg-white border-gray-100 hover:border-purple-400 hover:shadow-lg hover:shadow-purple-500/10"
-            )}
-          >
-            <div className="absolute top-4 right-4 w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-              <Layers className="h-5 w-5 text-purple-600" />
-            </div>
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 mb-4">
-              <FileBox className="h-6 w-6 text-white" />
-            </div>
-            <h3 className="font-semibold text-gray-900 text-lg">Bulk</h3>
-            <p className="text-sm text-gray-500 mt-1">Upload multiple files (max 10)</p>
-          </button>
-        </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="hidden">
+              <TabsTrigger value="single" />
+              <TabsTrigger value="bulk" />
+            </TabsList>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="hidden">
-            <TabsTrigger value="single" />
-            <TabsTrigger value="bulk" />
-          </TabsList>
-
-          {/* Single Upload */}
-          <TabsContent value="single">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Upload className="h-5 w-5" />
-                    Single File Upload
-                  </CardTitle>
-                  <CardDescription>Upload one file with metadata</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${isDraggingSingle
-                        ? 'border-blue-500 bg-blue-50 scale-105'
-                        : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
-                      }`}
-                    onClick={() => document.getElementById('single-file-input')?.click()}
-                    onDragOver={handleSingleDragOver}
-                    onDragLeave={handleSingleDragLeave}
-                    onDrop={handleSingleDrop}
-                  >
-                    <input
-                      id="single-file-input"
-                      type="file"
-                      className="hidden"
-                      onChange={handleSingleFileChange}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,image/*"
-                    />
-                    <div className={`transition-transform duration-200 ${isDraggingSingle ? 'scale-110' : ''}`}>
-                      <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingSingle ? 'text-blue-500' : 'text-gray-400'
-                        }`} />
-                    </div>
-                    {singleFile ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <FileIcon className="h-5 w-5 text-blue-500" />
-                        <span className="font-medium">{singleFile.name}</span>
-                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSingleFile(null) }} className="cursor-pointer">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <p className={`font-medium transition-colors duration-200 ${isDraggingSingle ? 'text-blue-600' : 'text-gray-600'
-                          }`}>
-                          {isDraggingSingle ? 'Drop your file here' : 'Drag & drop or click to select'}
-                        </p>
-                        <p className="text-sm text-gray-400 mt-2">PDF, Word, Excel, PowerPoint, Text, and image files</p>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">Rename (Optional)</label>
-                      <Input
-                        value={alias}
-                        onChange={(e) => setAlias(e.target.value)}
-                        placeholder="File name"
+            <TabsContent value="single">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Upload className="h-5 w-5" />
+                      Single File Upload
+                    </CardTitle>
+                    <CardDescription>Upload one file with metadata</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${isDraggingSingle ? 'border-blue-500 bg-blue-50 scale-105' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'}`}
+                      onClick={() => document.getElementById('single-file-input')?.click()}
+                      onDragOver={handleSingleDragOver}
+                      onDragLeave={handleSingleDragLeave}
+                      onDrop={handleSingleDrop}
+                    >
+                      <input
+                        id="single-file-input"
+                        type="file"
+                        className="hidden"
+                        onChange={handleSingleFileChange}
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.csv,.ods,.odp,.jpg,.jpeg,.png,.gif,.tiff,.tif,.bmp,.webp,.zip,.rar,.7z,.tar,.gz"
                       />
+                      <div className={`transition-transform duration-200 ${isDraggingSingle ? 'scale-110' : ''}`}>
+                        <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingSingle ? 'text-blue-500' : 'text-gray-400'}`} />
+                      </div>
+                      {singleFile ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <FileIcon className="h-5 w-5 text-blue-500" />
+                          <span className="font-medium">{singleFile.name}</span>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSingleFile(null) }} className="cursor-pointer">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <p className={`font-medium transition-colors duration-200 ${isDraggingSingle ? 'text-blue-600' : 'text-gray-600'}`}>
+                            {isDraggingSingle ? 'Drop your file here' : 'Drag & drop or click to select'}
+                          </p>
+                          <p className="text-sm text-gray-400 mt-2">PDF, Word, Excel, PowerPoint, Images, Text, Archives</p>
+                        </>
+                      )}
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">Confidentiality</label>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Rename (Optional)</label>
+                        <Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="File name" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Confidentiality</label>
                         <ConfidentialityLevelSelect
                           value={confidentiality}
                           onValueChange={setConfidentiality}
                           placeholder="Select level"
                           showRestrictionNote
                         />
-
-                      {confidentiality === 'highly_confidential' && (
-                        <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-md flex gap-2">
-                          <Shield className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
-                          <div className="text-[11px] text-red-700 leading-snug">
-                            Only the uploader and administrators can access this file. Visibility locked.
+                        {confidentiality === 'highly_confidential' && (
+                          <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-md flex gap-2">
+                            <Shield className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-[11px] text-red-700 leading-snug">
+                              Only the uploader and administrators can access this file.
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium">Tags (optional)</label>
-                    <Input
-                      value={tags}
-                      onChange={(e) => setTags(e.target.value)}
-                      placeholder="Comma separated tags"
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleSingleUpload}
-                    disabled={!singleFile || uploadFile.isPending}
-                    className="w-full cursor-pointer bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    {uploadFile.isPending ? 'Uploading...' : 'Upload File'}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle>Recent Files</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {filesData?.files && filesData.files.length > 0 ? (
-                    <div className="space-y-3">
-                      {filesData.files.slice(0, 8).map((file) => (
-                        <div
-                          key={file.fileId}
-                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
-                          onClick={() => setViewFile(file)}
-                        >
-                          <FileText className="h-5 w-5 text-blue-500" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{file.name}</p>
-                            <p className="text-xs text-gray-400">{format(new Date(file.createdAt), 'MMM d, yyyy')}</p>
-                          </div>
-                          <Badge variant="outline" className="text-xs">{file.confidentialityLevel}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">No files uploaded yet</div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Bulk Upload */}
-          <TabsContent value="bulk">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileIcon className="h-5 w-5" />
-                    Bulk Upload
-                  </CardTitle>
-                  <CardDescription>Upload multiple files at once (max 10)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${isDraggingBulk
-                        ? 'border-blue-500 bg-blue-50 scale-105 shadow-lg'
-                        : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
-                      }`}
-                    onDragOver={handleBulkDragOver}
-                    onDragLeave={handleBulkDragLeave}
-                    onDrop={handleBulkDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      onChange={handleBulkFilesChange}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,image/*"
-                    />
-                    <div className={`transition-transform duration-200 ${isDraggingBulk ? 'scale-110' : ''}`}>
-                      <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingBulk ? 'text-blue-500' : 'text-gray-400'
-                        }`} />
-                    </div>
-                    <p className={`font-medium transition-colors duration-200 ${isDraggingBulk ? 'text-blue-600' : 'text-gray-600'
-                      }`}>
-                      {isDraggingBulk ? 'Drop your files here' : 'Drag & drop or click to browse'}
-                    </p>
-                    <p className="text-sm text-gray-400 mt-2">Maximum 10 files • PDF, Word, Excel, PowerPoint, Text, and images</p>
-                  </div>
-
-                  {bulkFiles.length > 0 && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-medium">Selected Files ({bulkFiles.length})</p>
-                        <Button variant="ghost" size="sm" onClick={clearAllBulk} className="cursor-pointer text-red-600">
-                          <Trash2 className="h-4 w-4 mr-1" /> Clear
-                        </Button>
+                        )}
                       </div>
-                      <div className="space-y-3 max-h-80 overflow-y-auto">
-                        {bulkFiles.map((file) => (
-                          <div key={file.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                            <div className="flex items-center gap-2 mb-2">
-                              <FileIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <span className="flex-1 text-sm font-medium truncate" title={file.file.name}>{file.file.name}</span>
-                              {file.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />}
-                              {file.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
-                              {file.status === 'pending' && (
-                                <Button variant="ghost" size="icon" onClick={() => removeBulkFile(file.id)} className="cursor-pointer h-6 w-6 flex-shrink-0">
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">Tags (optional)</label>
+                      <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Comma separated tags" />
+                    </div>
+
+                    <Button
+                      onClick={handleSingleUpload}
+                      disabled={!singleFile || uploadFile.isPending}
+                      className="w-full gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploadFile.isPending ? 'Uploading...' : 'Upload File'}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="h-5 w-5" />
+                      Recent Uploads
+                    </CardTitle>
+                    <CardDescription>Your latest uploaded files</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {filesData?.files && filesData.files.length > 0 ? (
+                      <div className="space-y-3">
+                        {filesData.files.slice(0, 5).map((file) => (
+                          <div
+                            key={file.fileId}
+                            className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => setViewFile(file)}
+                          >
+                            <FileText className="h-8 w-8 text-blue-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.alias || file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {file.createdAt && format(new Date(file.createdAt), 'MMM d, yyyy')}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              {file.fileCategory || file.type || 'File'}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <FileBox className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-sm">No uploads yet</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="bulk">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileIcon className="h-5 w-5" />
+                      Bulk Upload
+                    </CardTitle>
+                    <CardDescription>Upload multiple files at once (max 10)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${isDraggingBulk ? 'border-blue-500 bg-blue-50 scale-105' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'}`}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={handleBulkDragOver}
+                      onDragLeave={handleBulkDragLeave}
+                      onDrop={handleBulkDrop}
+                    >
+                      <div className={`transition-transform duration-200 ${isDraggingBulk ? 'scale-110' : ''}`}>
+                        <Cloud className={`h-12 w-12 mx-auto mb-4 transition-colors duration-200 ${isDraggingBulk ? 'text-blue-500' : 'text-gray-400'}`} />
+                      </div>
+                      <p className={`font-medium transition-colors duration-200 ${isDraggingBulk ? 'text-blue-600' : 'text-gray-600'}`}>
+                        {isDraggingBulk ? 'Drop files here' : 'Drag & drop or click to select'}
+                      </p>
+                      <p className="text-sm text-gray-400 mt-2">Up to 10 files (PDF, Word, Excel, PowerPoint, Images, Text, Archives)</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Selected Files ({bulkFiles.length}/10)
+                    </CardTitle>
+                    <CardDescription>
+                      {bulkFiles.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={clearAllBulk} className="h-6 text-xs text-red-500 hover:text-red-600 cursor-pointer">
+                          Clear All
+                        </Button>
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {bulkFiles.length > 0 ? (
+                      <div className="space-y-3">
+                        {bulkFiles.map((item) => (
+                          <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                            <FileText className="h-5 w-5 text-blue-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <input
+                                type="text"
+                                value={item.alias || item.file.name}
+                                onChange={(e) => updateBulkFile(item.id, { alias: e.target.value })}
+                                className="w-full text-sm font-medium bg-transparent border-none outline-none focus:ring-0 p-0"
+                                placeholder="File name"
+                              />
+                              {item.error && <p className="text-xs text-red-500 mt-1">{item.error}</p>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {item.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                              {item.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500" />}
+                              {item.status === 'uploading' && <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
+                              {item.status === 'pending' && (
+                                <Button variant="ghost" size="icon" onClick={() => removeBulkFile(item.id)} className="h-6 w-6 cursor-pointer">
                                   <X className="h-3 w-3" />
                                 </Button>
                               )}
                             </div>
-                            {file.status === 'pending' && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div>
-                                  <label className="text-xs font-medium text-gray-600 block mb-1">Rename (Optional)</label>
-                                  <Input
-                                    value={file.alias || ''}
-                                    onChange={(e) => updateBulkFileMetadata(file.id, { alias: e.target.value })}
-                                    placeholder="Custom filename"
-                                    className="h-8 text-sm"
-                                  />
-                                </div>
-                                 <div>
-                                   <label className="text-xs font-medium text-gray-600 block mb-1">Confidentiality</label>
-                                      <ConfidentialityLevelSelect
-                                        value={file.confidentialityLevel || 'internal'}
-                                        onValueChange={(val) => updateBulkFileMetadata(file.id, { confidentialityLevel: val })}
-                                        placeholder="Select level"
-                                        className="h-8 text-sm"
-                                        showRestrictionNote
-                                      />
-
-                                    {(file.confidentialityLevel || 'internal') === 'highly_confidential' && (
-                                      <div className="mt-1 flex items-center gap-1 text-[10px] text-red-600">
-                                        <Lock className="h-3 w-3" /> Visibility locked to you + admins
-                                      </div>
-                                    )}
-                                  </div>
-                               </div>
-                             )}
-                            {file.status === 'error' && file.error && (
-                              <p className="text-xs text-red-600 mt-1 truncate">{file.error}</p>
-                            )}
                           </div>
                         ))}
+
+                        {bulkUploadProgress > 0 && bulkUploadProgress < 100 && (
+                          <div className="space-y-2">
+                            <Progress value={bulkUploadProgress} />
+                            <p className="text-xs text-muted-foreground text-center">{bulkUploadProgress}%</p>
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={handleBulkUpload}
+                          disabled={bulkFiles.filter(f => f.status === 'pending').length === 0 || bulkUpload.isPending}
+                          className="w-full gap-2"
+                        >
+                          <ArrowUpCircle className="h-4 w-4" />
+                          {bulkUpload.isPending ? 'Uploading...' : `Upload ${bulkFiles.filter(f => f.status === 'pending').length} Files`}
+                        </Button>
                       </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <FileBox className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-sm">No files selected</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
 
-                      {/* Upload Progress */}
-                      {(bulkUpload.isPending || bulkUploadProgress > 0) && (
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                            <span>Uploading...</span>
-                            <span>{bulkUploadProgress}%</span>
-                          </div>
-                          <Progress value={bulkUploadProgress} className="h-2" />
-                        </div>
-                      )}
-
-                      <Button
-                        onClick={handleBulkUpload}
-                        disabled={bulkUpload.isPending || bulkFiles.every(f => f.status !== 'pending')}
-                        className="w-full mt-4 cursor-pointer bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        {bulkUpload.isPending ? 'Uploading...' : `Upload ${bulkFiles.filter(f => f.status === 'pending').length} Files`}
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-sm">
-                <CardHeader><CardTitle>Recent Uploads</CardTitle></CardHeader>
-                <CardContent>
-                  {filesData?.files && filesData.files.length > 0 ? (
-                    <div className="space-y-3">
-                      {filesData.files.slice(0, 8).map((file) => (
-                        <div key={file.fileId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                          <FileText className="h-5 w-5 text-blue-500" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium truncate">{file.name}</p>
-                            <p className="text-xs text-gray-400">{format(new Date(file.createdAt), 'MMM d, h:mm a')}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">No uploads yet</div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-
-
-
-        </Tabs>
-
-        {/* File Details Dialog */}
         <Dialog open={!!viewFile} onOpenChange={() => setViewFile(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -675,7 +555,7 @@ const validateFile = (file: File): string | null => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-xs text-gray-500">Type</p>
-                    <p className="font-medium">{viewFile.type}</p>
+                    <p className="font-medium">{viewFile.fileCategory || viewFile.type}</p>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-xs text-gray-500">Confidentiality</p>
@@ -686,8 +566,6 @@ const validateFile = (file: File): string | null => {
             )}
           </DialogContent>
         </Dialog>
-
-
       </div>
     </ResponsiveContainer>
   )

@@ -128,18 +128,68 @@ export function useDeleteUserMutation() {
 }
 
 export function useActivateUserMutation() {
-  const queryClient = useQueryClient()
+   const queryClient = useQueryClient()
 
-  return useMutation({
-    mutationFn: (userId: string) => usersAPI.activateUser(userId),
-    onSuccess: (_, userId) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      queryClient.invalidateQueries({ queryKey: ['user', userId] })
-      toast.success('User activated successfully')
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.message || 'Failed to activate user'
-      toast.error(message)
-    },
-  })
-}
+   return useMutation({
+     mutationFn: (userId: string) => usersAPI.activateUser(userId),
+     onSuccess: (_, userId) => {
+       queryClient.invalidateQueries({ queryKey: ['users'] })
+       queryClient.invalidateQueries({ queryKey: ['user', userId] })
+       toast.success('User activated successfully')
+     },
+     onError: (error: any) => {
+       const message = error.response?.data?.message || 'Failed to activate user'
+       toast.error(message)
+     },
+   })
+ }
+
+ // HOD request mutations — these notify admins instead of direct actions
+ export function useRequestSuspendMutation() {
+   const queryClient = useQueryClient()
+
+   return useMutation({
+     mutationFn: (userId: string) => usersAPI.requestSuspend(userId),
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+       toast.success('Suspend request sent to admin')
+     },
+     onError: (error: any) => {
+       const message = error.response?.data?.message || 'Failed to send suspend request'
+       toast.error(message)
+     },
+   })
+ }
+
+ export function useRequestEditMutation() {
+   const queryClient = useQueryClient()
+
+   return useMutation({
+     mutationFn: (variables: { userId: string; data: { name?: string; email?: string; department?: string } }) =>
+       usersAPI.requestEdit(variables.userId, variables.data),
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+       toast.success('Edit request sent to admin')
+     },
+     onError: (error: any) => {
+       const message = error.response?.data?.message || 'Failed to send edit request'
+       toast.error(message)
+     },
+   })
+ }
+
+ export function useRequestPasswordResetMutation() {
+   const queryClient = useQueryClient()
+
+   return useMutation({
+     mutationFn: (userId: string) => usersAPI.requestPasswordReset(userId),
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+       toast.success('Password reset request sent to admin')
+     },
+     onError: (error: any) => {
+       const message = error.response?.data?.message || 'Failed to send password reset request'
+       toast.error(message)
+     },
+   })
+ }

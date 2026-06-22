@@ -9,7 +9,19 @@ import { Badge } from '@/components/ui/badge'
 import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
 
 import { useAuth } from '@/hooks/useAuth'
-import { useUsersQuery, useSuspendUserMutation, useActivateUserMutation, useUpdateUserMutation, useResetPasswordMutation, useRestoreUserMutation, useDeleteUserMutation } from '@/hooks/useUsers'
+import {
+  useUsersQuery,
+  useSuspendUserMutation,
+  useActivateUserMutation,
+  useUpdateUserMutation,
+  useResetPasswordMutation,
+  useRestoreUserMutation,
+  useDeleteUserMutation,
+  useRequestSuspendMutation,
+  useRequestEditMutation,
+  useRequestPasswordResetMutation,
+} from '@/hooks/useUsers'
+import { useNotificationsQuery, useMarkAsReadMutation } from '@/hooks/useNotifications'
 import { useAuditLogsQuery } from '@/hooks/useAuditLog'
 import {
   Table,
@@ -42,7 +54,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle } from 'lucide-react'
+import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle, AlertTriangle } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
@@ -116,24 +128,32 @@ export default function AdminUsersPage() {
     }
   }, [searchParams])
 
-  const { data, isLoading } = useUsersQuery({
-    page,
-    limit,
-    search: search || undefined,
-    role: roleFilter || undefined,
-    department: isManager ? user?.department : undefined,
-  })
+   const { data, isLoading } = useUsersQuery({
+     page,
+     limit,
+     search: search || undefined,
+     role: roleFilter || undefined,
+     department: isManager ? user?.department : undefined,
+   })
 
-  const { mutate: suspend } = useSuspendUserMutation()
-  const { mutate: activate } = useActivateUserMutation()
-  const { mutate: updateUser } = useUpdateUserMutation()
-  const { mutate: resetPassword } = useResetPasswordMutation()
-  const { mutate: restore } = useRestoreUserMutation()
-  const { mutate: deleteUser } = useDeleteUserMutation()
+   // Mutations
+   const { mutate: suspend } = useSuspendUserMutation()
+   const { mutate: activate } = useActivateUserMutation()
+   const { mutate: updateUser } = useUpdateUserMutation()
+   const { mutate: resetPassword } = useResetPasswordMutation()
+   const { mutate: restore } = useRestoreUserMutation()
+   const { mutate: deleteUser } = useDeleteUserMutation()
 
-  const { data: activityData, isLoading: activityLoading } = useAuditLogsQuery({
-    page: 1,
-    limit: 20,
+   // HOD request mutations
+   const { mutate: requestSuspend } = useRequestSuspendMutation()
+   const { mutate: requestEdit } = useRequestEditMutation()
+   const { mutate: requestPasswordReset } = useRequestPasswordResetMutation()
+
+   // Notifications (for admins to see HOD requests)
+   const { data: notificationsData } = useNotificationsQuery({ type: 'user_action_request', limit: 20 })
+   const { mutate: markNotifAsRead } = useMarkAsReadMutation()
+
+   const { data: activityData, isLoading: activityLoading } = useAuditLogsQuery({
     userId: activityUser?._id || activityUser?.id,
   })
 
@@ -161,22 +181,28 @@ export default function AdminUsersPage() {
   }
 
   const handleUserAction = () => {
-    if (!actionUser) return
-    const userId = actionUser._id || actionUser.id!
-    switch (actionType) {
-      case 'suspend':
-        suspend(userId)
-        break
-      case 'activate':
-        activate(userId)
-        break
-      case 'restore':
-        restore(userId)
-        break
-      case 'delete':
-        deleteUser(userId)
-        break
-    }
+     if (!actionUser) return
+     const userId = actionUser._id || actionUser.id!
+     switch (actionType) {
+       case 'suspend':
+         suspend(userId)
+         break
+       case 'request-suspend':
+         requestSuspend(userId)
+         break
+       case 'request-password-reset':
+         requestPasswordReset(userId)
+         break
+       case 'activate':
+         activate(userId)
+         break
+       case 'restore':
+         restore(userId)
+         break
+       case 'delete':
+         deleteUser(userId)
+         break
+     }
     setActionDialogOpen(false)
     setActionUser(null)
   }
@@ -235,6 +261,79 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </div>
+
+        {/* HOD Action Requests — only visible to admins */}
+        {!isManager && notificationsData?.notifications && notificationsData.notifications.length > 0 && (
+          <div className="px-6 pt-4">
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-amber-800">Pending Requests from Managers</span>
+                  <span className="text-xs bg-amber-200 text-amber-800 rounded-full px-2 py-0.5">{notificationsData.notifications.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {notificationsData.notifications.map((notif) => (
+                    <div key={notif._id} className="flex items-center justify-between bg-white rounded-lg border border-amber-100 p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                          <User className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-800 truncate">{notif.message}</p>
+                          <p className="text-xs text-gray-400">
+                            {notif.details?.requestedBy?.name && `From: ${notif.details.requestedBy.name} • `}
+                            {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {notif.details?.action === 'suspend' && notif.details?.targetUserId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 cursor-pointer"
+                            onClick={() => { setActionUser({ _id: notif.details!.targetUserId!, name: notif.details!.targetUserName || '' } as UserType); setActionType('suspend'); setActionDialogOpen(true); markNotifAsRead(notif._id); }}
+                          >
+                            Suspend
+                          </Button>
+                        )}
+                        {notif.details?.action === 'edit' && notif.details?.targetUserId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 cursor-pointer"
+                            onClick={() => { markNotifAsRead(notif._id); }}
+                          >
+                            Review
+                          </Button>
+                        )}
+                        {notif.details?.action === 'password_reset' && notif.details?.targetUserId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 cursor-pointer"
+                            onClick={() => { setResetPwUser({ _id: notif.details!.targetUserId!, name: notif.details!.targetUserName || '' } as UserType); setIsResetPwOpen(true); markNotifAsRead(notif._id); }}
+                          >
+                            Reset Pw
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-7 cursor-pointer text-gray-400 hover:text-gray-600"
+                          onClick={() => markNotifAsRead(notif._id)}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Users Display */}
         <div className="flex-1 overflow-auto p-6">
@@ -336,50 +435,69 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Edit User</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setResetPwUser(user); setIsResetPwOpen(true); setOpenDropdown(null) }}>Reset Password</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {user.status === 'active' ? (
-                              <DropdownMenuItem
-                                className="text-orange-600"
-                                onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                              >
-                                Suspend User
-                              </DropdownMenuItem>
-                            ) : user.status === 'suspended' ? (
-                              <>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('restore'); setActionDialogOpen(true); setOpenDropdown(null) }}>
-                                  Restore User
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('delete'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                                >
-                                  Delete User
-                                </DropdownMenuItem>
-                              </>
-                            ) : user.status === 'deleted' ? (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('activate'); setActionDialogOpen(true); setOpenDropdown(null) }}>
-                                Activate User
-                              </DropdownMenuItem>
-                            ) : null}
-                            {user.status !== 'active' && user.status !== 'deleted' && user.status !== 'suspended' ? (
-                              <DropdownMenuItem
-                                className="text-orange-600"
-                                onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                              >
-                                Suspend User
-                              </DropdownMenuItem>
-                            ) : null}
-                            {user.status === 'deleted' && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('activate'); setActionDialogOpen(true); setOpenDropdown(null) }}>
-                                Activate User
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                              {/* Edit: HOD can only edit name/email; admin has full edit */}
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Edit User</DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {isManager ? (
+                                <>
+                                  {/* HOD: request actions that notify admin */}
+                                  {user.status === 'active' && (
+                                    <DropdownMenuItem
+                                      className="text-orange-600"
+                                      onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                    >
+                                      Request Suspend
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-password-reset'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                  >
+                                    Request Password Reset
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <>
+                                  {/* Admin: direct actions */}
+                                  {user.status === 'active' ? (
+                                    <DropdownMenuItem
+                                      className="text-orange-600"
+                                      onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                    >
+                                      Suspend User
+                                    </DropdownMenuItem>
+                                  ) : user.status === 'suspended' ? (
+                                    <>
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('restore'); setActionDialogOpen(true); setOpenDropdown(null) }}>
+                                        Restore User
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('delete'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                      >
+                                        Delete User
+                                      </DropdownMenuItem>
+                                    </>
+                                  ) : user.status === 'deleted' ? (
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('activate'); setActionDialogOpen(true); setOpenDropdown(null) }}>
+                                      Activate User
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {user.status !== 'active' && user.status !== 'deleted' && user.status !== 'suspended' ? (
+                                    <DropdownMenuItem
+                                      className="text-orange-600"
+                                      onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                    >
+                                      Suspend User
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setResetPwUser(user); setIsResetPwOpen(true); setOpenDropdown(null) }}>Reset Password</DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -740,16 +858,29 @@ export default function AdminUsersPage() {
               <form onSubmit={(e) => {
                 e.preventDefault()
                 const formData = new FormData(e.currentTarget)
-                updateUser({
-                  userId: editingUser._id || editingUser.id!,
-                  data: {
-                    name: formData.get('name') as string,
-                    email: formData.get('email') as string,
-                    department: formData.get('department') as string,
-                    role: formData.get('role') as string,
-                    confidentialityLevel: editingConfidentialityLevel,
-                  }
-                })
+                const name = formData.get('name') as string
+                const email = formData.get('email') as string
+                const department = formData.get('department') as string
+
+                if (isManager) {
+                  // HOD: send edit request to admin (name/email only, no role/status/confidentiality)
+                  requestEdit({
+                    userId: editingUser._id || editingUser.id!,
+                    data: { name, email, department },
+                  })
+                } else {
+                  // Admin: direct full update
+                  updateUser({
+                    userId: editingUser._id || editingUser.id!,
+                    data: {
+                      name,
+                      email,
+                      department,
+                      role: formData.get('role') as string,
+                      confidentialityLevel: editingConfidentialityLevel,
+                    }
+                  })
+                }
                 setIsEditDialogOpen(false)
                 setEditingUser(null)
                 setEditingConfidentialityLevel('')
@@ -765,6 +896,13 @@ export default function AdminUsersPage() {
                       <p className="text-sm text-gray-600">{editingUser.email}</p>
                     </div>
                   </div>
+
+                  {isManager && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>As a Manager, edits will be sent as a request to the administrator for approval.</span>
+                    </div>
+                  )}
 
                   {/* Form Fields */}
                   <div className="grid grid-cols-1 gap-5">
@@ -811,53 +949,56 @@ export default function AdminUsersPage() {
                       />
                     </div>
 
-                    <div className='flex items-start gap-6 w-full'>
-                      <div className="space-y-2 w-full">
-                        <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                          <Shield className="h-4 w-4" />
-                          Role
-                        </label>
-                        <Select name="role" defaultValue={editingUser.role}>
-                          <SelectTrigger className="h-11 w-full">
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="user">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                User
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="hod">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                Manager
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="admin">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                Administrator
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    {/* Admin-only fields: role and confidentiality */}
+                    {!isManager && (
+                      <div className='flex items-start gap-6 w-full'>
+                        <div className="space-y-2 w-full">
+                          <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <Shield className="h-4 w-4" />
+                            Role
+                          </label>
+                          <Select name="role" defaultValue={editingUser.role}>
+                            <SelectTrigger className="h-11 w-full">
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                  User
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="hod">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                                  Manager
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="admin">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                                  Administrator
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                          <Lock className="h-4 w-4" />
-                          Confidentiality Level
-                        </label>
-                          <ConfidentialityLevelSelect
-                            value={editingConfidentialityLevel}
-                            onValueChange={setEditingConfidentialityLevel}
-                            placeholder="Select confidentiality level"
-                            showRestrictionNote
-                          />
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <Lock className="h-4 w-4" />
+                            Confidentiality Level
+                          </label>
+                            <ConfidentialityLevelSelect
+                              value={editingConfidentialityLevel}
+                              onValueChange={setEditingConfidentialityLevel}
+                              placeholder="Select confidentiality level"
+                              showRestrictionNote
+                            />
 
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -875,7 +1016,7 @@ export default function AdminUsersPage() {
                     className="flex-1 cursor-pointer bg-blue-600 hover:bg-blue-700"
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Save Changes
+                    {isManager ? 'Send Request' : 'Save Changes'}
                   </Button>
                 </DialogFooter>
               </form>

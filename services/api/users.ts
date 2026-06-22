@@ -74,6 +74,22 @@ export const usersAPI = {
     return response.data
   },
 
+  // HOD request endpoints — these notify admins instead of performing actions directly
+  requestSuspend: async (userId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post(`/api/v1/users/${userId}/request-suspend`)
+    return response.data
+  },
+
+  requestEdit: async (userId: string, data: { name?: string; email?: string; department?: string }): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post(`/api/v1/users/${userId}/request-edit`, data)
+    return response.data
+  },
+
+  requestPasswordReset: async (userId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post(`/api/v1/users/${userId}/request-password-reset`)
+    return response.data
+  },
+
   // Suspend user
   suspendUser: async (id: string): Promise<{ success: boolean; message: string }> => {
     const response = await apiClient.post(`/api/v1/users/${id}/suspend`)

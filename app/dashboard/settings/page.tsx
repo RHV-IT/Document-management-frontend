@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAuthContext } from '@/contexts/auth'
 import { useUpdateProfileMutation, useChangePasswordMutation } from '@/hooks/useAuth'
-import { useDepartmentsQuery, useConfidentialityLevelsConfigQuery, useCreateDepartmentMutation, useDeleteDepartmentMutation, useInitializeSettingsMutation } from '@/hooks/useSettings'
+import { useDepartmentsQuery, useConfidentialityLevelsConfigQuery, useCreateDepartmentMutation, useUpdateDepartmentMutation, useDeleteDepartmentMutation, useInitializeSettingsMutation } from '@/hooks/useSettings'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { formatDistanceToNow, format } from 'date-fns'
 import {
   User, Lock, Bell, Shield, Building2, FileLock2,
   Save, RefreshCw, CheckCircle, AlertCircle,
@@ -25,6 +26,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -73,9 +75,15 @@ export default function SettingsPage() {
   const { mutate: updateProfile, isPending: isUpdatingProfile } = useUpdateProfileMutation()
   const { mutate: changePassword, isPending: isChangingPassword } = useChangePasswordMutation()
 
-  const { data: departments, isLoading: departmentsLoading, error: departmentsError } = useDepartmentsQuery()
+  const [includeInactive, setIncludeInactive] = useState(false)
+  const [editingDept, setEditingDept] = useState<Department | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editFormData, setEditFormData] = useState({ name: '', code: '', description: '', isActive: true })
+
+  const { data: departments, isLoading: departmentsLoading, error: departmentsError } = useDepartmentsQuery(includeInactive)
   const { data: confidentialityLevels, isLoading: levelsLoading, error: levelsError } = useConfidentialityLevelsConfigQuery()
   const createDepartment = useCreateDepartmentMutation()
+  const updateDepartment = useUpdateDepartmentMutation()
   const deleteDepartment = useDeleteDepartmentMutation()
   const initializeSettings = useInitializeSettingsMutation()
 
@@ -154,6 +162,47 @@ export default function SettingsPage() {
       description: newDepartment.description,
     })
     setNewDepartment({ name: '', code: '', description: '' })
+  }
+
+  const openEditDialog = (dept: Department) => {
+    setEditingDept(dept)
+    setEditFormData({
+      name: dept.name,
+      code: dept.code,
+      description: dept.description || '',
+      isActive: dept.isActive,
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateDepartment = () => {
+    if (!editingDept) return
+    if (!editFormData.name.trim()) {
+      addNotification('error', 'Error', 'Department name is required')
+      return
+    }
+    if (!editFormData.code.trim()) {
+      addNotification('error', 'Error', 'Department code is required')
+      return
+    }
+    updateDepartment.mutate({
+      id: editingDept._id,
+      data: {
+        name: editFormData.name.toUpperCase(),
+        code: editFormData.code.toUpperCase(),
+        description: editFormData.description,
+        isActive: editFormData.isActive,
+      },
+    })
+    setIsEditDialogOpen(false)
+    setEditingDept(null)
+  }
+
+  const handleToggleActive = (dept: Department) => {
+    updateDepartment.mutate({
+      id: dept._id,
+      data: { isActive: !dept.isActive },
+    })
   }
 
 
@@ -598,7 +647,7 @@ export default function SettingsPage() {
 
             {/* Departments Tab - Admin Only */}
             {isAdmin && (
-              <TabsContent value="departments" className="mt-6">
+              <TabsContent value="departments" className="mt-6 space-y-6">
                 <Card className="border-0 shadow-sm">
                   <CardHeader className="pb-4">
                     <div className="flex items-center justify-between">
@@ -609,15 +658,26 @@ export default function SettingsPage() {
                         </CardTitle>
                         <CardDescription>Manage organization departments</CardDescription>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleInitialize}
-                        className="cursor-pointer"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Initialize Defaults
-                      </Button>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={includeInactive}
+                            onChange={(e) => setIncludeInactive(e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Show inactive
+                        </label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleInitialize}
+                          className="cursor-pointer"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Initialize Defaults
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -675,50 +735,64 @@ export default function SettingsPage() {
                         {departments.map((dept, index) => (
                           <div
                             key={dept._id}
-                            className="group flex items-center justify-between p-4 bg-white border rounded-lg hover:border-blue-200 hover:shadow-sm hover:bg-blue-50/30 transition-all cursor-pointer animate-slide-in-up"
+                            className={cn(
+                              "group flex items-center justify-between p-4 border rounded-lg hover:shadow-sm transition-all animate-slide-in-up",
+                              dept.isActive ? "bg-white hover:border-blue-200 hover:bg-blue-50/30" : "bg-gray-50/70 border-gray-200 opacity-75"
+                            )}
                             style={{ animationDelay: `${index * 50}ms` }}
-                            onClick={() => setSelectedDepartment(dept)}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 shrink-0 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                              <div className={cn(
+                                "w-10 h-10 shrink-0 rounded-lg flex items-center justify-center font-bold transition-colors",
+                                dept.isActive ? "bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white" : "bg-gray-200 text-gray-500"
+                              )}>
                                 {dept.code}
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium text-gray-900 truncate">{dept.name}</p>
-                                  <Eye className="h-3.5 w-3.5 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  <Badge className={dept.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
+                                    {dept.isActive ? 'Active' : 'Inactive'}
+                                  </Badge>
                                 </div>
                                 {dept.description && (
                                   <p className="text-sm text-gray-500 truncate">{dept.description}</p>
                                 )}
-                                {!dept.description && (
-                                  <p className="text-sm text-gray-400">Click to view department meaning and responsibilities</p>
+                                {dept.updatedAt && (
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    Updated {formatDistanceToNow(new Date(dept.updatedAt), { addSuffix: true })}
+                                  </p>
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <Badge className={dept.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
-                                {dept.isActive ? 'Active' : 'Inactive'}
-                              </Badge>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="cursor-pointer text-blue-600 hover:text-blue-700 hover:bg-blue-100"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setSelectedDepartment(dept)
-                                }}
+                                onClick={() => openEditDialog(dept)}
+                                title="Edit department"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className={cn(
+                                  "cursor-pointer",
+                                  dept.isActive ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"
+                                )}
+                                onClick={() => handleToggleActive(dept)}
+                                title={dept.isActive ? "Deactivate" : "Activate"}
+                              >
+                                {dept.isActive ? <EyeOff className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  deleteDepartment.mutate(dept._id)
-                                }}
+                                onClick={() => deleteDepartment.mutate(dept._id)}
+                                title="Delete department"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -736,6 +810,108 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
 
+                {/* Edit Department Dialog */}
+                <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+                  setIsEditDialogOpen(open)
+                  if (!open) setEditingDept(null)
+                }}>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-3 text-xl">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                          <Building2 className="h-5 w-5 text-white" />
+                        </div>
+                        Edit Department
+                      </DialogTitle>
+                      <DialogDescription>
+                        Update department information. Name and code will be stored uppercase.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    {editingDept && (
+                      <form onSubmit={(e) => { e.preventDefault(); handleUpdateDepartment() }} className="space-y-5">
+                        <div className="grid grid-cols-2 gap-4">
+                          <Field>
+                            <FieldLabel>Department Name</FieldLabel>
+                            <Input
+                              value={editFormData.name}
+                              onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value.toUpperCase() })}
+                              placeholder="e.g. FINANCE"
+                              required
+                            />
+                          </Field>
+                          <Field>
+                            <FieldLabel>Code</FieldLabel>
+                            <Input
+                              value={editFormData.code}
+                              onChange={(e) => setEditFormData({ ...editFormData, code: e.target.value.toUpperCase() })}
+                              placeholder="e.g. FIN"
+                              required
+                            />
+                          </Field>
+                        </div>
+
+                        <Field>
+                          <FieldLabel>Description (optional)</FieldLabel>
+                          <Input
+                            value={editFormData.description}
+                            onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                            placeholder="Department description"
+                          />
+                        </Field>
+
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">Active Status</p>
+                            <p className="text-sm text-gray-500">Inactive departments cannot be assigned to new users</p>
+                          </div>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={editFormData.isActive}
+                            onClick={() => setEditFormData({ ...editFormData, isActive: !editFormData.isActive })}
+                            className={cn(
+                              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                              editFormData.isActive ? "bg-blue-600" : "bg-gray-200"
+                            )}
+                          >
+                            <span className={cn(
+                              "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                              editFormData.isActive ? "translate-x-5" : "translate-x-0"
+                            )} />
+                          </button>
+                        </div>
+
+                        {editingDept.updatedBy && (
+                          <div className="text-xs text-gray-400">
+                            Last updated by {editingDept.updatedBy.name} • {format(new Date(editingDept.updatedAt), 'MMM d, yyyy h:mm a')}
+                          </div>
+                        )}
+
+                        <DialogFooter className="flex gap-3 pt-4 border-t border-gray-100">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsEditDialogOpen(false)}
+                            className="flex-1 cursor-pointer"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={updateDepartment.isPending}
+                            className="flex-1 cursor-pointer bg-blue-600 hover:bg-blue-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            {updateDepartment.isPending ? 'Saving...' : 'Save Changes'}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    )}
+                  </DialogContent>
+                </Dialog>
+
+                {/* Department Detail Dialog */}
                 <Dialog open={!!selectedDepartment} onOpenChange={(open) => !open && setSelectedDepartment(null)}>
                   <DialogContent size="lg" className="max-h-[90vh]">
                     {selectedDepartment && selectedDepartmentInfo && (

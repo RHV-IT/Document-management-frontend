@@ -6,6 +6,13 @@ export interface Notification {
   type: string
   isRead: boolean
   createdAt: string
+  details?: {
+    action?: 'suspend' | 'edit' | 'password_reset'
+    targetUserId?: string
+    targetUserName?: string
+    requestedBy?: { name: string; email?: string; role?: string }
+    requestedChanges?: { name?: string; email?: string; department?: string }
+  }
 }
 
 export interface NotificationsResponse {
@@ -18,12 +25,13 @@ export interface NotificationsResponse {
 }
 
 export const notificationsAPI = {
-  // Get notifications
-  getNotifications: async (params?: {
-    page?: number
-    limit?: number
-    unreadOnly?: boolean
-  }): Promise<NotificationsResponse> => {
+   // Get notifications
+   getNotifications: async (params?: {
+     page?: number
+     limit?: number
+     unreadOnly?: boolean
+     type?: string
+   }): Promise<NotificationsResponse> => {
     const response = await apiClient.get('/api/v1/notifications', { params })
     return response.data
   },

@@ -6,6 +6,7 @@ export function useNotificationsQuery(params?: {
   page?: number
   limit?: number
   unreadOnly?: boolean
+  type?: string
 }) {
   return useQuery({
     queryKey: ['notifications', params],
