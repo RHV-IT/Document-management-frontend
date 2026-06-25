@@ -80,7 +80,7 @@ export const usersAPI = {
     return response.data
   },
 
-  requestEdit: async (userId: string, data: { name?: string; email?: string; department?: string }): Promise<{ success: boolean; message: string }> => {
+  requestEdit: async (userId: string, data: { name?: string; email?: string; department?: string; departments?: string[] }): Promise<{ success: boolean; message: string }> => {
     const response = await apiClient.post(`/api/v1/users/${userId}/request-edit`, data)
     return response.data
   },

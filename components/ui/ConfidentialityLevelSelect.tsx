@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useConfidentialityLevelsConfigQuery } from '@/hooks/useSettings'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAccessControl } from '@/hooks/useAccessControl'
+import { useProfileStore } from '@/stores/useProfileStore'
 import { CONFIDENTIALITY_LEVELS, getClearanceLabel, getHighestConfidentialityLevel } from '@/lib/access-control'
 import { Shield } from 'lucide-react'
 
@@ -11,9 +12,9 @@ interface ConfidentialityLevelSelectProps {
   onValueChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
-  /** @deprecated - component now sources allowed levels exclusively from logged-in user's confidentialityLevels via useAccessControl */
+  /** @deprecated - component now sources allowed levels exclusively from active profile's confidentialityLevels */
   userLevel?: string
-  /** @deprecated - component now sources allowed levels exclusively from logged-in user's confidentialityLevels via useAccessControl */
+  /** @deprecated - component now sources allowed levels exclusively from active profile's confidentialityLevels */
   userRole?: string
   className?: string
   showRestrictionNote?: boolean
@@ -45,19 +46,23 @@ export function ConfidentialityLevelSelect({
 }: ConfidentialityLevelSelectProps) {
   const { data: levels, isLoading } = useConfidentialityLevelsConfigQuery()
   const { allowedLevels } = useAccessControl()
+  const { activeProfile } = useProfileStore()
 
   if (isLoading) {
     return <Skeleton className={`h-10 w-full ${className}`} />
   }
 
-  // PRIMARY UI AUTHORITY: ONLY levels from current user's confidentialityLevels array (post-login normalized)
-  const allowed = (allowedLevels || []) as string[]
+  const profileConfidentialityLevels = activeProfile?.confidentialityLevels || []
+
+  const allowed = (profileConfidentialityLevels.length > 0
+    ? profileConfidentialityLevels
+    : allowedLevels || []) as string[]
 
   const fallbackOptions = [
-    { value: 'public', label: CONFIDENTIALITY_LABELS.public, color: CONFIDENTIALITY_COLORS.public, description: 'Accessible to everyone' },
-    { value: 'internal', label: CONFIDENTIALITY_LABELS.internal, color: CONFIDENTIALITY_COLORS.internal, description: 'Internal company use only' },
-    { value: 'confidential', label: CONFIDENTIALITY_LABELS.confidential, color: CONFIDENTIALITY_COLORS.confidential, description: 'Sensitive information - restricted access' },
-    { value: 'highly_confidential', label: CONFIDENTIALITY_LABELS.highly_confidential, color: CONFIDENTIALITY_COLORS.highly_confidential, description: 'Extremely sensitive - very limited access' },
+    { value: 'public', label: 'Everyone Can See', color: '#10b981', description: 'Accessible to everyone' },
+    { value: 'internal', label: 'Company Only', color: '#3b82f6', description: 'Internal company use only' },
+    { value: 'confidential', label: 'Limited Access Only', color: '#f59e0b', description: 'Sensitive information - restricted access' },
+    { value: 'highly_confidential', label: 'Very Secret - Few People Only', color: '#ef4444', description: 'Extremely sensitive - very limited access' },
   ]
 
   const options = levels && levels.length > 0

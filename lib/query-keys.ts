@@ -87,6 +87,16 @@ export const queryKeys = {
   notifications: {
     all: () => ['notifications'] as const,
   },
+
+  // ==================== FOLDERS ====================
+  folders: {
+    all: () => ['folders'] as const,
+    list: (params?: any) => ['folders', 'list', params] as const,
+    detail: (folderId: string) => ['folders', 'detail', folderId] as const,
+    tree: () => ['folders', 'tree'] as const,
+    breadcrumb: (folderId: string) => ['folders', 'breadcrumb', folderId] as const,
+    contents: (folderId: string) => ['folders', 'contents', folderId] as const,
+  },
 } as const
 
 // Helper to get all keys for a domain (useful for broad invalidation)

@@ -389,7 +389,7 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="group relative w-full flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white/60 px-4 py-2.5 text-sm text-gray-400 shadow-sm backdrop-blur-sm transition-all hover:border-gray-300 hover:bg-white/80 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-300"
+        className="group relative w-full flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white/60 px-4 py-2.5 text-sm text-gray-400 shadow-sm backdrop-blur-sm transition-all hover:border-gray-300 hover:bg-white/80 hover:shadow-md focus:outline-none focus:ring-0 focus:border-gray-300"
       >
         <Search className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-gray-500 transition-colors" />
         <span className="flex-1 text-left text-gray-400 group-hover:text-gray-500 transition-colors">

@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevelSelect'
 
 import { useAuth } from '@/hooks/useAuth'
+import { useQuery } from '@tanstack/react-query'
+import { settingsAPI } from '@/services/api/settings'
 import {
   useUsersQuery,
   useSuspendUserMutation,
@@ -54,13 +56,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle, AlertTriangle } from 'lucide-react'
+import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle, AlertTriangle, X, Check, HelpCircle } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { TableSkeleton } from '@/components/loaders/TableSkeleton'
 import { getRoleBadgeColor, getRoleLabel, isHodRole } from '@/lib/roles'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip'
 
 type ViewMode = 'grid' | 'table'
 
@@ -71,16 +74,124 @@ interface UserType {
   email: string
   role: string
   department: string
+  departments?: string[]
   status: string
   confidentialityLevel?: string
   confidentialityLevels?: string[]
+  profiles?: {
+    _id: string
+    department: string
+    isPrimary: boolean
+    confidentialityLevels?: string[]
+  }[]
   createdAt?: string
+}
+
+interface DepartmentOption {
+  _id: string
+  name: string
+  code: string
+  description?: string
+  isActive: boolean
 }
 
 const STATUS_COLORS = {
   active: 'bg-green-100 text-green-800',
   suspended: 'bg-orange-100 text-orange-800',
   deleted: 'bg-red-100 text-red-800',
+}
+
+function MultiDepartmentSelect({ value, onValueChange, departments, placeholder = "Select departments" }: {
+  value: string[]
+  onValueChange: (value: string[]) => void
+  departments: DepartmentOption[]
+  placeholder?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  const toggleDepartment = (deptCode: string) => {
+    if (value.includes(deptCode)) {
+      onValueChange(value.filter(d => d !== deptCode))
+    } else {
+      onValueChange([...value, deptCode])
+    }
+  }
+
+  const removeDepartment = (deptCode: string) => {
+    onValueChange(value.filter(d => d !== deptCode))
+  }
+
+  const selectedDepts = departments.filter(d => value.includes(d.code))
+
+  return (
+    <div className="relative">
+      <div
+        className="w-full min-h-11 px-3 py-2 border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all bg-white cursor-pointer flex flex-wrap items-center gap-1.5"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {selectedDepts.length === 0 ? (
+          <span className="text-gray-400 text-sm">{placeholder}</span>
+        ) : (
+          selectedDepts.map(dept => (
+            <span
+              key={dept._id}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-100"
+            >
+              <span className="font-semibold">{dept.code}</span>
+              <span className="text-blue-300">·</span>
+              <span className="truncate max-w-[120px]">{dept.name}</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); removeDepartment(dept.code) }}
+                className="ml-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))
+        )}
+        <div className="ml-auto shrink-0">
+          <svg className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-y-auto">
+          <div className="p-2">
+            {departments.length === 0 ? (
+              <div className="px-4 py-6 text-gray-400 text-sm text-center">No departments available</div>
+            ) : (
+              departments.map(dept => {
+                const isSelected = value.includes(dept.code)
+                return (
+                  <div
+                    key={dept._id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                    onClick={() => toggleDepartment(dept.code)}
+                  >
+                    <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-150 ${isSelected ? 'bg-blue-600 border-blue-600 scale-110' : 'border-gray-300'}`}>
+                      {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{dept.code}</span>
+                        <span className="font-medium text-gray-900 text-sm truncate">{dept.name}</span>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <span className="text-blue-600 text-[10px] font-medium shrink-0">Selected</span>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AdminUsersPage() {
@@ -93,10 +204,14 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null)
   const [editingUser, setEditingUser] = useState<UserType | null>(null)
   const [editingConfidentialityLevel, setEditingConfidentialityLevel] = useState('')
+  const [editingDepartments, setEditingDepartments] = useState<string[]>([])
+  const [editingConfidentialityLevels, setEditingConfidentialityLevels] = useState<Record<string, string[]>>({})
+  const [primaryDepartment, setPrimaryDepartment] = useState<string | null>(null)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [activityUser, setActivityUser] = useState<UserType | null>(null)
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false)
+  const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'confidential', 'highly_confidential']
 
   // Password reset
   const [resetPwUser, setResetPwUser] = useState<UserType | null>(null)
@@ -108,17 +223,55 @@ export default function AdminUsersPage() {
   const [actionType, setActionType] = useState<string>('')
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
 
-  // Helper: always show the highest (last) level from the array
-  const getUserClearanceLevel = (u: UserType): string => {
-    if (u.confidentialityLevels && u.confidentialityLevels.length > 0) {
-      return u.confidentialityLevels[u.confidentialityLevels.length - 1]
+  // Helper: get the highest clearance level from user's profiles or legacy fields
+  const getUserHighestClearanceLevel = (user: UserType) => {
+    // If profiles exist, collect all confidentiality levels from all profiles
+    if (user.profiles && user.profiles.length > 0) {
+      const allLevels: string[] = []
+      user.profiles.forEach(profile => {
+        if (profile.confidentialityLevels && Array.isArray(profile.confidentialityLevels)) {
+          allLevels.push(...profile.confidentialityLevels)
+        }
+      })
+      if (allLevels.length > 0) {
+        const order: Record<string, number> = {
+          public: 0,
+          internal: 1,
+          confidential: 2,
+          highly_confidential: 3
+        }
+        const sorted = [...allLevels].sort((a, b) => (order[a] || 99) - (order[b] || 99))
+        return sorted.pop() || ''
+      }
     }
-    return u.confidentialityLevel || ''
+    // Fallback to legacy fields
+    if (user.confidentialityLevels && user.confidentialityLevels.length > 0) {
+      const order: Record<string, number> = {
+        public: 0,
+        internal: 1,
+        confidential: 2,
+        highly_confidential: 3
+      }
+      const sorted = [...user.confidentialityLevels].sort((a, b) => (order[a] || 99) - (order[b] || 99))
+      return sorted.pop() || ''
+    }
+    if (user.confidentialityLevel) {
+      return user.confidentialityLevel
+    }
+    return ''
   }
 
   const { user } = useAuth()
+  const currentUserDept = user?.department || ''
   const isManager = isHodRole(user?.role)
   const router = useRouter()
+
+  const { data: departmentsData } = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => settingsAPI.getDepartments(),
+  })
+
+  const departments: DepartmentOption[] = departmentsData?.data || []
 
   useEffect(() => {
     const searchFromUrl = searchParams.get('search') || ''
@@ -128,32 +281,34 @@ export default function AdminUsersPage() {
     }
   }, [searchParams])
 
-   const { data, isLoading } = useUsersQuery({
-     page,
-     limit,
-     search: search || undefined,
-     role: roleFilter || undefined,
-     department: isManager ? user?.department : undefined,
-   })
+  const { data, isLoading } = useUsersQuery({
+    page,
+    limit,
+    search: search || undefined,
+    role: roleFilter || undefined,
+    department: isManager ? user?.department : undefined,
+  })
 
-   // Mutations
-   const { mutate: suspend } = useSuspendUserMutation()
-   const { mutate: activate } = useActivateUserMutation()
-   const { mutate: updateUser } = useUpdateUserMutation()
-   const { mutate: resetPassword } = useResetPasswordMutation()
-   const { mutate: restore } = useRestoreUserMutation()
-   const { mutate: deleteUser } = useDeleteUserMutation()
+  const users: UserType[] = (data?.users as UserType[]) ?? []
 
-   // HOD request mutations
-   const { mutate: requestSuspend } = useRequestSuspendMutation()
-   const { mutate: requestEdit } = useRequestEditMutation()
-   const { mutate: requestPasswordReset } = useRequestPasswordResetMutation()
+  // Mutations
+  const { mutate: suspend } = useSuspendUserMutation()
+  const { mutate: activate } = useActivateUserMutation()
+  const { mutate: updateUser } = useUpdateUserMutation()
+  const { mutate: resetPassword } = useResetPasswordMutation()
+  const { mutate: restore } = useRestoreUserMutation()
+  const { mutate: deleteUser } = useDeleteUserMutation()
 
-   // Notifications (for admins to see HOD requests)
-   const { data: notificationsData } = useNotificationsQuery({ type: 'user_action_request', limit: 20 })
-   const { mutate: markNotifAsRead } = useMarkAsReadMutation()
+  // HOD request mutations
+  const { mutate: requestSuspend } = useRequestSuspendMutation()
+  const { mutate: requestEdit } = useRequestEditMutation()
+  const { mutate: requestPasswordReset } = useRequestPasswordResetMutation()
 
-   const { data: activityData, isLoading: activityLoading } = useAuditLogsQuery({
+  // Notifications (for admins to see HOD requests)
+  const { data: notificationsData } = useNotificationsQuery({ type: 'user_action_request', limit: 20 })
+  const { mutate: markNotifAsRead } = useMarkAsReadMutation()
+
+  const { data: activityData, isLoading: activityLoading } = useAuditLogsQuery({
     userId: activityUser?._id || activityUser?.id,
   })
 
@@ -163,6 +318,22 @@ export default function AdminUsersPage() {
       ? user.confidentialityLevels[user.confidentialityLevels.length - 1]
       : (user.confidentialityLevel || '')
     setEditingConfidentialityLevel(highest)
+    const profileDeptNames = user.profiles?.map(p => p.department) || []
+    const depts = profileDeptNames.length > 0
+      ? profileDeptNames
+      : (user.departments && user.departments.length > 0
+        ? user.departments
+        : (user.department ? [user.department] : []))
+    setEditingDepartments(depts)
+    // Initialize editingConfidentialityLevels from user's profiles
+    const initConfidentialityLevels: Record<string, string[]> = {};
+    (user.profiles || []).forEach(profile => {
+      initConfidentialityLevels[profile.department] = profile.confidentialityLevels || []
+    })
+    setEditingConfidentialityLevels(initConfidentialityLevels)
+    // Set primaryDepartment from user's primary profile or first department
+    const primaryProfile = user.profiles?.find(p => p.isPrimary)
+    setPrimaryDepartment(primaryProfile ? primaryProfile.department : null)
     setIsEditDialogOpen(true)
   }
 
@@ -181,28 +352,28 @@ export default function AdminUsersPage() {
   }
 
   const handleUserAction = () => {
-     if (!actionUser) return
-     const userId = actionUser._id || actionUser.id!
-     switch (actionType) {
-       case 'suspend':
-         suspend(userId)
-         break
-       case 'request-suspend':
-         requestSuspend(userId)
-         break
-       case 'request-password-reset':
-         requestPasswordReset(userId)
-         break
-       case 'activate':
-         activate(userId)
-         break
-       case 'restore':
-         restore(userId)
-         break
-       case 'delete':
-         deleteUser(userId)
-         break
-     }
+    if (!actionUser) return
+    const userId = actionUser._id || actionUser.id!
+    switch (actionType) {
+      case 'suspend':
+        suspend(userId)
+        break
+      case 'request-suspend':
+        requestSuspend(userId)
+        break
+      case 'request-password-reset':
+        requestPasswordReset(userId)
+        break
+      case 'activate':
+        activate(userId)
+        break
+      case 'restore':
+        restore(userId)
+        break
+      case 'delete':
+        deleteUser(userId)
+        break
+    }
     setActionDialogOpen(false)
     setActionUser(null)
   }
@@ -374,7 +545,7 @@ export default function AdminUsersPage() {
                           {user.status || 'active'}
                         </Badge>
                         {(() => {
-                          const lvl = getUserClearanceLevel(user)
+                          const lvl = getUserHighestClearanceLevel(user)
                           return lvl ? (
                             <Badge
                               className="text-xs"
@@ -401,14 +572,47 @@ export default function AdminUsersPage() {
                             >
                               {lvl.replace(/_/g, ' ')}
                             </Badge>
-                          ) : null
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )
                         })()}
                       </div>
 
                       <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        <div className="flex items-start gap-2">
+                          <Building className="h-3 w-3 mt-0.5 shrink-0" />
+                          <div className="flex flex-wrap gap-1">
+                            {(user as UserType).profiles?.[0] ? (
+                              (user as UserType).profiles!.map((profile, idx) => (
+                                <span key={profile._id ?? `profile-${idx}`} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${profile.isPrimary ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                                  {profile.department}{profile.isPrimary && ' • Primary'}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="truncate">{(user as UserType).department}</span>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Building className="h-3 w-3" />
-                          <span className="truncate">{user.department}</span>
+                          <Calendar className="h-3 w-3" />
+                          <span>{formatDistanceToNow(new Date(user.createdAt || ''), { addSuffix: true })}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        <div className="flex items-start gap-2">
+                          <Building className="h-3 w-3 mt-0.5 shrink-0" />
+                          <div className="flex flex-wrap gap-1">
+                            {user.departments && user.departments.length > 0 ? (
+                              user.departments.map((dept, idx) => (
+                                <span key={idx} className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                                  {dept}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="truncate">{user.department}</span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-3 w-3" />
@@ -435,69 +639,69 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                              {/* Edit: HOD can only edit name/email; admin has full edit */}
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Edit User</DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {isManager ? (
-                                <>
-                                  {/* HOD: request actions that notify admin */}
-                                  {user.status === 'active' && (
-                                    <DropdownMenuItem
-                                      className="text-orange-600"
-                                      onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                                    >
-                                      Request Suspend
-                                    </DropdownMenuItem>
-                                  )}
+                            {/* Edit: HOD can only edit name/email; admin has full edit */}
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Edit User</DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {isManager ? (
+                              <>
+                                {/* HOD: request actions that notify admin */}
+                                {user.status === 'active' && (
                                   <DropdownMenuItem
-                                    onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-password-reset'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                    className="text-orange-600"
+                                    onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
                                   >
-                                    Request Password Reset
+                                    Request Suspend
                                   </DropdownMenuItem>
-                                </>
-                              ) : (
-                                <>
-                                  {/* Admin: direct actions */}
-                                  {user.status === 'active' ? (
+                                )}
+                                <DropdownMenuItem
+                                  onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-password-reset'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                >
+                                  Request Password Reset
+                                </DropdownMenuItem>
+                              </>
+                            ) : (
+                              <>
+                                {/* Admin: direct actions */}
+                                {user.status === 'active' ? (
+                                  <DropdownMenuItem
+                                    className="text-orange-600"
+                                    onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                  >
+                                    Suspend User
+                                  </DropdownMenuItem>
+                                ) : user.status === 'suspended' ? (
+                                  <>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('restore'); setActionDialogOpen(true); setOpenDropdown(null) }}>
+                                      Restore User
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
-                                      className="text-orange-600"
-                                      onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                      className="text-red-600"
+                                      onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('delete'); setActionDialogOpen(true); setOpenDropdown(null) }}
                                     >
-                                      Suspend User
+                                      Delete User
                                     </DropdownMenuItem>
-                                  ) : user.status === 'suspended' ? (
-                                    <>
-                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('restore'); setActionDialogOpen(true); setOpenDropdown(null) }}>
-                                        Restore User
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        className="text-red-600"
-                                        onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('delete'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                                      >
-                                        Delete User
-                                      </DropdownMenuItem>
-                                    </>
-                                  ) : user.status === 'deleted' ? (
-                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('activate'); setActionDialogOpen(true); setOpenDropdown(null) }}>
-                                      Activate User
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {user.status !== 'active' && user.status !== 'deleted' && user.status !== 'suspended' ? (
-                                    <DropdownMenuItem
-                                      className="text-orange-600"
-                                      onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                                    >
-                                      Suspend User
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setResetPwUser(user); setIsResetPwOpen(true); setOpenDropdown(null) }}>Reset Password</DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                                  </>
+                                ) : user.status === 'deleted' ? (
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('activate'); setActionDialogOpen(true); setOpenDropdown(null) }}>
+                                    Activate User
+                                  </DropdownMenuItem>
+                                ) : null}
+                                {user.status !== 'active' && user.status !== 'deleted' && user.status !== 'suspended' ? (
+                                  <DropdownMenuItem
+                                    className="text-orange-600"
+                                    onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
+                                  >
+                                    Suspend User
+                                  </DropdownMenuItem>
+                                ) : null}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setResetPwUser(user); setIsResetPwOpen(true); setOpenDropdown(null) }}>Reset Password</DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -536,7 +740,7 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell>
                           {(() => {
-                            const lvl = getUserClearanceLevel(user)
+                            const lvl = getUserHighestClearanceLevel(user)
                             return lvl ? (
                               <Badge
                                 className="text-xs"
@@ -580,45 +784,52 @@ export default function AdminUsersPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                               <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit User</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setResetPwUser(user); setIsResetPwOpen(true) }}>Reset Password</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleViewActivity(user)}>View Activity</DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              {user.status === 'active' ? (
-                                <DropdownMenuItem
-                                  className="text-orange-600"
-                                  onClick={() => { setActionUser(user); setActionType('suspend'); setActionDialogOpen(true) }}
-                                >
-                                  Suspend User
-                                </DropdownMenuItem>
-                              ) : user.status === 'suspended' ? (
+                              {isManager ? (
                                 <>
-                                  <DropdownMenuItem onClick={() => { setActionUser(user); setActionType('restore'); setActionDialogOpen(true) }}>
-                                    Restore User
-                                  </DropdownMenuItem>
+                                  {user.status === 'active' && (
+                                    <DropdownMenuItem
+                                      className="text-orange-600"
+                                      onClick={() => { setActionUser(user); setActionType('request-suspend'); setActionDialogOpen(true) }}
+                                    >
+                                      Request Suspend
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => { setActionUser(user); setActionType('delete'); setActionDialogOpen(true) }}
+                                    onClick={() => { setActionUser(user); setActionType('request-password-reset'); setActionDialogOpen(true) }}
                                   >
-                                    Delete User
+                                    Request Password Reset
                                   </DropdownMenuItem>
                                 </>
-                              ) : user.status === 'deleted' ? (
-                                <DropdownMenuItem onClick={() => { setActionUser(user); setActionType('activate'); setActionDialogOpen(true) }}>
-                                  Activate User
-                                </DropdownMenuItem>
-                              ) : null}
-                              {user.status !== 'active' && user.status !== 'deleted' && user.status !== 'suspended' ? (
-                                <DropdownMenuItem
-                                  className="text-orange-600"
-                                  onClick={() => { setActionUser(user); setActionType('suspend'); setActionDialogOpen(true) }}
-                                >
-                                  Suspend User
-                                </DropdownMenuItem>
-                              ) : null}
-                              {user.status === 'deleted' && (
-                                <DropdownMenuItem onClick={() => { setActionUser(user); setActionType('activate'); setActionDialogOpen(true) }}>
-                                  Activate User
-                                </DropdownMenuItem>
+                              ) : (
+                                <>
+                                  <DropdownMenuItem onClick={() => { setResetPwUser(user); setIsResetPwOpen(true) }}>Reset Password</DropdownMenuItem>
+                                  {user.status === 'active' ? (
+                                    <DropdownMenuItem
+                                      className="text-orange-600"
+                                      onClick={() => { setActionUser(user); setActionType('suspend'); setActionDialogOpen(true) }}
+                                    >
+                                      Suspend User
+                                    </DropdownMenuItem>
+                                  ) : user.status === 'suspended' ? (
+                                    <>
+                                      <DropdownMenuItem onClick={() => { setActionUser(user); setActionType('restore'); setActionDialogOpen(true) }}>
+                                        Restore User
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => { setActionUser(user); setActionType('delete'); setActionDialogOpen(true) }}
+                                      >
+                                        Delete User
+                                      </DropdownMenuItem>
+                                    </>
+                                  ) : user.status === 'deleted' ? (
+                                    <DropdownMenuItem onClick={() => { setActionUser(user); setActionType('activate'); setActionDialogOpen(true) }}>
+                                      Activate User
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                </>
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -787,6 +998,107 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
 
+                {/* Departments & Access Profiles */}
+                <div className="border-t pt-4">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3">Departments & Access Profiles</h2>
+                  {selectedUser.profiles && selectedUser.profiles.length > 0 ? (
+                    <div className="space-y-4">
+                      {selectedUser.profiles.map((profile, index) => (
+                        <div key={profile._id || index} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Building className="h-4 w-4" />
+                              <span className="font-medium">{profile.department}</span>
+                              {profile.isPrimary && (
+                                <span className="ml-2 px-1.5 px-2.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                  Primary
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {profile.confidentialityLevels && profile.confidentialityLevels.length > 0 ? (
+                              <>
+                                <p className="text-sm font-medium text-gray-700">Confidentiality Levels:</p>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {profile.confidentialityLevels.map((level, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium"
+                                      style={{
+                                        backgroundColor: {
+                                          public: '#10b981',
+                                          internal: '#3b82f6',
+                                          confidential: '#f59e0b',
+                                          highly_confidential: '#ef4444'
+                                        }[level] + '20',
+                                        color: {
+                                          public: '#065f46',
+                                          internal: '#1e40af',
+                                          confidential: '#92400e',
+                                          highly_confidential: '#991b1b'
+                                        }[level],
+                                        border: `1px solid ${{
+                                          public: '#10b981',
+                                          internal: '#3b82f6',
+                                          confidential: '#f59e0b',
+                                          highly_confidential: '#ef4444'
+                                        }[level]}`
+                                      }}>
+                                      {level.replace(/_/g, ' ')}
+                                    </span>
+                                  ))}
+                                </div>
+                              </>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No specific confidentiality levels assigned for this department.</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-sm text-muted-foreground">
+                      <p>No department profiles found. Falling back to legacy department field.</p>
+                      <p className="mt-2">
+                        <Building className="h-4 w-4 mr-2" />
+                        <span className="font-medium">{selectedUser.department}</span>
+                      </p>
+                      {(() => {
+                        if (!selectedUser) return null
+                        const lvl = getUserHighestClearanceLevel(selectedUser)
+                        if (!lvl) return null
+                        const bg = {
+                          public: '#10b981',
+                          internal: '#3b82f6',
+                          confidential: '#f59e0b',
+                          highly_confidential: '#ef4444'
+                        }[lvl]
+                        const color = {
+                          public: '#065f46',
+                          internal: '#1e40af',
+                          confidential: '#92400e',
+                          highly_confidential: '#991b1b'
+                        }[lvl]
+
+                        return (
+                          <p className="mt-2">
+                            <span className="font-medium">Confidentiality Level:</span>{' '}
+                            <span
+                              className="ml-2"
+                              style={{
+                                backgroundColor: bg + '20',
+                                color: color,
+                                border: `1px solid ${bg}`
+                              }}
+                            >
+                              {lvl.replace(/_/g, ' ')}
+                            </span>
+                          </p>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+
                 {/* Action Buttons */}
                 <DialogFooter className="flex gap-3 pt-6 border-t border-gray-100">
                   <Button
@@ -803,29 +1115,41 @@ export default function AdminUsersPage() {
                   >
                     Edit User
                   </Button>
-                  {selectedUser.status === 'active' ? (
-                    <Button
-                      variant="destructive"
-                      onClick={() => {
-                        suspend((selectedUser._id || selectedUser.id)!)
-                        setSelectedUser(null)
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                      Suspend
-                    </Button>
+                  {isManager ? (
+                    selectedUser.status === 'active' ? (
+                      <Button
+                        variant="outline"
+                        className="cursor-pointer text-orange-600"
+                        onClick={() => { setActionUser(selectedUser); setActionType('request-suspend'); setActionDialogOpen(true); setSelectedUser(null) }}
+                      >
+                        Request Suspend
+                      </Button>
+                    ) : null
                   ) : (
-                    <Button
-                      onClick={() => {
-                        activate((selectedUser._id || selectedUser.id)!)
-                        setSelectedUser(null)
-                      }}
-                      className="cursor-pointer bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Activate
-                    </Button>
+                    selectedUser.status === 'active' ? (
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          suspend((selectedUser._id || selectedUser.id)!)
+                          setSelectedUser(null)
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        Suspend
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => {
+                          activate((selectedUser._id || selectedUser.id)!)
+                          setSelectedUser(null)
+                        }}
+                        className="cursor-pointer bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Activate
+                      </Button>
+                    )
                   )}
                 </DialogFooter>
               </>
@@ -860,13 +1184,38 @@ export default function AdminUsersPage() {
                 const formData = new FormData(e.currentTarget)
                 const name = formData.get('name') as string
                 const email = formData.get('email') as string
-                const department = formData.get('department') as string
+                const role = (formData.get('role') as string) || ''   // only for admin
+
+                // Build profiles array
+                const profiles = editingDepartments.map(dept => ({
+                  department: dept,
+                  isPrimary: dept === primaryDepartment,
+                  confidentialityLevels: editingConfidentialityLevels[dept] || []
+                }))
+
+                // Determine the highest confidentiality level from the primary profile for backward compatibility
+                const primaryProfileLevels = primaryDepartment
+                  ? (editingConfidentialityLevels[primaryDepartment] || [])
+                  : []
+                const order: Record<string, number> = { public: 0, internal: 1, confidential: 2, highly_confidential: 3 }
+                // Ensure we have a clean list of levels, sort by defined order and pick the highest
+                const sortedLevels = [...primaryProfileLevels]
+                  .filter(Boolean)
+                  .sort((a, b) => (order[a as string] || 99) - (order[b as string] || 99))
+                const highestLevel = (sortedLevels.length > 0 ? sortedLevels[sortedLevels.length - 1] : '') as string
 
                 if (isManager) {
-                  // HOD: send edit request to admin (name/email only, no role/status/confidentiality)
+                  const deptSameAsHod = editingDepartments.length === 1 && editingDepartments[0] === currentUserDept
                   requestEdit({
                     userId: editingUser._id || editingUser.id!,
-                    data: { name, email, department },
+                    data: {
+                      name,
+                      email,
+                      ...(deptSameAsHod && primaryDepartment ? { department: primaryDepartment } : {}),
+                      departments: editingDepartments,
+                      // Note: For HOD requests, we do not send confidentiality levels or profiles because the HOD request endpoint may not support them.
+                      // We are only allowed to change department (if same as HOD) and name/email.
+                    }
                   })
                 } else {
                   // Admin: direct full update
@@ -875,15 +1224,21 @@ export default function AdminUsersPage() {
                     data: {
                       name,
                       email,
-                      department,
-                      role: formData.get('role') as string,
-                      confidentialityLevel: editingConfidentialityLevel,
-                    }
+                      department: primaryDepartment || undefined,   // for backward compatibility
+                      departments: editingDepartments, // for backward compatibility
+                      role,
+                      confidentialityLevel: highestLevel || undefined,   // for backward compatibility (single string)
+                      confidentialityLevels: highestLevel ? [highestLevel] : [], // for backward compatibility (array with one element: the highest level)
+                      profiles   // the new field
+                    } as any
                   })
                 }
                 setIsEditDialogOpen(false)
                 setEditingUser(null)
-                setEditingConfidentialityLevel('')
+                setEditingConfidentialityLevel('')   // keep for backward compatibility? we are not using it anymore but reset to avoid confusion
+                setEditingDepartments([])
+                setEditingConfidentialityLevels({})   // reset
+                setPrimaryDepartment(null)             // reset
               }}>
                 <div className="space-y-6">
                   {/* User Avatar and Name */}
@@ -900,7 +1255,7 @@ export default function AdminUsersPage() {
                   {isManager && (
                     <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
                       <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span>As a Manager, edits will be sent as a request to the administrator for approval.</span>
+                      <span>As a Manager, name and email edits will be sent as a request to the administrator for approval. Department can only be changed if it matches yours.</span>
                     </div>
                   )}
 
@@ -938,67 +1293,174 @@ export default function AdminUsersPage() {
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                         <Building className="h-4 w-4" />
-                        Department
+                        Departments
                       </label>
-                      <Input
-                        name="department"
-                        defaultValue={editingUser.department}
-                        required
-                        className="h-11"
-                        placeholder="Enter department"
-                      />
-                    </div>
-
-                    {/* Admin-only fields: role and confidentiality */}
-                    {!isManager && (
-                      <div className='flex items-start gap-6 w-full'>
-                        <div className="space-y-2 w-full">
-                          <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <Shield className="h-4 w-4" />
-                            Role
-                          </label>
-                          <Select name="role" defaultValue={editingUser.role}>
-                            <SelectTrigger className="h-11 w-full">
-                              <SelectValue placeholder="Select role" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="user">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                  User
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="hod">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                  Manager
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="admin">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                  Administrator
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <Lock className="h-4 w-4" />
-                            Confidentiality Level
-                          </label>
-                            <ConfidentialityLevelSelect
-                              value={editingConfidentialityLevel}
-                              onValueChange={setEditingConfidentialityLevel}
-                              placeholder="Select confidentiality level"
-                              showRestrictionNote
+                      {/* Department checkboxes */}
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm text-gray-500">Select departments</p>
+                        {departments.map(dept => (
+                          <div key={dept._id} className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={editingDepartments.includes(dept.name)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setEditingDepartments([...editingDepartments, dept.name]);
+                                  // Initialize confidentiality levels for this department if not present
+                                  if (!editingConfidentialityLevels[dept.name]) {
+                                    setEditingConfidentialityLevels(prev => ({
+                                      ...prev,
+                                      [dept.name]: []
+                                    }));
+                                  }
+                                } else {
+                                  setEditingDepartments(editingDepartments.filter(d => d !== dept.name));
+                                  setEditingConfidentialityLevels(prev => {
+                                    const newObj = { ...prev };
+                                    delete newObj[dept.name];
+                                    return newObj;
+                                  });
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
-
-                        </div>
+                            <div className="flex-1">
+                              <span className="font-medium">{dept.name}</span>
+                              <span className="text-xs text-gray-500">{dept.code}</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
+
+                      {/* Confidentiality levels per department (only show if departments selected) */}
+                      {editingDepartments.length > 0 && (
+                        <div className="mt-4">
+                          <label className="text-sm font-medium text-gray-700 flex items-center">
+                            Confidentiality Levels per Department
+                          </label>
+                          <div className="mt-2 space-y-3">
+                            {editingDepartments.map(dept => (
+                              <div key={dept} className="border rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-medium">{dept}</span>
+                                  {editingDepartments.length > 1 && (
+                                    <span className="text-sm text-gray-500">
+                                      (set as {(primaryDepartment === dept ? 'primary' : 'not primary')})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="space-y-1">
+                                  {CONFIDENTIALITY_LEVELS.map(level => (
+                                    <div key={level} className="flex items-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingConfidentialityLevels[dept]?.includes(level) || false}
+                                        onChange={(e) => {
+                                          setEditingConfidentialityLevels(prev => {
+                                            const current = prev[dept] || [];
+                                            if (e.target.checked) {
+                                              if (!current.includes(level)) {
+                                                return {
+                                                  ...prev,
+                                                  [dept]: [...current, level]
+                                                };
+                                              }
+                                              return prev;
+                                            } else {
+                                              return {
+                                                ...prev,
+                                                [dept]: current.filter(l => l !== level)
+                                              };
+                                            }
+                                          });
+                                        }}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      />
+                                      <span className="ml-2 text-sm">{level.replace(/_/g, ' ')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Primary department (only show if more than one department selected) */}
+                      {editingDepartments.length > 1 && (
+                        <div className="mt-4">
+                          <label className="text-sm font-medium text-gray-700 flex items-center">
+                            Primary Department
+                             <TooltipProvider>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <HelpCircle className="ml-2 h-4 w-4 text-gray-400" />
+                                 </TooltipTrigger>
+                                 <TooltipContent align="start" sideOffset={4}>
+                                   <div className="space-y-1 text-sm">
+                                     <div className="flex items-center gap-2">
+                                       <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                                       <span>Primary department for visual indicators</span>
+                                     </div>
+                                   </div>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                          </label>
+                          <div className="mt-1 space-y-1">
+                            {editingDepartments.map(dept => (
+                              <div key={dept} className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  checked={primaryDepartment === dept}
+                                  onChange={(e) => setPrimaryDepartment(e.target.value)}
+                                  value={dept}
+                                  className="h-4 w-4 text-blue-600"
+                                />
+                                <span className="ml-2 text-sm">{dept}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Admin-only fields: role (if not manager) */}
+                      {!isManager && (
+                        <div className='flex items-start gap-6 w-full'>
+                          <div className="space-y-2 w-full">
+                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                              <Shield className="h-4 w-4" />
+                              Role
+                            </label>
+                            <Select name="role" defaultValue={editingUser.role}>
+                              <SelectTrigger className="h-11 w-full">
+                                <SelectValue placeholder="Select role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="user">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    User
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="hod">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                                    Manager
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="admin">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                                    Administrator
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1045,7 +1507,7 @@ export default function AdminUsersPage() {
                       {activityUser?.status || 'active'}
                     </Badge>
                     {(() => {
-                      const lvl = activityUser ? getUserClearanceLevel(activityUser) : ''
+                      const lvl = activityUser ? getUserHighestClearanceLevel(activityUser) : ''
                       return lvl ? (
                         <Badge
                           className="text-xs"
@@ -1181,12 +1643,16 @@ export default function AdminUsersPage() {
                 {actionType === 'activate' && 'Activate User'}
                 {actionType === 'restore' && 'Restore User'}
                 {actionType === 'delete' && 'Delete User'}
+                {actionType === 'request-suspend' && 'Request Suspend'}
+                {actionType === 'request-password-reset' && 'Request Password Reset'}
               </DialogTitle>
               <DialogDescription>
                 {actionType === 'suspend' && `Are you sure you want to suspend ${actionUser?.name}? They will not be able to access the system.`}
                 {actionType === 'activate' && `Are you sure you want to activate ${actionUser?.name}?`}
                 {actionType === 'restore' && `Are you sure you want to restore ${actionUser?.name}?`}
                 {actionType === 'delete' && `Are you sure you want to delete ${actionUser?.name}? This action cannot be undone.`}
+                {actionType === 'request-suspend' && `Send a request to the administrator to suspend ${actionUser?.name}?`}
+                {actionType === 'request-password-reset' && `Send a request to the administrator to reset the password for ${actionUser?.name}?`}
               </DialogDescription>
             </DialogHeader>
             <div className="flex gap-2">
@@ -1199,6 +1665,8 @@ export default function AdminUsersPage() {
                 {actionType === 'activate' && 'Activate'}
                 {actionType === 'restore' && 'Restore'}
                 {actionType === 'delete' && 'Delete'}
+                {actionType === 'request-suspend' && 'Send Request'}
+                {actionType === 'request-password-reset' && 'Send Request'}
               </Button>
               <Button variant="outline" onClick={() => setActionDialogOpen(false)} className="flex-1 cursor-pointer">
                 Cancel

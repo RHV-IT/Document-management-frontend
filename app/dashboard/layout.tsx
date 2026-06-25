@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuthContext } from '@/contexts/auth'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
+import { ProfileSwitchingOverlay } from '@/components/dashboard/ProfileSwitchingOverlay'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { debug } from '@/lib/debug'
 import { ScreenSizeGuard } from '@/components/ScreenSizeGuard'
@@ -75,6 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </ScreenSizeGuard>
         </main>
       </div>
+      <ProfileSwitchingOverlay />
     </div>
   )
 }

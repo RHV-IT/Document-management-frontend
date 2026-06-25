@@ -1,8 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { useAuth } from '@/contexts/auth'
+import { useAuthContext } from '@/contexts/auth'
 import { useAccessControl } from '@/hooks/useAccessControl'
 import { useNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutation } from '@/hooks/useNotifications'
 import type { Notification } from '@/services/api/notifications'
@@ -23,6 +23,8 @@ import { GlobalSearch } from '@/components/dashboard/global-search'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { getRoleBadgeColor, getRoleLabel } from '@/lib/roles'
+import { useProfileStore } from '@/stores/useProfileStore'
+import { ProfileSwitcher } from './ProfileSwitcher'
 
 const NOTIFICATION_ICONS: Record<string, string> = {
   file_shared: '📄',
@@ -45,24 +47,24 @@ const NOTIFICATION_COLORS: Record<string, string> = {
 }
 
 export function DashboardHeader() {
-  const { user, logout } = useAuth()
+  const { user, logout } = useAuthContext()
   const { clearanceBadge } = useAccessControl()
   const router = useRouter()
   const { data: notificationsData, isLoading } = useNotificationsQuery({ limit: 5 })
   const markAsRead = useMarkAsReadMutation()
   const markAllAsRead = useMarkAllAsReadMutation()
+  const { profiles, activeProfile } = useProfileStore()
+  const [profileSwitcherOpen, setProfileSwitcherOpen] = useState(false)
+  const hasMultipleProfiles = profiles.length > 1 || (activeProfile !== null && profiles.length >= 1)
 
   const unreadCount = notificationsData?.unreadCount || 0
   const userInitial = user?.name?.charAt(0).toUpperCase() || '?'
-  const departmentValue = user?.department as any
+  const departmentValue = activeProfile?.department || user?.department as any
   const departmentName = !departmentValue
     ? 'Not assigned'
     : typeof departmentValue === 'string'
       ? departmentValue
       : departmentValue.name || departmentValue._id || 'Not assigned'
-  const confidentialityLevel = user?.confidentialityLevels?.length
-    ? user.confidentialityLevels[user.confidentialityLevels.length - 1]
-    : user?.confidentialityLevel
 
   const getNotificationIcon = (type: string) => {
     return NOTIFICATION_ICONS[type] || NOTIFICATION_ICONS.default
@@ -89,7 +91,7 @@ export function DashboardHeader() {
         <GlobalSearch />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -146,7 +148,7 @@ export function DashboardHeader() {
                   {notificationsData.notifications.map((notification) => (
                     <DropdownMenuItem
                       key={notification._id}
-                      className="flex items-start gap-3 py-3 px-4 cursor-pointer hover:bg-blue-50/50 transition-colors focus:bg-blue-50/50"
+                      className="flex items-start gap-3 py-3 px-4 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 transition-colors"
                       onClick={() => handleNotificationClick(notification)}
                     >
                       <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center text-sm', getNotificationColor(notification.type))}>
@@ -275,32 +277,33 @@ export function DashboardHeader() {
                     </div>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-xl bg-white/80 border border-gray-100 px-3 py-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="h-7 w-7 rounded-lg bg-amber-50 flex items-center justify-center">
-                      <Shield className="h-3.5 w-3.5 text-amber-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate" title={confidentialityLevel || 'Not assigned'}>
-                        {confidentialityLevel?.replace(/_/g, ' ') || 'Not assigned'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 
             <DropdownMenuSeparator className="my-3" />
+
+            {hasMultipleProfiles && (
+              <>
+                <DropdownMenuItem
+                  className="cursor-pointer rounded-xl hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+                  onClick={() => setProfileSwitcherOpen(true)}
+                >
+                  <User className="h-4 w-4 mr-2 text-gray-500" />
+                  Switch Department Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-3" />
+              </>
+            )}
+
             <DropdownMenuItem
-              className="cursor-pointer rounded-xl focus:bg-blue-50"
+              className="cursor-pointer rounded-xl hover:bg-gray-50 focus:bg-gray-50 transition-colors"
               onClick={() => router.push('/dashboard/profile')}
             >
               <User className="h-4 w-4 mr-2 text-gray-500" />
               Profile Settings
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="cursor-pointer rounded-xl focus:bg-blue-50"
+              className="cursor-pointer rounded-xl hover:bg-gray-50 focus:bg-gray-50 transition-colors"
               onClick={() => router.push('/dashboard/settings')}
             >
               <Settings className="h-4 w-4 mr-2 text-gray-500" />
@@ -308,7 +311,7 @@ export function DashboardHeader() {
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-3" />
             <DropdownMenuItem
-              className="text-red-600 cursor-pointer rounded-xl focus:bg-red-50"
+              className="text-red-600 cursor-pointer rounded-xl hover:bg-red-50/50 focus:bg-red-50/50 transition-colors"
               onClick={() => logout()}
             >
               <LogOut className="h-4 w-4 mr-2" />
@@ -317,6 +320,10 @@ export function DashboardHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {hasMultipleProfiles && (
+        <ProfileSwitcher open={profileSwitcherOpen} onOpenChange={setProfileSwitcherOpen} />
+      )}
     </header>
   )
 }

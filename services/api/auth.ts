@@ -94,6 +94,11 @@ export const authAPI = {
     })
     return response.data
   },
+
+  switchProfile: async (data: { profileId: string }): Promise<any> => {
+    const response = await apiClient.post('/api/v1/auth/switch-profile', data)
+    return response.data
+  },
 }
 
 export interface LoginRequest {
@@ -107,6 +112,7 @@ export interface RegisterRequest {
   password: string
   name: string
   department?: string
+  departments?: string[]
   role?: string
   confidentialityLevel?: string
 }
@@ -118,6 +124,7 @@ export interface User {
   name: string
   role: string
   department: string
+  departments?: string[]
   status: string
   createdAt?: string
   confidentialityLevel?: string
@@ -125,11 +132,21 @@ export interface User {
   loginCount?: number
 }
 
+export interface Profile {
+  profileId: string
+  department: string
+  confidentialityLevels: string[]
+  isPrimary?: boolean
+  status?: string
+}
+
 export interface AuthResponse {
   success: boolean
   message?: string
   data: {
     user: User
+    profiles: Profile[]
+    activeProfile: Profile
     accessToken: string
     refreshToken: string
   }

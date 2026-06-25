@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth'
+import { ProfileProvider } from '@/stores/useProfileStore'
 import { QueryClientProvider } from '@/providers/query-client'
 import { Toaster } from '@/components/ui/sonner'
 import { IdleDetector } from '@/components/idle/IdleDetector'
@@ -40,28 +41,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="bg-background">
       <body className="font-sans antialiased">
         <QueryClientProvider>
-          <AuthProvider>
-            <ErrorBoundary>
-              <IdleDetector idleTimeout={30 * 60 * 1000}>
-                {children}
-              </IdleDetector>
-            </ErrorBoundary>
-            <Toaster
-              position="top-center"
-              richColors
-              closeButton
-              toastOptions={{
-                style: {
-                  borderRadius: '12px',
-                  padding: '14px 16px',
-                  fontSize: '14px',
-                },
-              }}
-            />
-            <ScannerListener />
-            <ScannerAgentFlow />
-            <AgentEnforcement />
-          </AuthProvider>
+          <ProfileProvider>
+            <AuthProvider>
+              <ErrorBoundary>
+                <IdleDetector idleTimeout={30 * 60 * 1000}>
+                  {children}
+                </IdleDetector>
+              </ErrorBoundary>
+              <Toaster
+                position="top-center"
+                richColors
+                closeButton
+                toastOptions={{
+                  style: {
+                    borderRadius: '12px',
+                    padding: '14px 16px',
+                    fontSize: '14px',
+                  },
+                }}
+              />
+              <ScannerListener />
+              <ScannerAgentFlow />
+              <AgentEnforcement />
+            </AuthProvider>
+          </ProfileProvider>
         </QueryClientProvider>
         </body>
     </html>

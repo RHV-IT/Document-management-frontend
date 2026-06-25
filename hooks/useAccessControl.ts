@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback } from 'react'
 import { useAuthContext } from '@/contexts/auth'
+import { useProfileStore } from '@/stores/useProfileStore'
 import {
   canViewFile,
   canUploadLevel,
@@ -21,17 +22,22 @@ import {
 
 export function useAccessControl() {
   const { user } = useAuthContext()
+  const { activeProfile } = useProfileStore()
 
-  const accessUser: AccessUser | null = useMemo(() => {
-    if (!user) return null
-    return {
-      role: user.role,
-      department: user.department,
-      confidentialityLevels: user.confidentialityLevels,
-      id: user.id,
-      _id: user._id
-    }
-  }, [user])
+  // Use active profile's confidentiality levels if available, otherwise fall back to user's
+  const effectiveConfidentialityLevels = activeProfile?.confidentialityLevels || user?.confidentialityLevels || []
+
+   const accessUser: AccessUser | null = useMemo(() => {
+     if (!user) return null
+     const effectiveDepartment = activeProfile?.department || user.department
+     return {
+       role: user.role,
+       department: effectiveDepartment,
+       confidentialityLevels: effectiveConfidentialityLevels,
+       id: user.id,
+       _id: user._id
+     }
+   }, [user, activeProfile, effectiveConfidentialityLevels])
 
   const canView = useCallback((file: AccessFile | null) => {
     return canViewFile(accessUser, file)

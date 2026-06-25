@@ -3,18 +3,24 @@
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react'
 import { useMutation, useQuery, useQueryClient, UseMutationResult } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { authAPI, User, LoginRequest, AuthResponse } from '@/services/api/auth'
+import { authAPI, User, LoginRequest, AuthResponse, Profile } from '@/services/api/auth'
 import { queryKeys } from '@/lib/query-keys'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 import { agentService } from '@/services/agent'
+import { useProfileStore } from '@/stores/useProfileStore'
 
 interface AuthContextType {
   user: User | null
+  profiles: Profile[]
+  activeProfile: Profile | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (data: LoginRequest) => Promise<{ success: boolean; user?: User; error?: string }>
+  login: (data: LoginRequest) => Promise<{ success: boolean; user?: User; profiles?: Profile[]; activeProfile?: Profile; error?: string }>
   logout: (options?: { skipRedirect?: boolean; message?: string }) => Promise<void>
   setUser: (user: User | null) => void
+  setProfiles: (profiles: Profile[]) => void
+  setActiveProfile: (profile: Profile) => void
+  switchProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>
   canAccess: (requiredRoles?: string[]) => boolean
   loginCount: number
   incrementLoginCount: () => void
@@ -22,14 +28,13 @@ interface AuthContextType {
   isFirstLogin: () => boolean
   loginMutation: UseMutationResult<AuthResponse, Error, LoginRequest>
   logoutMutation: UseMutationResult<{ success: boolean; message: string }, Error, { skipRedirect?: boolean; message?: string }>
+  switchProfileMutation: UseMutationResult<any, Error, { profileId: string }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Get login count key for current user
 const getLoginCountKey = (userId: string) => `loginCount_${userId}`
 
-// Get login count from localStorage
 const getLoginCount = (userId: string): number => {
   if (typeof window === 'undefined') return 0
   try {
@@ -44,14 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [loginCount, setLoginCount] = useState<number>(0)
+  const { profiles, activeProfile, setProfiles, setActiveProfile, setSwitchingProfile } = useProfileStore()
 
-  // Session query - fetches current user on mount and when cache is stale
-  // Use 'auth-user' key per spec for refetch after set-token
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.user(),
     queryFn: () => authAPI.getCurrentUser(),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
     retry: false,
     throwOnError: false,
   })
@@ -60,7 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = !!user
   const isLoading = sessionQuery.isLoading
 
-  // Update login count when user changes
   useEffect(() => {
     if (user?.id || user?._id) {
       const userId = user.id || user._id || ''
@@ -69,7 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user])
 
-  // Handle session expired event from axios interceptor
   useEffect(() => {
     const handleSessionExpired = () => {
       queryClient.removeQueries({ queryKey: queryKeys.auth.user() })
@@ -80,15 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('auth:session-expired', handleSessionExpired)
   }, [queryClient])
 
-  // Login mutation
   const loginMutation = useMutation({
     mutationFn: (data: LoginRequest) => authAPI.login(data),
-    onSuccess: (response, variables) => {
-      const { user } = response.data
-      // Update session cache
+    onSuccess: (response) => {
+      const { user, profiles, activeProfile } = response.data
       queryClient.setQueryData(queryKeys.auth.user(), { data: user })
-      
-      // Sync loginCount from backend response (login API now provides it)
+
+      if (profiles) {
+        setProfiles(profiles)
+      }
+      if (activeProfile) {
+        setActiveProfile(activeProfile)
+        localStorage.setItem('activeProfileId', activeProfile.profileId)
+      }
+
       const apiLoginCount = (response.data as any)?.loginCount ?? (user as any)?.loginCount ?? 1
       if (typeof window !== 'undefined') {
         const userId = user.id || user._id || ''
@@ -98,19 +105,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   })
 
-  // Logout mutation
+  const switchProfileMutation = useMutation({
+    mutationFn: (data: { profileId: string }) => authAPI.switchProfile(data),
+    onSuccess: async (response) => {
+      const { user: responseUser, profiles: responseProfiles, activeProfile } = response.data
+
+      if (responseUser) {
+        queryClient.setQueryData(queryKeys.auth.user(), { data: responseUser })
+      }
+
+      if (responseProfiles) {
+        setProfiles(responseProfiles)
+      }
+
+      if (activeProfile) {
+        setActiveProfile(activeProfile)
+        localStorage.setItem('activeProfileId', activeProfile.profileId)
+      }
+
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.scanner.all() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all() })
+
+      setSwitchingProfile(null)
+      addNotification('success', 'Profile Switched', `Successfully switched to ${activeProfile?.department} profile`)
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to switch profile'
+      addNotification('error', 'Switch Failed', message)
+    },
+  })
+
   const logoutMutation = useMutation({
     mutationFn: (_: { skipRedirect?: boolean; message?: string } = {}) => authAPI.logout(),
     onSuccess: async (_, variables) => {
       const { skipRedirect, message } = variables || {}
-      // Clear agent token
       try {
         await agentService.setToken({ token: null, userId: null, machineId: null })
       } catch (e) {
         console.warn('Failed to clear agent token:', e)
       }
-      // Clear session cache
       queryClient.removeQueries({ queryKey: queryKeys.auth.user() })
+      setProfiles([])
+      setActiveProfile(null)
+      localStorage.removeItem('activeProfileId')
       addNotification('success', 'Logged Out', message || 'You have been successfully logged out.')
       if (!skipRedirect) {
         router.push('/login')
@@ -122,44 +161,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   })
 
-  // Login wrapper
-    const login = useCallback(async (data: LoginRequest) => {
+  const login = useCallback(async (data: LoginRequest) => {
     try {
       const response = await loginMutation.mutateAsync(data)
-      const { user } = response.data
+      const { user, profiles, activeProfile } = response.data
 
-      // Use loginCount from backend login API response if provided (per spec: loginCount === 1 triggers onboarding)
       const apiLoginCount = (response.data as any)?.loginCount ?? (user as any)?.loginCount ?? 1
 
-      // Initialize or sync login count from API response
       if (typeof window !== 'undefined') {
         const userId = user.id || user._id || ''
         const countKey = getLoginCountKey(userId)
         const currentStored = getLoginCount(userId)
-        // Prefer API value for first login detection
         const effectiveCount = apiLoginCount > 0 ? apiLoginCount : (currentStored || 1)
         localStorage.setItem(countKey, effectiveCount.toString())
       }
 
-      // Sync token to scanner agent on user's machine (browser-only, direct localhost)
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token')
         const userId = user.id || user._id || ''
         const machineId = (await import('@/lib/utils')).getMachineId()
         if (token && userId) {
-          console.log("Backend login response:", response.data)
           agentService.setToken({ token, userId, machineId }).then(async () => {
-            console.log("Local set-token success")
-            // STEP 4-6: Immediate health check + retries
             const maxRetries = 10
             let retryCount = 0
             const retryHealth = async () => {
               try {
                 const health = await agentService.getHealth()
-                console.log("Agent health response:", health)
                 const isHealthy = health.running || health.installed
                 if (isHealthy) {
-                  console.log("mustDownloadAgent final:", false)
                   if (typeof window !== 'undefined') {
                     localStorage.setItem('agentConnected', 'true')
                   }
@@ -182,23 +211,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      return { success: true, user }
+      return { success: true, user, profiles, activeProfile }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Invalid credentials'
       return { success: false, error: errorMessage }
     }
   }, [])
 
-  // Logout wrapper
   const logout = useCallback(async (options?: { skipRedirect?: boolean; message?: string }) => {
     try {
       await logoutMutation.mutateAsync(options || {})
     } catch (error) {
-      // Error already handled by mutation's onError
     }
   }, [logoutMutation])
 
-  // Manual user setter (used by other hooks/mutations)
+  const switchProfile = useCallback(async (profileId: string) => {
+    try {
+      await switchProfileMutation.mutateAsync({ profileId })
+      return { success: true }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to switch profile'
+      return { success: false, error: message }
+    }
+  }, [switchProfileMutation])
+
   const setUser = useCallback((newUser: User | null) => {
     if (newUser) {
       queryClient.setQueryData(queryKeys.auth.user(), { data: newUser })
@@ -207,14 +243,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Access control
   const canAccess = useCallback((requiredRoles?: string[]) => {
     if (!user) return false
     if (!requiredRoles || requiredRoles.length === 0) return true
     return requiredRoles.includes(user.role || '')
   }, [user])
 
-  // Login count utilities
   const incrementLoginCount = useCallback(() => {
     if (!user || typeof window === 'undefined') return
     const userId = user.id || user._id || ''
@@ -237,25 +271,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user])
 
   const isFirstLogin = useCallback(() => {
-    // Per requirements: if loginCount === 1 from login API response, show mandatory onboarding
-    return loginCount === 1 || loginCount === 0 // support both 0 (legacy) and 1 (new backend)
+    return loginCount === 1 || loginCount === 0
   }, [loginCount])
 
-  const value: AuthContextType = {
-    user,
-    isAuthenticated,
-    isLoading,
-    login,
-    logout,
-    setUser,
-    canAccess,
-    loginCount,
-    incrementLoginCount,
-    resetLoginCount,
-    isFirstLogin,
-    loginMutation,
-    logoutMutation,
-  }
+const value: AuthContextType = {
+     user,
+     profiles,
+     activeProfile,
+     isAuthenticated,
+     isLoading,
+     login,
+     logout,
+     setUser,
+     setProfiles,
+     setActiveProfile,
+     switchProfile,
+     canAccess,
+     loginCount,
+     incrementLoginCount,
+     resetLoginCount,
+     isFirstLogin,
+     loginMutation,
+     logoutMutation,
+     switchProfileMutation,
+   }
 
   return (
     <AuthContext.Provider value={value}>
@@ -272,10 +311,9 @@ export function useAuthContext() {
   return context
 }
 
-// Convenience hook that maintains same API as before but uses TanStack Query internally
 export function useAuth() {
   const context = useAuthContext()
-  
+
   const login = async (email: string, password: string, rememberMe?: boolean) => {
     return await context.login({ email, password, rememberMe })
   }

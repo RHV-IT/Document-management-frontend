@@ -27,5 +27,6 @@ export function getRoleBadgeColor(role?: string | null): string {
 }
 
 export function isHodRole(role?: string | null): boolean {
-  return normalizeRole(role) === 'hod'
+  const r = normalizeRole(role)
+  return r === 'hod' || r === 'manager' || r === 'line_manager'
 }

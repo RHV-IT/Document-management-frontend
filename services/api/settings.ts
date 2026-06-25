@@ -32,7 +32,7 @@ export const settingsAPI = {
   // Get all departments
   getDepartments: async (params?: {
     includeInactive?: boolean
-  }): Promise<{ success: boolean; data: { departments: Department[]; totalPages: number; currentPage: number; total: number } }> => {
+  }): Promise<{ success: boolean; data: Department[] }> => {
     const response = await apiClient.get('/api/v1/departments', { params })
     return response.data
   },

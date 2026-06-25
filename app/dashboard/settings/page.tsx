@@ -4,36 +4,23 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useAuthContext } from '@/contexts/auth'
 import { useUpdateProfileMutation, useChangePasswordMutation } from '@/hooks/useAuth'
 import { useDepartmentsQuery, useConfidentialityLevelsConfigQuery, useCreateDepartmentMutation, useUpdateDepartmentMutation, useDeleteDepartmentMutation, useInitializeSettingsMutation } from '@/hooks/useSettings'
+import type { Department } from '@/services/api/settings'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { addNotification } from '@/components/notifications/NotificationCenter'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { formatDistanceToNow, format } from 'date-fns'
-import {
-  User, Lock, Bell, Shield, Building2, FileLock2,
-  Save, RefreshCw, CheckCircle, AlertCircle,
-  Eye, EyeOff, Monitor, Download,
-  Trash2,
-  Plus
-} from 'lucide-react'
+import { ResponsiveContainer } from '@/components/ResponsiveContainer'
+import { getDepartmentDefinition } from '@/lib/department-info'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { User, Lock, Bell, Shield, Building2, FileLock2, Save, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Monitor, Download, Trash2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Field, FieldLabel } from '@/components/ui/field'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { getDepartmentDefinition } from '@/lib/department-info'
-import { ResponsiveContainer } from '@/components/ResponsiveContainer'
-import type { Department } from '@/services/api/settings'
+import { formatDistanceToNow, format } from 'date-fns'
 
 export default function SettingsPage() {
   const { user, isLoading: authLoading } = useAuthContext()
@@ -732,7 +719,7 @@ export default function SettingsPage() {
                       </div>
                     ) : departments && departments.length > 0 ? (
                       <div className="space-y-2">
-                        {departments.map((dept, index) => (
+                        {departments.map((dept: Department, index: number) => (
                           <div
                             key={dept._id}
                             className={cn(

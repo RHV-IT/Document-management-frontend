@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/auth'
+import { useProfileStore } from '@/stores/useProfileStore'
 import { useNotificationsQuery } from '@/hooks/useNotifications'
 import { useUsersQuery } from '@/hooks/useUsers'
 import { usePendingScans } from '@/hooks/useScanner'
@@ -32,20 +33,21 @@ import { getRoleBadgeColor, getRoleLabel, isHodRole } from '@/lib/roles'
 import Link from 'next/link'
 
 export default function ProfilePage() {
-  const { user } = useAuth()
-  const isManager = isHodRole(user?.role)
+   const { user } = useAuth()
+   const { activeProfile } = useProfileStore()
+   const isManager = isHodRole(user?.role)
 
-  // Fetch recent notifications (top 5)
-  const { data: notificationsData, isLoading: notificationsLoading } = useNotificationsQuery({
-    limit: 5,
-    page: 1
-  })
+   // Fetch recent notifications (top 5)
+   const { data: notificationsData, isLoading: notificationsLoading } = useNotificationsQuery({
+     limit: 5,
+     page: 1
+   })
 
-  // Fetch department users if Manager
-  const { data: departmentUsersData, isLoading: departmentUsersLoading } = useUsersQuery({
-    department: user?.department,
-    status: 'active'
-  })
+   // Fetch department users if Manager
+   const { data: departmentUsersData, isLoading: departmentUsersLoading } = useUsersQuery({
+     department: activeProfile?.department || user?.department,
+     status: 'active'
+   })
 
   // Fetch pending scans for scanner status
   const { data: pendingScans, isLoading: pendingScansLoading } = usePendingScans()
@@ -150,15 +152,15 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
           <p className="text-gray-500 mt-1">View your account details, notifications, and scanner status</p>
         </div>
-        {user?.confidentialityLevels && user.confidentialityLevels.length > 0 && (
-          <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
-            <Shield className="h-4 w-4" />
-            <span className="font-medium">Clearance:</span>
-            <Badge className={`${getLevelColor(user.confidentialityLevels[user.confidentialityLevels.length-1])} text-xs px-2.5 py-0.5`}>
-              {user.confidentialityLevels[user.confidentialityLevels.length-1].replace(/_/g, ' ')}
-            </Badge>
-          </div>
-        )}
+         {activeProfile?.confidentialityLevels && activeProfile.confidentialityLevels.length > 0 && (
+           <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
+             <Shield className="h-4 w-4" />
+             <span className="font-medium">Clearance:</span>
+             <Badge className={`${getLevelColor(activeProfile.confidentialityLevels[activeProfile.confidentialityLevels.length-1])} text-xs px-2.5 py-0.5`}>
+               {activeProfile.confidentialityLevels[activeProfile.confidentialityLevels.length-1].replace(/_/g, ' ')}
+             </Badge>
+           </div>
+         )}
       </div>
 
       <div className="max-w-6xl space-y-6">
@@ -189,48 +191,48 @@ export default function ProfilePage() {
                     <p className="text-sm font-medium text-gray-500">Email Address</p>
                     <p className="text-base text-gray-900">{user.email}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Department</p>
-                    <p className="text-base text-gray-900">{user.department || 'Not assigned'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Role</p>
-                    <Badge className={`${getRoleBadgeColor(user.role || 'user')} mt-1`}>
-                      {getRoleLabel(user.role)}
-                    </Badge>
-                  </div>
                    <div>
-                     <p className="text-sm font-medium text-gray-500">Confidentiality Level</p>
-                     {user.confidentialityLevels && user.confidentialityLevels.length > 0 ? (
-                       <Badge
-                         className={`${getLevelColor(user.confidentialityLevels[user.confidentialityLevels.length-1])} mt-1`}
-                       >
-                         <Shield className="h-3 w-3 mr-1" />
-                         {user.confidentialityLevels[user.confidentialityLevels.length-1].replace(/_/g, ' ')}
-                       </Badge>
+                     <p className="text-sm font-medium text-gray-500">Department</p>
+                     <p className="text-base text-gray-900">{activeProfile?.department || user?.department || 'Not assigned'}</p>
+                   </div>
+                   <div>
+                     <p className="text-sm font-medium text-gray-500">Role</p>
+                     <Badge className={`${getRoleBadgeColor(user.role || 'user')} mt-1`}>
+                       {getRoleLabel(user.role)}
+                     </Badge>
+                   </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Confidentiality Level</p>
+                      {activeProfile?.confidentialityLevels && activeProfile.confidentialityLevels.length > 0 ? (
+                        <Badge
+                          className={`${getLevelColor(activeProfile.confidentialityLevels[activeProfile.confidentialityLevels.length-1])} mt-1`}
+                        >
+                          <Shield className="h-3 w-3 mr-1" />
+                          {activeProfile.confidentialityLevels[activeProfile.confidentialityLevels.length-1].replace(/_/g, ' ')}
+                        </Badge>
+                      ) : (
+                        <p className="text-sm text-gray-500 mt-1">Not assigned</p>
+                      )}
+                    </div>
+
+                </div>
+
+                 {/* Confidentiality Levels */}
+                 <div>
+                   <p className="text-sm font-medium text-gray-500 mb-2">Confidentiality Levels</p>
+                   <div className="flex flex-wrap gap-2">
+                     {activeProfile?.confidentialityLevels && activeProfile.confidentialityLevels.length > 0 ? (
+                       activeProfile.confidentialityLevels.map((level) => (
+                         <Badge key={level} className={getLevelColor(level)}>
+                           <Shield className="h-3 w-3 mr-1" />
+                           {level.replace(/_/g, ' ')}
+                         </Badge>
+                       ))
                      ) : (
-                       <p className="text-sm text-gray-500 mt-1">Not assigned</p>
+                       <p className="text-sm text-gray-500">No confidentiality levels assigned</p>
                      )}
                    </div>
-
-                </div>
-
-                {/* Confidentiality Levels */}
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">Confidentiality Levels</p>
-                  <div className="flex flex-wrap gap-2">
-                    {user.confidentialityLevels && user.confidentialityLevels.length > 0 ? (
-                      user.confidentialityLevels.map((level) => (
-                        <Badge key={level} className={getLevelColor(level)}>
-                          <Shield className="h-3 w-3 mr-1" />
-                          {level.replace(/_/g, ' ')}
-                        </Badge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500">No confidentiality levels assigned</p>
-                    )}
-                  </div>
-                </div>
+                 </div>
               </div>
             </div>
           </CardContent>
@@ -244,7 +246,7 @@ export default function ProfilePage() {
                 <Users className="h-5 w-5 text-purple-600" />
                 Department Users
               </CardTitle>
-              <CardDescription>Users in your department ({user.department})</CardDescription>
+               <CardDescription>Users in your department ({activeProfile?.department || user?.department})</CardDescription>
             </CardHeader>
             <CardContent>
               {departmentUsersLoading ? (

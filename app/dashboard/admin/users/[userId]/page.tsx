@@ -57,6 +57,39 @@ const ACTION_COLORS: Record<string, string> = {
   default: 'bg-gray-100 text-gray-700',
 }
 
+const getUserHighestClearanceLevel = (user: any) => {
+  // If we have profiles, collect all confidentiality levels from all profiles
+  if (user.profiles && user.profiles.length > 0) {
+    const allLevels: string[] = [];
+    user.profiles.forEach((profile: any) => {
+      if (profile.confidentialityLevels && Array.isArray(profile.confidentialityLevels)) {
+        profile.confidentialityLevels.forEach((level: string) => {
+          if (!allLevels.includes(level)) {
+            allLevels.push(level);
+          }
+        });
+      }
+    });
+    if (allLevels.length > 0) {
+      const order: { [key: string]: number } = { public: 0, internal: 1, confidential: 2, highly_confidential: 3 };
+      return allLevels.reduce((highest, level) => {
+        return (order[level] || 0) > (order[highest] || 0) ? level : highest;
+      }, allLevels[0]);
+    }
+  }
+  // Fallback to legacy fields
+  if (user.confidentialityLevels && user.confidentialityLevels.length > 0) {
+    const order: { [key: string]: number } = { public: 0, internal: 1, confidential: 2, highly_confidential: 3 };
+    return user.confidentialityLevels.reduce((highest, level) => {
+      return (order[level] || 0) > (order[highest] || 0) ? level : highest;
+    }, user.confidentialityLevels[0]);
+  }
+  if (user.confidentialityLevel) {
+    return user.confidentialityLevel;
+  }
+  return null;
+}
+
 export default function UserActivityPage() {
   const params = useParams()
   const router = useRouter()
@@ -115,115 +148,74 @@ export default function UserActivityPage() {
         </Button>
       </div>
 
-      {/* User Info Card */}
-      <Card className="border-0 shadow-sm mb-6">
-        <CardContent className="p-6">
-          {userLoading ? (
-            <div className="flex items-center gap-4">
-              <SkeletonLoader type="circle" className="h-16 w-16" />
-              <div className="flex-1">
-                <SkeletonLoader type="text" className="h-6 w-48" />
-                <SkeletonLoader type="text" className="h-4 w-64 mt-2" />
-              </div>
-            </div>
-          ) : user && (
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-semibold">
-                  {user.name?.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold">{user.name}</h1>
-                  <p className="text-gray-500 flex items-center gap-2 mt-1">
-                    <Mail className="h-4 w-4" />
-                    {user.email}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge className={getRoleBadgeColor(user.role)}>
-                      {getRoleLabel(user.role)}
-                    </Badge>
-                    <Badge className={STATUS_COLORS[user.status] || 'bg-gray-100'}>
-                      {user.status || 'active'}
-                    </Badge>
-                    {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]) && (
-                      <Badge
-                        className="text-xs"
-                        style={{
-                          backgroundColor: {
-                            public: '#10b981',
-                            internal: '#3b82f6',
-                            confidential: '#f59e0b',
-                            highly_confidential: '#ef4444'
-                          }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])] + '20',
-                          color: {
-                            public: '#065f46',
-                            internal: '#1e40af',
-                            confidential: '#92400e',
-                            highly_confidential: '#991b1b'
-                          }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])],
-                          border: `1px solid ${
-                            {
-                              public: '#10b981',
-                              internal: '#3b82f6',
-                              confidential: '#f59e0b',
-                              highly_confidential: '#ef4444'
-                            }[((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0])]
-                          }`
-                        }}
-                      >
-                        {((user.confidentialityLevels && user.confidentialityLevels.length > 0 ? user.confidentialityLevels : (user.confidentialityLevel ? [user.confidentialityLevel] : [])).slice(0,1)[0]).replace(/_/g, ' ')}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" className="cursor-pointer">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => updateUser({ userId, data: { name: user.name, email: user.email } })}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit User
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowResetPassword(true)}>
-                      <Key className="h-4 w-4 mr-2" />
-                      Reset Password
-                    </DropdownMenuItem>
-                    {user.status === 'active' ? (
-                      <DropdownMenuItem onClick={() => suspend(userId)} className="text-orange-600">
-                        <PauseCircle className="h-4 w-4 mr-2" />
-                        Suspend User
-                      </DropdownMenuItem>
-                    ) : user.status === 'suspended' ? (
-                      <>
-                        <DropdownMenuItem onClick={() => restore(userId)}>
-                          <PlayCircle className="h-4 w-4 mr-2" />
-                          Restore User
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => deleteUser(userId)} className="text-red-600">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete User
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                    {user.status !== 'active' && user.status !== 'suspended' && (
-                      <DropdownMenuItem onClick={() => activate(userId)}>
-                        <PlayCircle className="h-4 w-4 mr-2" />
-                        Activate User
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+{/* User Info Card */}
+       <Card className="border-0 shadow-sm mb-6">
+         <CardContent className="p-6">
+           {userLoading ? (
+             <div className="flex items-center gap-4">
+               <SkeletonLoader type="circle" className="h-16 w-16" />
+               <div className="flex-1">
+                 <SkeletonLoader type="text" className="h-6 w-48" />
+                 <SkeletonLoader type="text" className="h-4 w-64 mt-2" />
+               </div>
+             </div>
+           ) : user && (
+             <div className="space-y-6">
+               <div className="flex items-start justify-between">
+                 <div className="flex items-center gap-4">
+                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-semibold">
+                     {user.name?.charAt(0).toUpperCase()}
+                   </div>
+                   <div>
+                     <h1 className="text-2xl font-bold">{user.name}</h1>
+                     <p className="text-gray-500 flex items-center gap-2 mt-1">
+                       <Mail className="h-4 w-4" />
+                       {user.email}
+                     </p>
+                     <div className="flex items-center gap-2 mt-2">
+                       <Badge className={getRoleBadgeColor(user.role)}>
+                         {getRoleLabel(user.role)}
+                       </Badge>
+                       <Badge className={STATUS_COLORS[user.status] || 'bg-gray-100'}>
+                         {user.status || 'active'}
+                       </Badge>
+{(() => {
+                       const lvl = activityUser ? getUserHighestClearanceLevel(activityUser) : ''
+                       return lvl ? (
+                         <Badge
+                           className="text-xs"
+                           style={{
+                             backgroundColor: {
+                               public: '#10b981',
+                               internal: '#3b82f6',
+                               confidential: '#f59e0b',
+                               highly_confidential: '#ef4444'
+                             }[lvl] + '20',
+                             color: {
+                               public: '#065f46',
+                               internal: '#1e40af',
+                               confidential: '#92400e',
+                               highly_confidential: '#991b1b'
+                             }[lvl],
+                             border: `1px solid ${{
+                               public: '#10b981',
+                               internal: '#3b82f6',
+                               confidential: '#f59e0b',
+                               highly_confidential: '#ef4444'
+                             }[lvl]}`
+                           }}
+                         >
+                           {lvl.replace(/_/g, ' ')}
+                         </Badge>
+                       ) : null
+                     })()}
+                   </div>
+                 )}
+               </div>
+             </div>
+           )}
+         </CardContent>
+       </Card>
 
       {/* Activity Log */}
       <Card className="border-0 shadow-sm">

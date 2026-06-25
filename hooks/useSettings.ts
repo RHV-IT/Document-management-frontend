@@ -7,8 +7,8 @@ export function useDepartmentsQuery(includeInactive = false) {
     queryKey: ['settings', 'departments', includeInactive],
     queryFn: async () => {
       try {
-        const response = await settingsAPI.getDepartments({ includeInactive })
-        return response.data.departments || []
+         const response = await settingsAPI.getDepartments({ includeInactive })
+         return response.data || []
       } catch (error) {
         console.error('Failed to fetch departments:', error)
         return []
