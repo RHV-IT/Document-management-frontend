@@ -89,7 +89,7 @@ export function useMoveFolderMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ folderId, targetFolderId }: { folderId: string; targetFolderId: string | null }) =>
-      foldersAPI.moveFolder(folderId, targetFolderId),
+      foldersAPI.moveFolder({ folderId, targetFolderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       addNotification('success', 'Folder Moved', 'Folder has been moved successfully.')
@@ -105,7 +105,7 @@ export function useMoveFileToFolderMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ fileId, folderId }: { fileId: string; folderId: string | null }) =>
-      foldersAPI.moveFileToFolder(fileId, folderId),
+      foldersAPI.moveFileToFolder({ fileId, folderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
@@ -122,7 +122,7 @@ export function useCopyFileToFolderMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ fileId, folderId }: { fileId: string; folderId: string | null }) =>
-      foldersAPI.copyFileToFolder(fileId, folderId),
+      foldersAPI.copyFileToFolder({ fileId, folderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })

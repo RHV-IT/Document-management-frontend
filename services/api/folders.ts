@@ -97,23 +97,23 @@ export const foldersAPI = {
     return response.data
   },
 
-  moveFileToFolder: async (fileId: string, folderId: string | null): Promise<{ success: boolean; message: string }> => {
-    const response = await apiClient.post('/api/v1/folders/move-file', { fileId, folderId })
+  moveFileToFolder: async (payload: { fileId: string; folderId: string | null }): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post('/api/v1/folders/move-file', payload)
     return response.data
   },
 
-  copyFileToFolder: async (fileId: string, folderId: string | null): Promise<{ success: boolean; data: any }> => {
-    const response = await apiClient.post('/api/v1/folders/copy-file', { fileId, folderId })
+  copyFileToFolder: async (payload: { fileId: string; folderId: string | null }): Promise<{ success: boolean; data: any }> => {
+    const response = await apiClient.post('/api/v1/folders/copy-file', payload)
     return response.data
   },
 
-  moveFolder: async (folderId: string, targetFolderId: string | null): Promise<FolderResponse> => {
-    const response = await apiClient.post('/api/v1/folders/move-folder', { folderId, targetFolderId })
+  moveFolder: async (payload: { folderId: string; targetFolderId: string | null }): Promise<FolderResponse> => {
+    const response = await apiClient.post('/api/v1/folders/move-folder', payload)
     return response.data
   },
 
-  copyFolder: async (folderId: string, targetFolderId: string | null): Promise<FolderResponse> => {
-    const response = await apiClient.post('/api/v1/folders/copy-folder', { folderId, targetFolderId })
+  copyFolder: async (payload: { folderId: string; targetFolderId: string | null }): Promise<FolderResponse> => {
+    const response = await apiClient.post('/api/v1/folders/copy-folder', payload)
     return response.data
   },
 }
