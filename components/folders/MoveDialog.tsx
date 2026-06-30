@@ -65,7 +65,7 @@ function FolderOption({
         className={cn(
           'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left transition-colors',
           isSelected
-            ? 'bg-primary/10 text-primary'
+            ? 'bg-primary/10 text-primary ring-2 ring-primary'
             : 'hover:bg-accent/50 text-foreground'
         )}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
@@ -90,11 +90,14 @@ function FolderOption({
           <span className="w-4" />
         )}
         {isExpanded && hasChildren ? (
-          <FolderOpen className="w-4 h-4 text-amber-500" />
+          <FolderOpen className={cn("w-4 h-4", isSelected ? "text-primary" : "text-amber-500")} />
         ) : (
-          <Folder className="w-4 h-4 text-amber-500" />
+          <Folder className={cn("w-4 h-4", isSelected ? "text-primary" : "text-amber-500")} />
         )}
-        <span className="text-sm truncate">{node.name}</span>
+        <span className={cn("text-sm truncate", isSelected && "font-semibold")}>{node.name}</span>
+        {isSelected && (
+          <span className="ml-auto text-xs bg-primary text-white px-2 py-0.5 rounded">Selected</span>
+        )}
       </button>
 
       {isExpanded && hasChildren && (
@@ -143,6 +146,19 @@ function buildTree(folders: any[]): TreeNode[] {
   })
 
   return roots
+}
+
+function findFolderName(nodes: TreeNode[], targetId: string): string | null {
+  for (const node of nodes) {
+    if (node._id === targetId) {
+      return node.name
+    }
+    if (node.children.length > 0) {
+      const found = findFolderName(node.children, targetId)
+      if (found) return found
+    }
+  }
+  return null
 }
 
 export function MoveDialog({
@@ -228,34 +244,47 @@ export function MoveDialog({
         <div className="space-y-2">
           <Label>Destination</Label>
           <ScrollArea className="h-64 border rounded-lg p-2">
-            <button
-              type="button"
-              className={cn(
-                'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left transition-colors',
-                selectedFolderId === null
-                  ? 'bg-primary/10 text-primary'
-                  : 'hover:bg-accent/50 text-foreground'
-              )}
-              onClick={() => setSelectedFolderId(null)}
-            >
-              <Ban className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">Root Level (No Folder)</span>
-            </button>
+             <button
+               type="button"
+               className={cn(
+                 'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left transition-colors',
+                 selectedFolderId === null
+                   ? 'bg-primary/10 text-primary'
+                   : 'hover:bg-accent/50 text-foreground'
+               )}
+               onClick={() => setSelectedFolderId(null)}
+             >
+               <Ban className="w-4 h-4 text-muted-foreground" />
+               <span className="text-sm">Root Level (No Folder)</span>
+             </button>
 
-            {tree.map((node) => (
-              <FolderOption
-                key={node._id}
-                node={node}
-                level={0}
-                selectedId={selectedFolderId}
-                excludedIds={excludedIds}
-                expandedFolders={expandedFolders}
-                onToggle={toggleFolder}
-                onSelect={setSelectedFolderId}
-              />
-            ))}
-          </ScrollArea>
-        </div>
+             {tree.map((node) => (
+               <FolderOption
+                 key={node._id}
+                 node={node}
+                 level={0}
+                 selectedId={selectedFolderId}
+                 excludedIds={excludedIds}
+                 expandedFolders={expandedFolders}
+                 onToggle={toggleFolder}
+                 onSelect={setSelectedFolderId}
+               />
+             ))}
+           </ScrollArea>
+         </div>
+
+         {/* Selected Destination Display */}
+         <div className="bg-muted/50 rounded-lg p-3 border">
+           <div className="flex items-center gap-2">
+             <Folder className="w-4 h-4 text-amber-500" />
+             <span className="text-sm font-medium">
+               {selectedFolderId 
+                 ? findFolderName(tree, selectedFolderId) || 'Unknown Folder'
+                 : 'Root Level'
+               }
+             </span>
+           </div>
+         </div>
 
         <DialogFooter>
           <Button
