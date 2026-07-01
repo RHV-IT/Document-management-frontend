@@ -104,8 +104,8 @@ export function useMoveFolderMutation() {
 export function useMoveFileToFolderMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ fileId, folderId }: { fileId: string; folderId: string | null }) =>
-      foldersAPI.moveFileToFolder({ fileId, folderId }),
+    mutationFn: ({ fileId, targetFolderId }: { fileId: string; targetFolderId: string | null }) =>
+      foldersAPI.moveFileToFolder({ fileId, targetFolderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })

@@ -628,7 +628,7 @@ export default function FilesPage() {
       if (clipboard.type === 'file') {
         moveFileToFolder.mutate({
           fileId: itemId,
-          folderId: currentFolderId
+          targetFolderId: currentFolderId
         })
       }
     })

@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Folder, FolderOpen, ChevronRight, ChevronDown, Ban } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { addNotification } from '@/components/notifications/NotificationCenter'
 
 interface MoveDialogProps {
   open: boolean
@@ -211,6 +212,24 @@ export function MoveDialog({
   }
 
   const handleMove = async () => {
+    // Validation
+    if (!itemId) {
+      addNotification('error', 'Unable to move file', 'Please try again.')
+      return
+    }
+    if (selectedFolderId === undefined) {
+      addNotification('error', 'Unable to move file', 'Please try again.')
+      return
+    }
+
+    // Debug logging
+    console.log('[MoveDialog] Move file payload:', {
+      fileId: itemId,
+      targetFolderId: selectedFolderId,
+      itemName,
+      type
+    })
+
     try {
       if (type === 'folder') {
         await moveFolderMutation.mutateAsync({
@@ -220,9 +239,10 @@ export function MoveDialog({
       } else {
         await moveFileMutation.mutateAsync({
           fileId: itemId,
-          folderId: selectedFolderId,
+          targetFolderId: selectedFolderId,
         })
       }
+      addNotification('success', 'File moved successfully.', '')
       onOpenChange(false)
     } catch (err) {
       console.error('Move failed:', err)

@@ -97,7 +97,7 @@ export const foldersAPI = {
     return response.data
   },
 
-  moveFileToFolder: async (payload: { fileId: string; folderId: string | null }): Promise<{ success: boolean; message: string }> => {
+  moveFileToFolder: async (payload: { fileId: string; targetFolderId: string | null }): Promise<{ success: boolean; message: string }> => {
     const response = await apiClient.post('/api/v1/folders/move-file', payload)
     return response.data
   },
