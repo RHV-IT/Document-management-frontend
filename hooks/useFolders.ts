@@ -118,6 +118,23 @@ export function useMoveFileToFolderMutation() {
   })
 }
 
+export function useBulkMoveFilesToFolderMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ fileIds, targetFolderId }: { fileIds: string[]; targetFolderId: string | null }) =>
+      foldersAPI.bulkMoveFilesToFolder({ fileIds, targetFolderId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      addNotification('success', 'Files Moved', 'Files have been moved successfully.')
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to move files'
+      addNotification('error', 'Move Failed', message)
+    },
+  })
+}
+
 export function useCopyFileToFolderMutation() {
   const queryClient = useQueryClient()
   return useMutation({

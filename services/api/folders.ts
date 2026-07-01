@@ -102,6 +102,11 @@ export const foldersAPI = {
     return response.data
   },
 
+  bulkMoveFilesToFolder: async (payload: { fileIds: string[]; targetFolderId: string | null }): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post('/api/v1/folders/bulk-move-files', payload)
+    return response.data
+  },
+
   copyFileToFolder: async (payload: { fileId: string; folderId: string | null }): Promise<{ success: boolean; data: any }> => {
     const response = await apiClient.post('/api/v1/folders/copy-file', payload)
     return response.data

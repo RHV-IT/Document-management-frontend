@@ -79,7 +79,7 @@ import { CreateFolderDialog } from '@/components/folders/CreateFolderDialog'
 import { RenameFolderDialog } from '@/components/folders/RenameFolderDialog'
 import { MoveDialog } from '@/components/folders/MoveDialog'
 import { Breadcrumb } from '@/components/folders/Breadcrumb'
-import { useFoldersQuery, useFolderContentsQuery, useDeleteFolderMutation, useMoveFileToFolderMutation } from '@/hooks/useFolders'
+import { useFoldersQuery, useFolderContentsQuery, useDeleteFolderMutation, useMoveFileToFolderMutation, useBulkMoveFilesToFolderMutation } from '@/hooks/useFolders'
 import { FolderItem } from '@/services/api/folders'
 
 // Helper Functions - using confidentialityLevels array with rightful professional colors
@@ -268,9 +268,10 @@ export default function FilesPage() {
   const [createFolderDialogOpen, setCreateFolderDialogOpen] = useState(false)
   const [createFolderParentId, setCreateFolderParentId] = useState<string | null>(null)
   const [renameFolderId, setRenameFolderId] = useState<string | null>(null)
-  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
+const [moveDialogOpen, setMoveDialogOpen] = useState(false)
   const [moveDialogType, setMoveDialogType] = useState<'folder' | 'file'>('folder')
   const [moveDialogItemId, setMoveDialogItemId] = useState<string>('')
+  const [moveDialogItemIds, setMoveDialogItemIds] = useState<string[]>([])
   const [moveDialogItemName, setMoveDialogItemName] = useState('')
 
   // Multi-select and clipboard state
@@ -428,6 +429,7 @@ export default function FilesPage() {
   // Folder mutations
   const deleteFolder = useDeleteFolderMutation()
   const moveFileToFolder = useMoveFileToFolderMutation()
+  const bulkMoveFilesToFolder = useBulkMoveFilesToFolderMutation()
 
   // Clear selection
   const clearSelection = useCallback(() => {
@@ -470,13 +472,6 @@ export default function FilesPage() {
     setMoveDialogType('folder')
     setMoveDialogItemId(folderId)
     setMoveDialogItemName(folderName)
-    setMoveDialogOpen(true)
-  }, [])
-
-  const handleMoveFile = useCallback((fileId: string, fileName: string) => {
-    setMoveDialogType('file')
-    setMoveDialogItemId(fileId)
-    setMoveDialogItemName(fileName)
     setMoveDialogOpen(true)
   }, [])
 
@@ -538,6 +533,39 @@ export default function FilesPage() {
     receivedFilesList.forEach((f: any) => { if (f.fileId) map.set(f.fileId, f) })
     return Array.from(map.values())
   }, [ownedFiles, receivedFilesList])
+
+  const handleMoveFile = useCallback((fileId?: string, fileName?: string) => {
+    // If fileId and fileName provided, use them (individual file move from dropdown)
+    // Otherwise use selected items from multi-selection
+    let fileIds: string[]
+    let displayName: string
+
+    if (fileId && fileName) {
+      fileIds = [fileId]
+      displayName = fileName
+    } else {
+      // Get selected file IDs from the multi-selection
+      fileIds = Array.from(selectedItems)
+        .filter(key => key.startsWith('file-'))
+        .map(key => key.replace('file-', ''))
+      
+      if (fileIds.length === 0) {
+        addNotification('error', 'Unable to move', 'No files selected.')
+        return
+      }
+
+      // Get the name of the first file for display
+      const firstFileId = fileIds[0]
+      const firstFile = (currentFolderId ? folderFiles : myAccessibleFiles).find(f => f.fileId === firstFileId)
+      displayName = fileIds.length > 1 ? `${fileIds.length} items` : (firstFile?.alias || firstFile?.name || firstFileId)
+    }
+
+    setMoveDialogType('file')
+    setMoveDialogItemId(fileIds[0])
+    setMoveDialogItemIds(fileIds)
+    setMoveDialogItemName(displayName)
+    setMoveDialogOpen(true)
+  }, [selectedItems, currentFolderId, folderFiles, myAccessibleFiles, addNotification])
 
   const availableUsers = useMemo(() => {
     const usersList = usersData?.users || []
@@ -1158,7 +1186,7 @@ export default function FilesPage() {
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setMoveDialogOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => handleMoveFile()}>
                 <FolderInput className="h-4 w-4 mr-2" />
                 Move
               </Button>
@@ -2358,7 +2386,7 @@ export default function FilesPage() {
           open={moveDialogOpen}
           onOpenChange={setMoveDialogOpen}
           type={moveDialogType}
-          itemId={moveDialogItemId}
+          itemIds={moveDialogItemIds}
           itemName={moveDialogItemName}
         />
       </div>

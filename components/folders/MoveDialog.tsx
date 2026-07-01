@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useFolderTreeQuery, useMoveFolderMutation, useMoveFileToFolderMutation } from '@/hooks/useFolders'
+import { useFolderTreeQuery, useMoveFolderMutation, useMoveFileToFolderMutation, useBulkMoveFilesToFolderMutation } from '@/hooks/useFolders'
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ interface MoveDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   type: 'folder' | 'file'
-  itemId: string
+  itemIds: string[]
   itemName: string
 }
 
@@ -166,12 +166,13 @@ export function MoveDialog({
   open,
   onOpenChange,
   type,
-  itemId,
+  itemIds,
   itemName,
 }: MoveDialogProps) {
   const { data: folderTree } = useFolderTreeQuery()
   const moveFolderMutation = useMoveFolderMutation()
   const moveFileMutation = useMoveFileToFolderMutation()
+  const bulkMoveFilesMutation = useBulkMoveFilesToFolderMutation()
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -180,7 +181,9 @@ export function MoveDialog({
 
   const excludedIds = new Set<string>()
   if (type === 'folder') {
-    excludedIds.add(itemId)
+    // For folder moves, we still only move one folder at a time
+    const mainItemId = itemIds[0]
+    excludedIds.add(mainItemId)
     const addChildren = (nodes: TreeNode[]) => {
       nodes.forEach((node) => {
         excludedIds.add(node._id)
@@ -195,7 +198,7 @@ export function MoveDialog({
       }
       return null
     }
-    const node = findNode(tree, itemId)
+    const node = findNode(tree, mainItemId)
     if (node) addChildren(node.children)
   }
 
@@ -213,51 +216,63 @@ export function MoveDialog({
 
   const handleMove = async () => {
     // Validation
-    if (!itemId) {
-      addNotification('error', 'Unable to move file', 'Please try again.')
+    if (!itemIds || itemIds.length === 0) {
+      addNotification('error', 'Unable to move', 'Please try again.')
       return
     }
     if (selectedFolderId === undefined) {
-      addNotification('error', 'Unable to move file', 'Please try again.')
+      addNotification('error', 'Unable to move', 'Please try again.')
       return
     }
 
     // Debug logging
-    console.log('[MoveDialog] Move file payload:', {
-      fileId: itemId,
+    console.log('[MoveDialog] Move payload:', {
+      type,
+      itemIds,
       targetFolderId: selectedFolderId,
-      itemName,
-      type
+      itemName
     })
 
     try {
       if (type === 'folder') {
+        // Folders still moved one at a time
         await moveFolderMutation.mutateAsync({
-          folderId: itemId,
+          folderId: itemIds[0],
+          targetFolderId: selectedFolderId,
+        })
+      } else if (itemIds.length === 1) {
+        await moveFileMutation.mutateAsync({
+          fileId: itemIds[0],
           targetFolderId: selectedFolderId,
         })
       } else {
-        await moveFileMutation.mutateAsync({
-          fileId: itemId,
+        await bulkMoveFilesMutation.mutateAsync({
+          fileIds: itemIds,
           targetFolderId: selectedFolderId,
         })
       }
-      addNotification('success', 'File moved successfully.', '')
+      addNotification('success', 'Moved successfully.', '')
       onOpenChange(false)
     } catch (err) {
       console.error('Move failed:', err)
     }
   }
 
-  const isLoading = type === 'folder' ? moveFolderMutation.isPending : moveFileMutation.isPending
+  const isLoading = type === 'folder' 
+    ? moveFolderMutation.isPending 
+    : (itemIds.length === 1 ? moveFileMutation.isPending : bulkMoveFilesMutation.isPending)
+
+  const displayName = itemIds.length > 1 
+    ? `${itemIds.length} items` 
+    : itemName
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Move {type === 'folder' ? 'Folder' : 'File'}</DialogTitle>
+          <DialogTitle>Move {type === 'folder' ? 'Folder' : itemIds.length > 1 ? 'Items' : 'File'}</DialogTitle>
           <DialogDescription>
-            Select a destination for &quot;{itemName}&quot;
+            Select a destination for "{displayName}"
           </DialogDescription>
         </DialogHeader>
 
