@@ -1,2395 +1,1204 @@
 'use client'
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { cn } from '@/lib/utils'
 
 import {
   useFilesQuery,
   useArchiveFilesQuery,
+  useDeletedFilesQuery,
   useDeleteFileMutation,
+  useRestoreFileMutation,
+  usePermanentDeleteFileMutation,
   useDownloadFileMutation,
-  useRevokePermissionMutation,
-  useVersionHistoryQuery,
-  useRollbackVersionMutation,
-  useUploadFileMutation
+  useUploadFileMutation,
 } from '@/hooks/useFiles'
 
+import { useMyPermissionsQuery, useMySentPermissionsQuery } from '@/hooks/usePermissions'
+import { usePendingScans, useScannerPendingStatsQuery, PendingScan } from '@/hooks/useScanner'
+import { useConfirmScan, useCancelScan } from '@/hooks/useScannerActions'
+import { ScannerModal } from '@/components/ScannerModal'
 import {
-  useMyPermissionsQuery,
-  useMySentPermissionsQuery,
-  useGrantPermissionMutation
-} from '@/hooks/usePermissions'
-
-import { useUsersQuery as useUsersListQuery } from '@/hooks/useUsers'
-import { useConfidentialityLevelsConfigQuery } from '@/hooks/useSettings'
-import {
-  usePendingScans,
-  useScannerPendingStatsQuery,
-  useScannerConfirmMutation,
-  useScannerCancelMutation
-} from '@/hooks/useScanner'
-import { ResponsiveContainer } from '@/components/ResponsiveContainer'
-
-// Icons
-import {
-  Download, Trash2, Share2, MoreHorizontal, X, Search, Users, Scan, FileCheck,
-  AlertCircle, Loader2, File, FileSpreadsheet, FileCode, FileArchive,
-  Presentation, Upload, Eye, FolderOpen, LayoutGrid, List, Image as ImageIcon,
-  FileText, Archive, User, Building2,
-  Folder,
-  Check
-} from 'lucide-react'
-
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuTrigger, DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu'
-
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
-} from '@/components/ui/dialog'
-
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
-} from '@/components/ui/alert-dialog'
-
-
-
-import { Skeleton } from '@/components/ui/skeleton'
-import { Progress } from '@/components/ui/progress'
-import { formatDistanceToNow } from 'date-fns'
-import { formatBytes, getMachineId } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+  useFolderTreeQuery,
+  useFolderContentsQuery,
+  useDeleteFolderMutation,
+  useMoveFileToFolderMutation,
+  useBulkMoveFilesToFolderMutation,
+} from '@/hooks/useFolders'
 import { useAuth } from '@/hooks/useAuth'
 import { useAccessControl } from '@/hooks/useAccessControl'
 import { addNotification } from '@/components/notifications/NotificationCenter'
-import { FileItem } from '@/services/api/files'
-import { Lock, Shield, FolderPlus, ChevronDown, ChevronRight, Home, Star, Clock, FolderInput, Copy, CheckSquare, Square } from 'lucide-react'
-import { ScannerConfirmModal } from '@/components/scanner/ScannerConfirmModal'
-import { FolderTreePanel } from '@/components/folders/FolderTreePanel'
+
+import { Toolbar, ViewMode } from '@/components/files/Toolbar'
+import { TabBar } from '@/components/files/TabBar'
+import { Breadcrumb } from '@/components/files/Breadcrumb'
+import { ExplorerPanel, FilterView } from '@/components/files/ExplorerPanel'
+import { StatusBar } from '@/components/files/StatusBar'
+import { FileCard } from '@/components/files/FileCard'
 import { FolderCard } from '@/components/folders/FolderCard'
+import { DetailsView, SortKey, SortDir, sortItems } from '@/components/files/DetailsView'
+import { EmptyState, DragOverlay, FileGridSkeleton, FileRowSkeleton } from '@/components/files/EmptyState'
+import { EmptyAreaContextMenu } from '@/components/files/ContextMenus'
+import { PropertiesDialog } from '@/components/files/PropertiesDialog'
+import { RenameFileDialog } from '@/components/files/RenameFileDialog'
+import { DeleteConfirmDialog } from '@/components/files/DeleteConfirmDialog'
+import { PreviewDialog } from '@/components/files/PreviewDialog'
+import { ShareDialog } from '@/components/files/ShareDialog'
+import { VersionHistoryDialog } from '@/components/files/VersionHistoryDialog'
+import { RecycleBinView } from '@/components/files/RecycleBinView'
+import { PendingScansView } from '@/components/files/PendingScansView'
 import { CreateFolderDialog } from '@/components/folders/CreateFolderDialog'
 import { RenameFolderDialog } from '@/components/folders/RenameFolderDialog'
 import { MoveDialog } from '@/components/folders/MoveDialog'
-import { Breadcrumb } from '@/components/folders/Breadcrumb'
-import { useFoldersQuery, useFolderContentsQuery, useDeleteFolderMutation, useMoveFileToFolderMutation, useBulkMoveFilesToFolderMutation } from '@/hooks/useFolders'
+import { useSelectionManager } from '@/hooks/useSelectionManager'
+import {
+  fileMatchesSearch,
+  fileMatchesTypeSet,
+  fileMatchesConfidentialitySet,
+  fileMatchesModifiedSet,
+  getDepartmentName,
+  getFileCategory,
+  unwrapFilesList,
+  DateBucket,
+  GridIconSize,
+} from '@/lib/file-utils'
+
+import { FileItem } from '@/services/api/files'
 import { FolderItem } from '@/services/api/folders'
 
-// Helper Functions - using confidentialityLevels array with rightful professional colors
-const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'confidential', 'highly_confidential'] as const
+const FAVORITES_KEY = 'rhv-dms:favorite-folders'
+const RECENT_KEY = 'rhv-dms:recent-folders'
+const VIEWMODE_KEY = 'rhv-dms:files-view-mode'
+const GRID_SIZE_KEY = 'rhv-dms:grid-icon-size'
 
-const CONFIDENTIALITY_COLOR_MAP: Record<string, string> = {
-  public: '#10b981',
-  internal: '#3b82f6',
-  confidential: '#f59e0b',
-  highly_confidential: '#ef4444',
-}
+type PendingDelete =
+  | { kind: 'file'; file: FileItem }
+  | { kind: 'folder'; folder: FolderItem }
+  | { kind: 'bulk'; fileIds: string[]; folderIds: string[] }
+  | { kind: 'recycle-permanent'; fileId: string; name: string }
 
-const CONFIDENTIALITY_LABEL_MAP: Record<string, string> = {
-  public: 'Everyone Can See',
-  internal: 'Company Only',
-  confidential: 'Limited Access Only',
-  highly_confidential: 'Very Secret - Few People Only',
-}
+type MoveTarget = { type: 'file' | 'folder'; itemIds: string[]; itemName: string }
 
-type FileTab = 'myfiles' | 'received' | 'sent' | 'scanned' | 'scanner' | 'archive'
-
-const FILE_TYPE_OPTIONS = [
-  { value: 'all', label: 'All Types' },
-  { value: 'pdf', label: 'PDF' },
-  { value: 'document', label: 'Documents' },
-  { value: 'spreadsheet', label: 'Spreadsheets' },
-  { value: 'presentation', label: 'Presentations' },
-  { value: 'image', label: 'Images' },
-  { value: 'zip', label: 'Archives' },
-  { value: 'other', label: 'Other' },
-] as const
-
-function normalizeSearch(value: string) {
-  return value.trim().toLowerCase()
-}
-
-function getDepartmentName(department: any) {
-  if (!department) return ''
-  return typeof department === 'object' ? (department.name || department._id || '') : department
-}
-
-function getFileName(file: FileItem) {
-  return file.alias || file.name || ''
-}
-
-function getFileExtension(file: FileItem) {
-  const name = file.name || ''
-  const parts = name.split('.')
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
-}
-
-function getFileCategory(file: FileItem): string {
-  const ext = getFileExtension(file)
-  const type = (file.type || '').toLowerCase()
-
-  // PDF
-  if (ext === 'pdf' || type.includes('pdf')) return 'pdf'
-  // Document
-  if (['doc', 'docx', 'odt', 'txt', 'rtf'].includes(ext) ||
-    type.includes('word') || type.includes('msword') ||
-    type.includes('opendocument.text') || type.includes('plain') ||
-    type.includes('rtf')) return 'document'
-  // Spreadsheet
-  if (['xls', 'xlsx', 'ods', 'csv'].includes(ext) ||
-    type.includes('excel') || type.includes('spreadsheet')) return 'spreadsheet'
-  // Presentation
-  if (['ppt', 'pptx', 'odp'].includes(ext) ||
-    type.includes('powerpoint') || type.includes('presentation')) return 'presentation'
-  // Image
-  if (['jpg', 'jpeg', 'png', 'gif', 'tiff', 'tif', 'bmp', 'webp'].includes(ext) ||
-    type.includes('image')) return 'image'
-  // Archive/Zip
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext) ||
-    type.includes('zip') || type.includes('archive')) return 'zip'
-  // Other (fallback for unknown types)
-  return 'other'
-}
-
-function fileMatchesType(file: FileItem, typeFilter: string) {
-  if (typeFilter === 'all') return true
-  const fileCategory = getFileCategory(file)
-  return fileCategory === typeFilter
-}
-
-function fileMatchesSearch(file: FileItem, searchTerm: string) {
-  const query = normalizeSearch(searchTerm)
-  if (!query) return true
-  const searchable = [
-    getFileName(file),
-    file.name,
-    file.alias,
-    file.type,
-    file.tags?.join(' '),
-    getDepartmentName(file.department),
-    file.owner?.name,
-    file.uploadedBy?.name,
-    file.confidentialityLevel ? getConfidentialityLabel(file.confidentialityLevel) : '',
-  ].join(' ')
-  return normalizeSearch(searchable).includes(query)
-}
-
-function fileMatchesConfidentiality(file: FileItem, confidentialityFilter: string) {
-  return confidentialityFilter === 'all' || file.confidentialityLevel === confidentialityFilter
-}
-
-function getServerTypeValue(typeFilter: string) {
-  return typeFilter === 'all' ? undefined : typeFilter
-}
-
-function getSearchableFileText(file: FileItem) {
-  return [
-    getFileName(file),
-    file.name,
-    file.alias,
-    file.type,
-    file.tags?.join(' '),
-    getDepartmentName(file.department),
-    file.owner?.name,
-    file.uploadedBy?.name,
-    file.confidentialityLevel ? getConfidentialityLabel(file.confidentialityLevel) : '',
-  ].join(' ')
-}
-
-function getConfidentialityColor(level: any): string {
-  const colors: Record<string, string> = {
-    public: 'bg-emerald-100 text-emerald-700',
-    internal: 'bg-blue-100 text-blue-700',
-    confidential: 'bg-amber-100 text-amber-700',
-    highly_confidential: 'bg-red-100 text-red-700'
+function loadSet(key: string): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = window.localStorage.getItem(key)
+    return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set<string>()
+  } catch {
+    return new Set()
   }
-  return CONFIDENTIALITY_LEVELS.includes(level)
-    ? colors[level]
-    : 'bg-gray-100 text-gray-700'
 }
 
-function getConfidentialityLabel(level: any): string {
-  const labels: Record<string, string> = {
-    public: 'Everyone Can See',
-    internal: 'Company Only',
-    confidential: 'Limited Access Only',
-    highly_confidential: 'Very Secret - Few People Only'
-  }
-  return CONFIDENTIALITY_LEVELS.includes(level)
-    ? labels[level]
-    : 'Unknown'
+function saveSet(key: string, set: Set<string>) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(key, JSON.stringify(Array.from(set)))
 }
 
-export default function FilesPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const initialTab = (searchParams.get('tab') || 'myfiles') as FileTab
-  const initialSearch = searchParams.get('q') || ''
-  // Support both 'type' (legacy) and 'fileCategory' (new) parameters for backward compatibility
-  const initialTypeParam = searchParams.get('type') || searchParams.get('fileCategory') || 'all'
-  const initialConfidentiality = searchParams.get('confidentiality') || 'all'
-  const [activeTab, setActiveTab] = useState<FileTab>(initialTab)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [search, setSearch] = useState(initialSearch)
-  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
-  const [typeFilter, setTypeFilter] = useState(initialTypeParam)
-  const [confidentialityFilter, setConfidentialityFilter] = useState(initialConfidentiality)
-  const [page, setPage] = useState(1)
-  const [shareDialogOpen, setShareDialogOpen] = useState(false)
-  const [shareSearch, setShareSearch] = useState('')
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
-  const [accessLevel, setAccessLevel] = useState<'view' | 'download' | 'edit'>('view')
-  const MAX_SHARE_USERS = 10
-  const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null)
-  const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewError, setPreviewError] = useState<string | null>(null)
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
-  const [previewType, setPreviewType] = useState<'pdf' | 'image' | 'viewer' | 'unsupported' | null>(null)
-  const [scannerModalOpen, setScannerModalOpen] = useState(false)
-  const [pendingScannerFile, setPendingScannerFile] = useState<any | null>(null)
+const VIEW_LABELS: Record<FilterView, string> = {
+  myfiles: 'My Drive',
+  received: 'Shared With Me',
+  sent: 'Shared By Me',
+  scanned: 'Scanned Files',
+  scanner: 'Pending Scans',
+  archive: 'Archive',
+  recycle: 'Recycle Bin',
+  recent: 'Recent',
+  starred: 'Starred',
+}
 
-  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [isDragOver, setIsDragOver] = useState(false)
+interface ExplorerTab {
+  id: string
+  activeView: FilterView
+  selectedFolderId: string | null
+}
 
-  // Folder state
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
-  const [folderTreeExpanded, setFolderTreeExpanded] = useState(true)
-  const [createFolderDialogOpen, setCreateFolderDialogOpen] = useState(false)
-  const [createFolderParentId, setCreateFolderParentId] = useState<string | null>(null)
+function FileExplorer() {
+  const { user } = useAuth()
+  const { canView, filterFiles, allowedLevels } = useAccessControl()
+
+  // ---- Tabs (each remembers its own location, like Explorer tabs) ----
+  const tabIdRef = useRef(2)
+  const [tabs, setTabs] = useState<ExplorerTab[]>([{ id: 'tab-1', activeView: 'myfiles', selectedFolderId: null }])
+  const [activeTabId, setActiveTabId] = useState('tab-1')
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0]
+  const activeView = activeTab.activeView
+  const selectedFolderId = activeTab.selectedFolderId
+
+  const setActiveView = useCallback(
+    (view: FilterView) => setTabs((prev) => prev.map((t) => (t.id === activeTabId ? { ...t, activeView: view } : t))),
+    [activeTabId]
+  )
+  const setSelectedFolderId = useCallback(
+    (folderId: string | null) =>
+      setTabs((prev) => prev.map((t) => (t.id === activeTabId ? { ...t, selectedFolderId: folderId } : t))),
+    [activeTabId]
+  )
+
+  const newTab = useCallback((initial?: Partial<Omit<ExplorerTab, 'id'>>) => {
+    const id = `tab-${tabIdRef.current++}`
+    setTabs((prev) => [...prev, { id, activeView: 'myfiles', selectedFolderId: null, ...initial }])
+    setActiveTabId(id)
+  }, [])
+
+  const closeTab = useCallback(
+    (id: string) => {
+      setTabs((prev) => {
+        if (prev.length <= 1) return prev
+        const idx = prev.findIndex((t) => t.id === id)
+        const next = prev.filter((t) => t.id !== id)
+        if (id === activeTabId) {
+          const fallback = next[Math.max(0, idx - 1)] || next[0]
+          setActiveTabId(fallback.id)
+        }
+        return next
+      })
+    },
+    [activeTabId]
+  )
+
+  const [viewMode, setViewMode] = useState<ViewMode>('details')
+  const [gridIconSize, setGridIconSize] = useState<GridIconSize>('large')
+  const [explorerOpen, setExplorerOpen] = useState(false)
+
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  // Windows-11-style multi-select column filters (empty set = no filter on that facet)
+  const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set())
+  const [confidentialityFilters, setConfidentialityFilters] = useState<Set<string>>(new Set())
+  const [modifiedFilters, setModifiedFilters] = useState<Set<DateBucket>>(new Set())
+
+  const [sortKey, setSortKey] = useState<SortKey>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const [propertiesItem, setPropertiesItem] = useState<
+    ({ _type: 'file' } & FileItem) | ({ _type: 'folder' } & FolderItem) | null
+  >(null)
+  const [propertiesOpen, setPropertiesOpen] = useState(false)
+
+  // ---- Dialog state ----
+  const [createFolderState, setCreateFolderState] = useState<{ open: boolean; parentFolderId: string | null }>({
+    open: false,
+    parentFolderId: null,
+  })
   const [renameFolderId, setRenameFolderId] = useState<string | null>(null)
-const [moveDialogOpen, setMoveDialogOpen] = useState(false)
-  const [moveDialogType, setMoveDialogType] = useState<'folder' | 'file'>('folder')
-  const [moveDialogItemId, setMoveDialogItemId] = useState<string>('')
-  const [moveDialogItemIds, setMoveDialogItemIds] = useState<string[]>([])
-  const [moveDialogItemName, setMoveDialogItemName] = useState('')
+  const [renameFileTarget, setRenameFileTarget] = useState<{ fileId: string; name: string } | null>(null)
+  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
+  const [shareFile, setShareFile] = useState<FileItem | null>(null)
+  const [versionsFile, setVersionsFile] = useState<FileItem | null>(null)
+  const [reviewScan, setReviewScan] = useState<PendingScan | null>(null)
 
-  // Multi-select and clipboard state
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
-  const [selectedItemType, setSelectedItemType] = useState<'file' | 'folder' | null>(null)
-  const [clipboard, setClipboard] = useState<{ items: string[]; type: 'file' | 'folder'; action: 'copy' | 'cut' } | null>(null)
-  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null)
-  const [showBulkActions, setShowBulkActions] = useState(false)
-
-  // Folder enhancements state
   const [favoriteFolders, setFavoriteFolders] = useState<Set<string>>(new Set())
+  const [favoriteFiles, setFavoriteFiles] = useState<Set<string>>(new Set())
   const [recentFolders, setRecentFolders] = useState<string[]>([])
-  const [folderColors, setFolderColors] = useState<Record<string, string>>({})
-
+  const [isDragActive, setIsDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    const q = searchParams.get('q')
-    // Support both 'type' and 'fileCategory' parameters
-    const type = searchParams.get('type') || searchParams.get('fileCategory')
-    const confidentiality = searchParams.get('confidentiality')
-    const fileId = searchParams.get('fileId')
-
-    if (tab && ['myfiles', 'received', 'sent', 'scanned', 'scanner', 'archive'].includes(tab)) {
-      setActiveTab(tab as FileTab)
+    setFavoriteFolders(loadSet(FAVORITES_KEY))
+    const stored = window.localStorage.getItem(RECENT_KEY)
+    if (stored) {
+      try {
+        setRecentFolders(JSON.parse(stored))
+      } catch { }
     }
-    if (q !== null && q !== search) setSearch(q)
-    if (type && FILE_TYPE_OPTIONS.some(option => option.value === type)) setTypeFilter(type)
-    if (confidentiality && confidentiality !== 'all') setConfidentialityFilter(confidentiality)
-    if (fileId) {
-      const timer = setTimeout(() => {
-        const element = document.querySelector(`[data-file-id="${CSS.escape(fileId)}"]`)
-        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        element?.classList.add('ring-2', 'ring-blue-500')
-        setTimeout(() => element?.classList.remove('ring-2', 'ring-blue-500'), 2500)
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [searchParams])
+    const storedView = window.localStorage.getItem(VIEWMODE_KEY) as ViewMode | null
+    if (storedView) setViewMode(storedView)
+    const storedGridSize = window.localStorage.getItem(GRID_SIZE_KEY) as GridIconSize | null
+    if (storedGridSize) setGridIconSize(storedGridSize)
+  }, [])
 
-  // Debounce search
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 500)
+    window.localStorage.setItem(VIEWMODE_KEY, viewMode)
+  }, [viewMode])
+
+  useEffect(() => {
+    window.localStorage.setItem(GRID_SIZE_KEY, gridIconSize)
+  }, [gridIconSize])
+
+  const toggleFavoriteFolder = useCallback((id: string) => {
+    setFavoriteFolders((prev) => {
+      const next = new Set<string>(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      saveSet(FAVORITES_KEY, next)
+      return next
+    })
+  }, [])
+
+  const toggleFavoriteFile = useCallback((id: string) => {
+    setFavoriteFiles((prev) => {
+      const next = new Set<string>(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+
+  const pushRecentFolder = useCallback((id: string) => {
+    setRecentFolders((prev) => {
+      const next = [id, ...prev.filter((f) => f !== id)].slice(0, 10)
+      window.localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  // ---- Debounced search ----
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400)
     return () => clearTimeout(timer)
   }, [search])
 
-  // Sync URL with filters
+  // ---- Selection ----
+  const selection = useSelectionManager()
+
   useEffect(() => {
-    const params = new URLSearchParams()
-    params.set('tab', activeTab)
-    if (search) params.set('q', search)
-    if (typeFilter !== 'all') params.set('fileCategory', typeFilter)
-    if (confidentialityFilter !== 'all') params.set('confidentiality', confidentialityFilter)
-    // Update URL without triggering another useEffect
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
-  }, [activeTab, search, typeFilter, confidentialityFilter])
+    selection.clearSelection()
+  }, [activeView, selectedFolderId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auth
-  const { user } = useAuth()
-  const { canView, filterFiles, clearanceBadge, isAdmin, userDepartment, allowedLevels } = useAccessControl()
-
-  // Queries
-  const { data: usersData } = useUsersListQuery({ search: shareSearch || undefined, limit: 100, status: 'active' })
-  const { data: confidentialityLevels } = useConfidentialityLevelsConfigQuery()
-
-  // Build the filter dropdown items from settings config, filtered to only the levels the user has access to.
-  // Falls back to the allowedLevels array ensures it always works even if settings haven't loaded yet.
-  const allowedLevelsForFilter: string[] = useMemo(() => {
-    const allowed = (allowedLevels || []) as string[]
-    if (confidentialityLevels && confidentialityLevels.length > 0) {
-      return confidentialityLevels
-        .filter((l) => allowed.includes(l.value))
-        .map((l) => l.value)
-    }
-    return allowed
-  }, [allowedLevels, confidentialityLevels])
-
-  // Merge settings labels with hardcoded fallback so labels always resolve.
-  const confidentialityLabelMap: Record<string, string> = useMemo(() => {
-    const map: Record<string, string> = { ...CONFIDENTIALITY_LABEL_MAP }
-    if (confidentialityLevels) {
-      confidentialityLevels.forEach((l) => {
-        map[l.value] = l.label
-      })
-    }
-    return map
-  }, [confidentialityLevels])
-
-  const confidentialityColorMap: Record<string, string> = CONFIDENTIALITY_COLOR_MAP
-
-  // Folder queries
-  const { data: currentFolderContents, isLoading: folderContentsLoading } = useFolderContentsQuery(currentFolderId)
-  const childFolders = currentFolderContents?.folders || []
-  const folderFiles = currentFolderContents?.files || []
+  // ---- Data fetching per active view ----
+  const { data: folderContents, isLoading: folderContentsLoading } = useFolderContentsQuery(selectedFolderId)
 
   const { data: ownedFilesData, isLoading: ownedLoading } = useFilesQuery({
     owner: user?._id,
-    page,
-    limit: 50,
+    page: 1,
+    limit: 200,
     search: debouncedSearch || undefined,
-    fileCategory: getServerTypeValue(typeFilter),
-    confidentiality: confidentialityFilter !== 'all' ? confidentialityFilter : undefined,
+    folderId: selectedFolderId || undefined,
   })
 
-  const { data: myPermissionsData } = useMyPermissionsQuery()
-  const { data: sentPermissionsData } = useMySentPermissionsQuery()
+  const { data: myPermissionsData, isLoading: receivedLoading } = useMyPermissionsQuery()
+  const { data: sentPermissionsData, isLoading: sentLoading } = useMySentPermissionsQuery()
 
   const { data: scannedFilesData, isLoading: scannedLoading } = useFilesQuery({
     isScanned: true,
-    page,
-    limit: 50,
+    page: 1,
+    limit: 200,
     search: debouncedSearch || undefined,
-    fileCategory: getServerTypeValue(typeFilter),
   })
 
   const { data: scannerFilesData = [], isLoading: scannerLoading } = usePendingScans()
   const { data: scannerStatsData } = useScannerPendingStatsQuery()
 
-
-
-  const { data: versionHistoryData = [] } = useVersionHistoryQuery(selectedFile?.fileId || '')
-
-  // Archive files filters
-  const [archiveSearch, setArchiveSearch] = useState('')
-  const [archiveConfidentiality, setArchiveConfidentiality] = useState('')
-  const [archiveDepartment, setArchiveDepartment] = useState('')
-  const [archiveUploadedBy, setArchiveUploadedBy] = useState('')
-  const [archiveSortBy, setArchiveSortBy] = useState<'newest' | 'oldest'>('newest')
-  const [archiveRestrictedOnly, setArchiveRestrictedOnly] = useState(false)
-
-  // Archive files query
   const { data: archiveFilesData, isLoading: archiveLoading } = useArchiveFilesQuery({
     page: 1,
-    limit: 50,
-    search: archiveSearch || undefined,
-    confidentialityLevel: archiveConfidentiality || undefined,
-    department: archiveDepartment || undefined,
-    uploadedBy: archiveUploadedBy || undefined,
+    limit: 200,
+    search: debouncedSearch || undefined,
     sortBy: 'createdAt',
-    sortOrder: archiveSortBy === 'newest' ? 'desc' : 'asc',
-    restrictedOnly: archiveRestrictedOnly || undefined,
+    sortOrder: sortDir === 'asc' ? 'asc' : 'desc',
   })
 
-  // Mutations
-  const uploadFile = useUploadFileMutation()
-  const deleteFile = useDeleteFileMutation()
-  const downloadFile = useDownloadFileMutation()
-  const revokePermission = useRevokePermissionMutation()
-  const grantPermission = useGrantPermissionMutation()
-  const rollbackVersion = useRollbackVersionMutation()
-  const scannerConfirm = useScannerConfirmMutation()
-  const scannerCancel = useScannerCancelMutation()
+  const isRecycleView = activeView === 'recycle'
+  const { data: deletedFilesData, isLoading: deletedLoading } = useDeletedFilesQuery({ page: 1, limit: 200 })
 
-  // Folder mutations
-  const deleteFolder = useDeleteFolderMutation()
-  const moveFileToFolder = useMoveFileToFolderMutation()
-  const bulkMoveFilesToFolder = useBulkMoveFilesToFolderMutation()
+  const isScannerView = activeView === 'scanner'
 
-  // Clear selection
-  const clearSelection = useCallback(() => {
-    setSelectedItems(new Set())
-    setShowBulkActions(false)
-    setLastSelectedIndex(null)
-    setSelectedItemType(null)
-  }, [])
+  const { data: folderTree } = useFolderTreeQuery()
 
-  // Folder handlers
-  const handleFolderSelect = useCallback((folderId: string | null) => {
-    setCurrentFolderId(folderId)
-    setPage(1)
-    clearSelection()
+  // ---- Mutations ----
+  const { mutate: uploadFile } = useUploadFileMutation()
+  const deleteFileMutation = useDeleteFileMutation()
+  const { mutate: downloadFile } = useDownloadFileMutation()
+  const deleteFolderMutation = useDeleteFolderMutation()
+  const { mutate: moveFileToFolder } = useMoveFileToFolderMutation()
+  const { mutate: bulkMoveFiles } = useBulkMoveFilesToFolderMutation()
+  const restoreFileMutation = useRestoreFileMutation()
+  const permanentDeleteMutation = usePermanentDeleteFileMutation()
+  const confirmScanMutation = useConfirmScan()
+  const cancelScanMutation = useCancelScan()
 
-    if (folderId) {
-      setRecentFolders(prev => {
-        const filtered = prev.filter(id => id !== folderId)
-        return [folderId, ...filtered].slice(0, 10)
-      })
-    }
-  }, [clearSelection])
-
-  const handleCreateFolder = useCallback((parentFolderId?: string | null) => {
-    setCreateFolderParentId(parentFolderId ?? currentFolderId)
-    setCreateFolderDialogOpen(true)
-  }, [currentFolderId])
-
-  const handleRenameFolder = useCallback((folderId: string) => {
-    setRenameFolderId(folderId)
-  }, [])
-
-  const handleDeleteFolder = useCallback((folderId: string) => {
-    if (folderId) {
-      deleteFolder.mutate(folderId)
-    }
-  }, [deleteFolder])
-
-  const handleMoveFolder = useCallback((folderId: string, folderName: string) => {
-    setMoveDialogType('folder')
-    setMoveDialogItemId(folderId)
-    setMoveDialogItemName(folderName)
-    setMoveDialogOpen(true)
-  }, [])
-
-  // Toggle favorite folder
-  const toggleFavorite = useCallback((folderId: string) => {
-    setFavoriteFolders(prev => {
-      const next = new Set(prev)
-      if (next.has(folderId)) {
-        next.delete(folderId)
-      } else {
-        next.add(folderId)
+  // ---- Derive current dataset based on active view ----
+  const { folders, files, isLoading } = useMemo(() => {
+    switch (activeView) {
+      case 'myfiles': {
+        const rawFolders: FolderItem[] = selectedFolderId
+          ? folderContents?.folders || []
+          : (folderTree || []).filter((f: FolderItem) => !f.parentFolderId)
+        const rawFiles: FileItem[] = selectedFolderId ? folderContents?.files || [] : unwrapFilesList(ownedFilesData)
+        return { folders: rawFolders, files: rawFiles, isLoading: folderContentsLoading || ownedLoading, isSystemView: false }
       }
-      return next
-    })
-  }, [])
+      case 'received': {
+        const rawFiles: FileItem[] = (myPermissionsData || []).map((p: any) => p.file).filter(Boolean)
+        return { folders: [], files: rawFiles, isLoading: receivedLoading, isSystemView: true }
+      }
+      case 'sent': {
+        const rawFiles: FileItem[] = (sentPermissionsData || []).map((p: any) => p.file).filter(Boolean)
+        return { folders: [], files: rawFiles, isLoading: sentLoading, isSystemView: true }
+      }
+      case 'scanned': {
+        const rawFiles: FileItem[] = unwrapFilesList(scannedFilesData)
+        return { folders: [], files: rawFiles, isLoading: scannedLoading, isSystemView: true }
+      }
+      case 'scanner': {
+        // PendingScan items are a different shape than FileItem and render via PendingScansView instead.
+        return { folders: [], files: [], isLoading: scannerLoading, isSystemView: true }
+      }
+      case 'archive': {
+        const rawFiles: FileItem[] = unwrapFilesList(archiveFilesData)
+        return { folders: [], files: rawFiles, isLoading: archiveLoading, isSystemView: true }
+      }
+      case 'starred': {
+        const rawFiles: FileItem[] = unwrapFilesList(ownedFilesData).filter((f: FileItem) =>
+          favoriteFiles.has(f.fileId)
+        )
+        const rawFolders: FolderItem[] = (folderTree || []).filter((f: FolderItem) => favoriteFolders.has(f._id))
+        return { folders: rawFolders, files: rawFiles, isLoading: ownedLoading, isSystemView: true }
+      }
+      case 'recent': {
+        const rawFolders: FolderItem[] = (folderTree || []).filter((f: FolderItem) => recentFolders.includes(f._id))
+        return { folders: rawFolders, files: [], isLoading: false, isSystemView: true }
+      }
+      case 'recycle':
+      default:
+        return { folders: [], files: [], isLoading: false, isSystemView: true }
+    }
+  }, [
+    activeView,
+    selectedFolderId,
+    folderContents,
+    ownedFilesData,
+    folderContentsLoading,
+    ownedLoading,
+    myPermissionsData,
+    receivedLoading,
+    sentPermissionsData,
+    sentLoading,
+    scannedFilesData,
+    scannedLoading,
+    scannerLoading,
+    archiveFilesData,
+    archiveLoading,
+    favoriteFiles,
+    favoriteFolders,
+    folderTree,
+    recentFolders,
+  ])
 
-  // Build permission lists
-  const buildList = useCallback((data: any) => {
-    if (!Array.isArray(data)) return []
-    return data.filter((p: any) => p.fileId && typeof p.fileId === 'object')
-      .map((p: any) => ({
-        ...(p.fileId),
-        permissionId: p._id,
-        permission: p.access,
-        grantedBy: p.grantedBy,
-        grantedTo: p.userId
-      }))
-  }, [])
-
-  const applyFileFilters = useCallback((files: FileItem[]) => {
-    return files.filter((file) =>
-      fileMatchesSearch(file, search) &&
-      fileMatchesType(file, typeFilter) &&
-      fileMatchesConfidentiality(file, confidentialityFilter)
+  // ---- Client-side search + column filters, applied uniformly across every view ----
+  const visibleFiles = useMemo(() => {
+    const result = filterFiles ? filterFiles(files) : files
+    return result.filter(
+      (f: FileItem) =>
+        fileMatchesSearch(f, debouncedSearch) &&
+        fileMatchesTypeSet(f, typeFilters) &&
+        fileMatchesConfidentialitySet(f, confidentialityFilters) &&
+        fileMatchesModifiedSet(f, modifiedFilters)
     )
-  }, [search, typeFilter, confidentialityFilter])
+  }, [files, filterFiles, debouncedSearch, typeFilters, confidentialityFilters, modifiedFilters])
 
-  // Shared files (received/sent via explicit permissions) always visible — sharing is the only exception to dept/confidentiality rules
-  const receivedFilesList = useMemo(() => applyFileFilters(buildList(myPermissionsData || [])), [myPermissionsData, buildList, applyFileFilters])
-  const sentFilesList = useMemo(() => applyFileFilters(buildList(sentPermissionsData || [])), [sentPermissionsData, buildList, applyFileFilters])
+  const visibleFolders = useMemo(() => {
+    const query = debouncedSearch.trim().toLowerCase()
+    return folders.filter(
+      (f: FolderItem) =>
+        (!query || f.name?.toLowerCase().includes(query)) &&
+        fileMatchesConfidentialitySet(f, confidentialityFilters) &&
+        fileMatchesModifiedSet(f, modifiedFilters)
+    )
+  }, [folders, debouncedSearch, confidentialityFilters, modifiedFilters])
 
-  // Data - strict frontend filtering applied before any render/pagination/counters/search
-  const ownedRaw = ownedFilesData?.files || []
-  const ownedFiles = useMemo(() => applyFileFilters(filterFiles(ownedRaw as any)), [ownedRaw, filterFiles, applyFileFilters])
-  const scannedRaw = scannedFilesData?.files || []
-  const scannedFiles = useMemo(() => applyFileFilters(filterFiles(scannedRaw as any)), [scannedRaw, filterFiles, applyFileFilters])
-  const scannedOnlyFiles = useMemo(() => scannedFiles.filter((f: any) => f.isScanned === true), [scannedFiles])
-  const scannerFiles = scannerFilesData || []
-  const scannerStats = scannerStatsData || { pending: 0 }
+  // ---- Sorting ----
+  const sortedFolders = useMemo(
+    () =>
+      sortItems(visibleFolders, sortKey, sortDir, {
+        name: (f: FolderItem) => f.name?.toLowerCase() || '',
+        type: () => 'folder',
+        owner: (f: any) => f.owner?.name?.toLowerCase() || '',
+        department: (f: any) => getDepartmentName(f.department).toLowerCase(),
+        confidentiality: (f: any) => f.confidentialityLevel || '',
+        size: () => 0,
+        modified: (f: FolderItem) => (f.updatedAt ? new Date(f.updatedAt).getTime() : 0),
+      }),
+    [visibleFolders, sortKey, sortDir]
+  )
 
-  const ownedTotal = ownedFilesData?.total || 0
-  const archiveRaw = archiveFilesData?.files || []
-  const archiveFiles = useMemo(() => applyFileFilters(filterFiles(archiveRaw as any)), [archiveRaw, filterFiles])
+  const sortedFiles = useMemo(
+    () =>
+      sortItems(visibleFiles, sortKey, sortDir, {
+        name: (f: FileItem) => (f.alias || f.name || '').toLowerCase(),
+        type: (f: FileItem) => f.type?.toLowerCase() || '',
+        owner: (f: FileItem) => (f.owner?.name || f.uploadedBy?.name || '').toLowerCase(),
+        department: (f: FileItem) => getDepartmentName(f.department).toLowerCase(),
+        confidentiality: (f: FileItem) => f.confidentialityLevel || '',
+        size: (f: FileItem) => f.size || 0,
+        modified: (f: FileItem) => (f.updatedAt ? new Date(f.updatedAt).getTime() : 0),
+      }),
+    [visibleFiles, sortKey, sortDir]
+  )
 
-  // Merge owned + explicitly shared files for the main "My Files" view
-  const myAccessibleFiles = useMemo(() => {
-    const map = new Map<string, any>()
-    ownedFiles.forEach((f: any) => { if (f.fileId) map.set(f.fileId, f) })
-    receivedFilesList.forEach((f: any) => { if (f.fileId) map.set(f.fileId, f) })
-    return Array.from(map.values())
-  }, [ownedFiles, receivedFilesList])
+  const recycleFiles = deletedFilesData?.files || []
+  const pendingScans = scannerFilesData || []
 
-  const handleMoveFile = useCallback((fileId?: string, fileName?: string) => {
-    // If fileId and fileName provided, use them (individual file move from dropdown)
-    // Otherwise use selected items from multi-selection
-    let fileIds: string[]
-    let displayName: string
-
-    if (fileId && fileName) {
-      fileIds = [fileId]
-      displayName = fileName
-    } else {
-      // Get selected file IDs from the multi-selection
-      fileIds = Array.from(selectedItems)
-        .filter(key => key.startsWith('file-'))
-        .map(key => key.replace('file-', ''))
-      
-      if (fileIds.length === 0) {
-        addNotification('error', 'Unable to move', 'No files selected.')
-        return
-      }
-
-      // Get the name of the first file for display
-      const firstFileId = fileIds[0]
-      const firstFile = (currentFolderId ? folderFiles : myAccessibleFiles).find(f => f.fileId === firstFileId)
-      displayName = fileIds.length > 1 ? `${fileIds.length} items` : (firstFile?.alias || firstFile?.name || firstFileId)
+  const stats = useMemo(() => {
+    if (isRecycleView) {
+      return { folderCount: 0, fileCount: recycleFiles.length, totalSize: 0 }
     }
-
-    setMoveDialogType('file')
-    setMoveDialogItemId(fileIds[0])
-    setMoveDialogItemIds(fileIds)
-    setMoveDialogItemName(displayName)
-    setMoveDialogOpen(true)
-  }, [selectedItems, currentFolderId, folderFiles, myAccessibleFiles, addNotification])
-
-  const availableUsers = useMemo(() => {
-    const usersList = usersData?.users || []
-    const existing = new Set((myPermissionsData || []).map((p: any) => p.userId?._id || p.userId).filter(Boolean))
-    return usersList.filter((u: any) => u._id && u._id !== user?._id && !existing.has(u._id))
-  }, [usersData, myPermissionsData, user])
-
-  const selectedUsersList = useMemo(() => {
-    const usersList = usersData?.users || []
-    return usersList.filter((u: any) => selectedUsers.includes(u._id))
-  }, [usersData, selectedUsers])
-
-  const stats = useMemo(() => ({
-    total: ownedFiles.length,
-    scanned: scannedOnlyFiles.length,
-    sharedWithMe: receivedFilesList.length,
-    sharedByMe: sentFilesList.length,
-    pending: scannerStats.pending || scannerFiles.length
-  }), [ownedFiles.length, scannedOnlyFiles.length, receivedFilesList.length, sentFilesList.length, scannerStats.pending, scannerFiles])
-
-  // Folder stats
-  const folderStats = useMemo(() => {
-    const currentFolders = currentFolderId ? childFolders : []
-    const currentFiles = currentFolderId ? folderFiles : myAccessibleFiles
-
-    return {
-      folderCount: currentFolders.length,
-      fileCount: currentFiles.length,
-      totalSize: currentFiles.reduce((acc: number, f: any) => acc + (f.size || 0), 0),
-      lastModified: currentFiles.length > 0
-        ? currentFiles.reduce((latest: string, f: any) => {
-          const date = f.updatedAt || f.createdAt
-          return date && date > latest ? date : latest
-        }, '')
-        : null
+    if (isScannerView) {
+      return { folderCount: 0, fileCount: pendingScans.length, totalSize: 0 }
     }
-  }, [currentFolderId, childFolders, folderFiles, myAccessibleFiles])
+    const totalSize = sortedFiles.reduce((sum: number, f: FileItem) => sum + (f.size || 0), 0)
+    return { folderCount: sortedFolders.length, fileCount: sortedFiles.length, totalSize }
+  }, [isRecycleView, recycleFiles, isScannerView, pendingScans, sortedFolders, sortedFiles])
 
-  // Check if item is selected
-  const isItemSelected = useCallback((id: string, type: 'file' | 'folder') => {
-    return selectedItems.has(`${type}-${id}`)
-  }, [selectedItems])
+  const isEmpty = isRecycleView
+    ? !deletedLoading && recycleFiles.length === 0
+    : isScannerView
+      ? !scannerLoading && pendingScans.length === 0
+      : !isLoading && sortedFolders.length === 0 && sortedFiles.length === 0
+  const hasActiveFilters =
+    !!debouncedSearch || typeFilters.size > 0 || confidentialityFilters.size > 0 || modifiedFilters.size > 0
 
-  const toggleItemSelection = useCallback((id: string, type: 'file' | 'folder', index: number, shiftKey: boolean = false) => {
-    const key = `${type}-${id}`
-    setSelectedItems(prev => {
-      const next = new Set(prev)
-      const isSelected = next.has(key)
-
-      if (shiftKey && lastSelectedIndex !== null && selectedItemType === type) {
-        const items = currentFolderId
-          ? [
-            ...childFolders.map((folder: FolderItem, folderIndex: number) => ({ key: `folder-${folder._id}`, type: 'folder', index: folderIndex })),
-            ...folderFiles.map((file: any, fileIndex: number) => ({ key: `file-${file.fileId}`, type: 'file', index: childFolders.length + fileIndex }))
-          ]
-          : [
-            ...childFolders.map((folder: FolderItem, folderIndex: number) => ({ key: `folder-${folder._id}`, type: 'folder', index: folderIndex })),
-            ...myAccessibleFiles.map((file: any, fileIndex: number) => ({ key: `file-${file.fileId}`, type: 'file', index: childFolders.length + fileIndex }))
-          ]
-
-        const start = Math.min(lastSelectedIndex, index)
-        const end = Math.max(lastSelectedIndex, index)
-
-        items
-          .filter((item) => item.type === type && item.index >= start && item.index <= end)
-          .forEach((item) => next.add(item.key))
+  // ---- Handlers ----
+  const handleSort = useCallback(
+    (key: SortKey) => {
+      if (key === sortKey) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
       } else {
-        if (isSelected) {
-          next.delete(key)
-        } else {
-          next.add(key)
-        }
+        setSortKey(key)
+        setSortDir('asc')
       }
+    },
+    [sortKey]
+  )
 
-      setShowBulkActions(next.size > 0)
-      return next
-    })
+  const handleFolderOpen = useCallback(
+    (folder: FolderItem) => {
+      setSelectedFolderId(folder._id)
+      setActiveView('myfiles')
+      pushRecentFolder(folder._id)
+    },
+    [pushRecentFolder, setSelectedFolderId, setActiveView]
+  )
 
-    setSelectedItemType(type)
-    setLastSelectedIndex(index)
-  }, [childFolders, currentFolderId, folderFiles, lastSelectedIndex, myAccessibleFiles, selectedItemType])
+  const openFolderInNewTab = useCallback(
+    (folder: FolderItem) => {
+      newTab({ activeView: 'myfiles', selectedFolderId: folder._id })
+      pushRecentFolder(folder._id)
+    },
+    [newTab, pushRecentFolder]
+  )
 
-  // Paste handler
-  const handlePaste = useCallback(() => {
-    if (!clipboard || clipboard.items.length === 0) return
+  const handleBreadcrumbNavigate = useCallback((folderId: string | null) => {
+    setSelectedFolderId(folderId)
+    setActiveView('myfiles')
+  }, [])
 
-    clipboard.items.forEach(itemId => {
-      if (clipboard.type === 'file') {
-        moveFileToFolder.mutate({
-          fileId: itemId,
-          targetFolderId: currentFolderId
-        })
-      }
-    })
+  const handleCreateFolder = useCallback(
+    (parentFolderId?: string | null) => {
+      setCreateFolderState({ open: true, parentFolderId: parentFolderId ?? selectedFolderId })
+    },
+    [selectedFolderId]
+  )
 
-    if (clipboard.action === 'copy') {
-      setClipboard(null)
-    }
-  }, [clipboard, currentFolderId, moveFileToFolder])
+  const handleUploadClick = useCallback(() => fileInputRef.current?.click(), [])
 
-  // Bulk delete handler
+  const handleFilesSelected = useCallback(
+    (fileList: FileList | null) => {
+      if (!fileList || fileList.length === 0) return
+      Array.from(fileList).forEach((file) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        if (selectedFolderId) formData.append('folderId', selectedFolderId)
+        uploadFile(
+          formData,
+          {
+            onSuccess: () => addNotification('success', 'Upload complete', `"${file.name}" uploaded successfully.`),
+            onError: () => addNotification('error', 'Upload failed', `Could not upload "${file.name}".`),
+          }
+        )
+      })
+    },
+    [uploadFile, selectedFolderId]
+  )
+
+  const handleDeleteFile = useCallback((file: FileItem) => setPendingDelete({ kind: 'file', file }), [])
+
+  const handleDeleteFolder = useCallback((folder: FolderItem) => {
+    if (folder.isSystemFolder) return
+    setPendingDelete({ kind: 'folder', folder })
+  }, [])
+
   const handleBulkDelete = useCallback(() => {
-    selectedItems.forEach(itemId => {
-      if (itemId.startsWith('folder-')) {
-        deleteFolder.mutate(itemId.replace('folder-', ''))
-      } else if (itemId.startsWith('file-')) {
-        deleteFile.mutate({ fileId: itemId.replace('file-', '') })
-      }
-    })
-    setSelectedItems(new Set())
-    setShowBulkActions(false)
-  }, [selectedItems, deleteFolder, deleteFile])
+    const fileIds = selection.getSelectedIds('file')
+    const folderIds = selection.getSelectedIds('folder')
+    if (fileIds.length === 0 && folderIds.length === 0) return
+    setPendingDelete({ kind: 'bulk', fileIds, folderIds })
+  }, [selection])
 
-  // Keyboard shortcuts handler
+  const handlePermanentDeleteRequest = useCallback(
+    (fileId: string, name: string) => setPendingDelete({ kind: 'recycle-permanent', fileId, name }),
+    []
+  )
+
+  const confirmDelete = useCallback(() => {
+    if (!pendingDelete) return
+    if (pendingDelete.kind === 'file') {
+      deleteFileMutation.mutate({ fileId: pendingDelete.file.fileId })
+    } else if (pendingDelete.kind === 'folder') {
+      deleteFolderMutation.mutate(pendingDelete.folder._id)
+    } else if (pendingDelete.kind === 'bulk') {
+      pendingDelete.fileIds.forEach((id) => deleteFileMutation.mutate({ fileId: id }))
+      pendingDelete.folderIds.forEach((id) => deleteFolderMutation.mutate(id))
+      selection.clearSelection()
+    } else if (pendingDelete.kind === 'recycle-permanent') {
+      permanentDeleteMutation.mutate(pendingDelete.fileId)
+    }
+    setPendingDelete(null)
+  }, [pendingDelete, deleteFileMutation, deleteFolderMutation, permanentDeleteMutation, selection])
+
+  const handleDownloadFile = useCallback(
+    (file: FileItem) => {
+      downloadFile(
+        file.fileId,
+        { onError: () => addNotification('error', 'Download failed', `Could not download "${file.name}".`) }
+      )
+    },
+    [downloadFile]
+  )
+
+  const handleBulkDownload = useCallback(() => {
+    const fileIds = selection.getSelectedIds('file')
+    fileIds.forEach((id) => downloadFile(id))
+  }, [selection, downloadFile])
+
+  const handleMoveFile = useCallback(
+    (file: FileItem) => setMoveTarget({ type: 'file', itemIds: [file.fileId], itemName: file.alias || file.name }),
+    []
+  )
+
+  const handleMoveFolder = useCallback(
+    (folder: FolderItem) => {
+      if (folder.isSystemFolder) return
+      setMoveTarget({ type: 'folder', itemIds: [folder._id], itemName: folder.name })
+    },
+    []
+  )
+
+  const handleMoveSelected = useCallback(() => {
+    const fileIds = selection.getSelectedIds('file')
+    const folderIds = selection.getSelectedIds('folder')
+    if (fileIds.length > 0) {
+      const first = sortedFiles.find((f) => f.fileId === fileIds[0])
+      const itemName = fileIds.length > 1 ? `${fileIds.length} files` : first?.alias || first?.name || 'file'
+      setMoveTarget({ type: 'file', itemIds: fileIds, itemName })
+    } else if (folderIds.length === 1) {
+      const folder = sortedFolders.find((f) => f._id === folderIds[0])
+      if (folder) setMoveTarget({ type: 'folder', itemIds: [folder._id], itemName: folder.name })
+    }
+  }, [selection, sortedFiles, sortedFolders])
+
+  const handleRenameFile = useCallback(
+    (file: FileItem) => setRenameFileTarget({ fileId: file.fileId, name: file.alias || file.name }),
+    []
+  )
+
+  const handleRenameFolder = useCallback((folder: FolderItem) => {
+    if (folder.isSystemFolder) return
+    setRenameFolderId(folder._id)
+  }, [])
+
+  const handleRenameSelected = useCallback(() => {
+    if (selection.selectionCount !== 1) return
+    const fileId = selection.getSelectedIds('file')[0]
+    const folderId = selection.getSelectedIds('folder')[0]
+    const file = sortedFiles.find((f) => f.fileId === fileId)
+    const folder = sortedFolders.find((f) => f._id === folderId)
+    if (file) handleRenameFile(file)
+    else if (folder) handleRenameFolder(folder)
+  }, [selection, sortedFiles, sortedFolders, handleRenameFile, handleRenameFolder])
+
+  const openPreview = useCallback((file: FileItem) => {
+    if (file.restricted) return
+    setPreviewFile(file)
+  }, [])
+
+  const openShare = useCallback((file: FileItem) => setShareFile(file), [])
+  const openVersions = useCallback((file: FileItem) => setVersionsFile(file), [])
+
+  const handleFileOpen = useCallback(
+    (file: FileItem) => {
+      const category = getFileCategory(file)
+      if (!file.restricted && (category === 'image' || category === 'pdf')) {
+        openPreview(file)
+      } else {
+        handleDownloadFile(file)
+      }
+    },
+    [openPreview, handleDownloadFile]
+  )
+
+  const handleOpenSelected = useCallback(() => {
+    if (selection.selectionCount !== 1) return
+    const fileId = selection.getSelectedIds('file')[0]
+    const folderId = selection.getSelectedIds('folder')[0]
+    const file = sortedFiles.find((f) => f.fileId === fileId)
+    const folder = sortedFolders.find((f) => f._id === folderId)
+    if (folder) handleFolderOpen(folder)
+    else if (file) handleFileOpen(file)
+  }, [selection, sortedFiles, sortedFolders, handleFolderOpen, handleFileOpen])
+
+  const handlePreviewSelected = useCallback(() => {
+    if (selection.selectionCount !== 1) return
+    const fileId = selection.getSelectedIds('file')[0]
+    const file = sortedFiles.find((f) => f.fileId === fileId)
+    if (file) openPreview(file)
+  }, [selection, sortedFiles, openPreview])
+
+  const handleShareSelected = useCallback(() => {
+    const fileId = selection.getSelectedIds('file')[0]
+    const file = sortedFiles.find((f) => f.fileId === fileId)
+    if (file && selection.selectionCount === 1) openShare(file)
+    else addNotification('info', 'Share', 'Select a single file to share.')
+  }, [selection, sortedFiles, openShare])
+
+  const handlePaste = useCallback(() => {
+    if (!selection.clipboard) return
+    if (selection.clipboard.type === 'file') {
+      bulkMoveFiles({ fileIds: selection.clipboard.ids, targetFolderId: selectedFolderId })
+    }
+    selection.clearClipboard()
+  }, [selection, selectedFolderId, bulkMoveFiles])
+
+  const handleDragStartFile = useCallback((file: FileItem) => (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/x-file-id', file.fileId)
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const handleDropOnFolder = useCallback(
+    (folder: FolderItem) => (e: React.DragEvent) => {
+      e.preventDefault()
+      const fileId = e.dataTransfer.getData('application/x-file-id')
+      if (fileId) {
+        moveFileToFolder(
+          { fileId, targetFolderId: folder._id },
+          { onSuccess: () => addNotification('success', 'File moved', `Moved into "${folder.name}".`) }
+        )
+      }
+    },
+    [moveFileToFolder]
+  )
+
+  const parentFolderId = useMemo(() => {
+    if (!selectedFolderId || !folderTree) return null
+    const current = folderTree.find((f) => f._id === selectedFolderId)
+    return current?.parentFolderId || null
+  }, [selectedFolderId, folderTree])
+
+  const handleReviewScan = useCallback((scan: PendingScan) => setReviewScan(scan), [])
+
+  const handleCancelScan = useCallback(
+    (scan: PendingScan) => cancelScanMutation.mutate(scan.id),
+    [cancelScanMutation]
+  )
+
+  const handleConfirmScan = useCallback(
+    (data: { id: string; alias: string; confidentialityLevel: string; description: string; format: string }) => {
+      confirmScanMutation.mutate(data, { onSuccess: () => setReviewScan(null) })
+    },
+    [confirmScanMutation]
+  )
+
+  // ---- Keyboard shortcuts ----
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'a' && activeTab === 'myfiles') {
+        if (e.key.toLowerCase() === 'c') {
           e.preventDefault()
-          const allIds = new Set([
-            ...childFolders.map((f: FolderItem) => `folder-${f._id}`),
-            ...(currentFolderId ? folderFiles : myAccessibleFiles).map((f: any) => `file-${f.fileId}`)
-          ])
-          setSelectedItems(allIds)
-          if (allIds.size > 0) setShowBulkActions(true)
-        } else if (e.key === 'c' && selectedItems.size > 0) {
+          selection.setClipboardCopy(selection.selectedItemType || 'file')
+        } else if (e.key.toLowerCase() === 'x') {
           e.preventDefault()
-          const items = Array.from(selectedItems)
-          const type = selectedItemType
-          setClipboard({ items, type: type || 'file', action: 'copy' })
-          addNotification('success', 'Copied', `${items.length} item(s) copied`)
-        } else if (e.key === 'x' && selectedItems.size > 0) {
-          e.preventDefault()
-          const items = Array.from(selectedItems)
-          setClipboard({ items, type: selectedItemType || 'file', action: 'cut' })
-          addNotification('success', 'Cut', `${items.length} item(s) cut`)
-        } else if (e.key === 'v' && clipboard) {
+          selection.setClipboardCut(selection.selectedItemType || 'file')
+        } else if (e.key.toLowerCase() === 'v') {
           e.preventDefault()
           handlePaste()
+        } else if (e.key.toLowerCase() === 'a') {
+          e.preventDefault()
+          const items = [
+            ...sortedFolders.map((f, i) => ({ id: f._id, type: 'folder' as const, index: i })),
+            ...sortedFiles.map((f, i) => ({ id: f.fileId, type: 'file' as const, index: i + sortedFolders.length })),
+          ]
+          selection.selectAll(items)
         }
       } else if (e.key === 'Escape') {
-        setSelectedItems(new Set())
-        setShowBulkActions(false)
-        setSelectedItemType(null)
-      } else if (e.key === 'Delete' && selectedItems.size > 0) {
-        e.preventDefault()
+        selection.clearSelection()
+      } else if (e.key === 'Delete' && selection.hasSelection) {
         handleBulkDelete()
+      } else if (e.key === 'F2') {
+        e.preventDefault()
+        handleRenameSelected()
+      } else if (e.key === 'Enter') {
+        handleOpenSelected()
+      } else if (e.key === ' ') {
+        if (selection.selectionCount === 1) {
+          e.preventDefault()
+          handlePreviewSelected()
+        }
+      } else if (e.key === 'Backspace') {
+        if (selectedFolderId) {
+          e.preventDefault()
+          setSelectedFolderId(parentFolderId)
+        }
       }
     }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [
+    selection,
+    sortedFolders,
+    sortedFiles,
+    handleBulkDelete,
+    handleRenameSelected,
+    handleOpenSelected,
+    handlePreviewSelected,
+    handlePaste,
+    selectedFolderId,
+    parentFolderId,
+  ])
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedItems, clipboard, selectedItemType, activeTab, childFolders, currentFolderId, folderFiles, myAccessibleFiles, handlePaste, handleBulkDelete])
-
-  const resetPage = useCallback(() => setPage(1), [])
-
-  const handleClearFilters = () => {
-    setSearch('')
-    setTypeFilter('all')
-    setConfidentialityFilter('all')
-    setArchiveSearch('')
-    setArchiveDepartment('')
-    setArchiveUploadedBy('')
-    setArchiveConfidentiality('')
-    setArchiveRestrictedOnly(false)
-    setPage(1)
-  }
-
-  const renderPagination = (currentPage: number, totalPages: number, onChange: (page: number) => void) => {
-    const safeTotalPages = Math.max(1, totalPages || 1)
-    return (
-      <div className="border-t px-4 py-3 flex items-center justify-between text-sm text-muted-foreground">
-        <span>Page {currentPage} of {safeTotalPages}</span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => onChange(currentPage - 1)}>Previous</Button>
-          <Button variant="outline" size="sm" disabled={currentPage >= safeTotalPages} onClick={() => onChange(currentPage + 1)}>Next</Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Drag and drop handlers
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!isDragOver) {
-      setIsDragOver(true)
-    }
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    // Only set drag over to false if we're leaving the main container
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX
-    const y = e.clientY
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      setIsDragOver(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(false)
-
-    const files = e.dataTransfer.files
-    if (files.length > 0) {
-      const file = files[0]
-      if (file) {
-        handleFileUpload(file)
+  // ---- Drag & drop upload ----
+  useEffect(() => {
+    let dragCounter = 0
+    const onDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        dragCounter++
+        setIsDragActive(true)
       }
     }
-  }
-
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(true)
-  }
-
-  // Handlers
-  const handleFileUpload = (file: File) => {
-    if (!file) {
-      addNotification('error', 'Upload Failed', 'No file selected')
-      return
+    const onDragLeave = () => {
+      dragCounter--
+      if (dragCounter <= 0) setIsDragActive(false)
     }
-
-    setIsUploading(true)
-    setUploadProgress(0)
-
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('alias', file.name || '')
-    formData.append('tags', JSON.stringify([]))
-    formData.append('confidentialityLevel', 'internal')
-
-    uploadFile.mutate(formData, {
-      onSuccess: () => {
-        addNotification('success', 'Upload Complete', 'File uploaded successfully.')
-        setIsUploading(false)
-        setUploadProgress(null)
-      },
-      onError: (error: any) => {
-        const message = error?.message || 'Failed to upload file'
-        addNotification('error', 'Upload Failed', message)
-        setIsUploading(false)
-        setUploadProgress(null)
-      }
-    })
-  }
-
-  const getFileIcon = (file: FileItem) => {
-    const type = file.type?.toLowerCase() || ''
-    const name = file.name?.toLowerCase() || ''
-
-    if (type.includes('image') || name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/)) return <ImageIcon className="h-8 w-8 text-blue-500" />
-    if (type.includes('pdf') || name.endsWith('.pdf')) return <File className="h-8 w-8 text-red-500" />
-    if (type.includes('sheet') || name.match(/\.(xls|xlsx)$/)) return <FileSpreadsheet className="h-8 w-8 text-green-500" />
-    if (type.includes('word') || name.match(/\.(doc|docx)$/)) return <FileText className="h-8 w-8 text-blue-600" />
-    if (type.includes('presentation') || name.match(/\.(ppt|pptx)$/)) return <Presentation className="h-8 w-8 text-orange-500" />
-    if (name.match(/\.(zip|rar|7z)$/)) return <FileArchive className="h-8 w-8 text-purple-500" />
-    if (type.includes('text') || name.match(/\.(txt|rtf|md)$/)) return <FileCode className="h-8 w-8 text-gray-500" />
-    return <File className="h-8 w-8 text-gray-400" />
-  }
-
-  const detectPreviewType = (file: FileItem): 'pdf' | 'image' | 'viewer' | 'unsupported' => {
-    const mimeType = (file.type || '').toLowerCase()
-    const name = (file.name || '').toLowerCase()
-    const extension = name.split('.').pop() || ''
-    if (mimeType.includes('pdf') || extension === 'pdf') return 'pdf'
-    if (mimeType.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension)) return 'image'
-    if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'md'].includes(extension)) return 'viewer'
-    return 'unsupported'
-  }
-
-  const handlePreview = async (file: FileItem) => {
-    if (!canView(file)) {
-      addNotification('error', 'Access Denied', 'You do not have permission to access this file.')
-      return
+    const onDrop = () => {
+      dragCounter = 0
+      setIsDragActive(false)
     }
-    if (file.restricted) {
-      addNotification('warning', 'Access Restricted', file.restrictionReason || 'Cannot preview highly confidential files.')
-      return
+    window.addEventListener('dragenter', onDragEnter)
+    window.addEventListener('dragleave', onDragLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter)
+      window.removeEventListener('dragleave', onDragLeave)
+      window.removeEventListener('drop', onDrop)
     }
+  }, [])
 
-    setPreviewFile(file)
-    setPreviewError(null)
-    setBlobUrl(null)
-    setPreviewLoading(true)
-    const type = detectPreviewType(file)
-    setPreviewType(type)
-    if (type === 'unsupported') {
-      setPreviewLoading(false)
-      return
+  const canPaste = !!selection.clipboard
+
+  const openProperties = useCallback((item: FileItem | FolderItem, type: 'file' | 'folder') => {
+    setPropertiesItem({ ...(item as any), _type: type })
+    setPropertiesOpen(true)
+  }, [])
+
+  const emptyStateType = useMemo(() => {
+    if (hasActiveFilters) return 'no-results' as const
+    switch (activeView) {
+      case 'received':
+      case 'sent':
+        return 'no-shared' as const
+      case 'scanned':
+        return 'no-scanned' as const
+      case 'scanner':
+        return 'no-pending' as const
+      case 'archive':
+        return 'no-archive' as const
+      case 'recycle':
+        return 'recycle-bin' as const
+      default:
+        return 'no-files' as const
     }
-    try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://rhv-dms-backend.vercel.app'
+  }, [hasActiveFilters, activeView])
 
-      if (type === 'pdf' || type === 'image') {
-        const response = await fetch(`${baseUrl}/api/v1/files/${file.fileId}/preview`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        if (!response.ok) throw new Error(`Failed to load: ${response.status}`)
-        const blob = await response.blob()
-        setBlobUrl(window.URL.createObjectURL(blob))
-      } else {
-        const response = await fetch(`${baseUrl}/api/v1/files/${file.fileId}/preview/google`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        if (!response.ok) throw new Error(`Failed to load preview: ${response.status}`)
-        const html = await response.text()
-        const blob = new Blob([html], { type: 'text/html' })
-        setBlobUrl(window.URL.createObjectURL(blob))
-      }
-    } catch (err: any) {
-      setPreviewError(err.message || 'Failed to load preview')
-    } finally {
-      setPreviewLoading(false)
+  const isDeleteMutating = deleteFileMutation.isPending || deleteFolderMutation.isPending || permanentDeleteMutation.isPending
+
+  const tabInfos = tabs.map((tab) => {
+    if (tab.selectedFolderId) {
+      const folder = folderTree?.find((f) => f._id === tab.selectedFolderId)
+      return { id: tab.id, label: folder?.name || 'Folder', isFolder: true }
     }
-  }
-
-  const closePreview = () => {
-    if (blobUrl) window.URL.revokeObjectURL(blobUrl)
-    setPreviewFile(null)
-    setPreviewError(null)
-    setBlobUrl(null)
-    setPreviewType(null)
-  }
-
-  const handleDownload = (fileId: string, fileName: string) => {
-    downloadFile.mutate(fileId, {
-      onSuccess: (blob: Blob) => {
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = fileName
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      }
-    })
-  }
-
-  const handleDelete = (fileId: string) => deleteFile.mutate({ fileId })
-
-  const openShareDialog = (file: FileItem) => {
-    if (file.restricted) {
-      addNotification('warning', 'Access Restricted', file.restrictionReason || 'Cannot share highly confidential files.')
-      return
-    }
-    setSelectedFile(file)
-    setShareDialogOpen(true)
-    setSelectedUsers([])
-    setShareSearch('')
-    setAccessLevel('view')
-  }
-
-  const toggleUserSelection = (userId: string) => {
-    setSelectedUsers(prev => {
-      if (prev.includes(userId)) return prev.filter(id => id !== userId)
-      if (prev.length >= MAX_SHARE_USERS) {
-        addNotification('warning', 'Limit Reached', `You can share with up to ${MAX_SHARE_USERS} users at a time.`)
-        return prev
-      }
-      return [...prev, userId]
-    })
-  }
-
-  const handleShare = () => {
-    if (!selectedFile || selectedUsers.length === 0) return
-    selectedUsers.forEach(userId => grantPermission.mutate({ fileId: selectedFile.fileId, userId, access: accessLevel }))
-    addNotification('success', 'File Shared', `Shared with ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}.`)
-    setShareDialogOpen(false)
-    setSelectedUsers([])
-    setSelectedFile(null)
-    setShareSearch('')
-  }
-
-  const handleRevoke = (permissionId: string) => {
-    revokePermission.mutate(permissionId, {
-      onSuccess: () => addNotification('success', 'Access Revoked', 'File access has been revoked.')
-    })
-    setRevokeConfirm(null)
-  }
-
-  const openScannerModal = (file: any) => {
-    setPendingScannerFile(file)
-    setScannerModalOpen(true)
-  }
-
-  const handleScannerConfirm = (data: any) =>
-    scannerConfirm.mutate(data, {
-      onSuccess: () => {
-        setScannerModalOpen(false)
-        setPendingScannerFile(null)
-      }
-    })
-
-  const handleScannerCancel = (id: string) =>
-    scannerCancel.mutate(id, {
-      onSuccess: () => {
-        setScannerModalOpen(false)
-        setPendingScannerFile(null)
-      }
-    })
-
-
+    return { id: tab.id, label: VIEW_LABELS[tab.activeView], isFolder: false }
+  })
 
   return (
-    <ResponsiveContainer>
-      <div
-        className="flex-1 flex flex-col min-h-0 bg-background relative"
-        onDragEnter={handleDragEnter}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+    <div className="flex-1 flex flex-col min-h-0 h-full bg-background rounded-xl border overflow-hidden">
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFilesSelected(e.target.files)}
+      />
+
+      <TabBar tabs={tabInfos} activeTabId={activeTabId} onSelect={setActiveTabId} onClose={closeTab} onNewTab={() => newTab()} />
+
+      <DragOverlay isActive={isDragActive} onDrop={(fl) => handleFilesSelected(fl)} />
+
+      <ExplorerPanel
+        isOpen={explorerOpen}
+        onClose={() => setExplorerOpen(false)}
+        activeView={activeView}
+        onViewChange={setActiveView}
+        selectedFolderId={selectedFolderId}
+        onFolderSelect={setSelectedFolderId}
+        favoriteFolders={favoriteFolders}
+        counts={{ scanner: scannerStatsData?.pending }}
+      />
+
+      <Toolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        gridIconSize={gridIconSize}
+        onGridIconSizeChange={setGridIconSize}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSortKeyChange={setSortKey}
+        onSortDirChange={setSortDir}
+        typeFilters={typeFilters}
+        onTypeFiltersChange={setTypeFilters}
+        confidentialityFilters={confidentialityFilters}
+        onConfidentialityFiltersChange={setConfidentialityFilters}
+        modifiedFilters={modifiedFilters}
+        onModifiedFiltersChange={setModifiedFilters}
+        onNewFolder={() => handleCreateFolder()}
+        onUpload={handleUploadClick}
+        onBulkUpload={handleUploadClick}
+        onToggleExplorer={() => setExplorerOpen((v) => !v)}
+        onPaste={handlePaste}
+        canPaste={canPaste}
+        onMove={handleMoveSelected}
+        onCopy={() => selection.setClipboardCopy(selection.selectedItemType || 'file')}
+        onCut={() => selection.setClipboardCut(selection.selectedItemType || 'file')}
+        onRename={handleRenameSelected}
+        onDelete={handleBulkDelete}
+        onDownload={handleBulkDownload}
+        onShare={handleShareSelected}
+        onProperties={() => {
+          const fileId = selection.getSelectedIds('file')[0]
+          const folderId = selection.getSelectedIds('folder')[0]
+          const file = sortedFiles.find((f) => f.fileId === fileId)
+          const folder = sortedFolders.find((f) => f._id === folderId)
+          if (file) openProperties(file, 'file')
+          else if (folder) openProperties(folder, 'folder')
+        }}
+        searchQuery={search}
+        onSearch={setSearch}
+        selectedCount={selection.selectionCount}
+      />
+
+      <Breadcrumb currentFolderId={selectedFolderId} onNavigate={handleBreadcrumbNavigate} onCreateFolder={handleCreateFolder} />
+
+      <EmptyAreaContextMenu
+        onPaste={handlePaste}
+        onCreateFolder={() => handleCreateFolder()}
+        onUpload={handleUploadClick}
+        onBulkUpload={handleUploadClick}
+        hasClipboard={!!selection.clipboard}
+        canPaste={canPaste}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        sortBy={sortKey}
+        onSortChange={(s) => handleSort(s as SortKey)}
       >
-        {/* Drag overlay */}
-        {isDragOver && (
-          <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-sm flex items-center justify-center border-2 border-dashed border-primary rounded-lg m-4 pointer-events-none">
-            <div className="text-center">
-              <Upload className="h-12 w-12 text-primary mx-auto mb-4" />
-              <p className="text-lg font-semibold text-primary">Drop file here to upload</p>
-              <p className="text-sm text-muted-foreground">Release to start uploading</p>
-            </div>
-          </div>
-        )}
-        {/* File Input */}
-        <input
-          type="file"
-          id="file-input"
-          ref={fileInputRef}
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) handleFileUpload(file)
-            e.target.value = ''
-          }}
-        />
-
-        {/* Header */}
-        <div className="border-b bg-card/50 backdrop-blur-xl sticky top-0 z-10">
-          <div className="p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                {currentFolderId ? (
-                  <Breadcrumb currentFolderId={currentFolderId} onNavigate={handleFolderSelect} />
-                ) : (
-                  <h1 className="text-2xl font-bold tracking-tight">Files</h1>
-                )}
-                <p className="text-sm text-muted-foreground mt-1">
-                  {currentFolderId ? 'Folder contents' : 'Manage and organize all your documents'}
-                </p>
+        <div className="flex-1 overflow-auto min-h-0" onClick={() => selection.clearSelection()}>
+          {isScannerView ? (
+            scannerLoading ? (
+              <FileRowSkeleton />
+            ) : isEmpty ? (
+              <EmptyState type="no-pending" />
+            ) : (
+              <PendingScansView
+                scans={pendingScans}
+                onReview={handleReviewScan}
+                onCancel={handleCancelScan}
+                isMutating={cancelScanMutation.isPending}
+              />
+            )
+          ) : isRecycleView ? (
+            deletedLoading ? (
+              <FileRowSkeleton />
+            ) : isEmpty ? (
+              <EmptyState type="recycle-bin" />
+            ) : (
+              <RecycleBinView
+                files={recycleFiles}
+                onRestore={(fileId) => restoreFileMutation.mutate(fileId)}
+                onPermanentDelete={handlePermanentDeleteRequest}
+                isMutating={restoreFileMutation.isPending || permanentDeleteMutation.isPending}
+              />
+            )
+          ) : isLoading ? (
+            viewMode === 'grid' ? (
+              <div className="p-4">
+                <FileGridSkeleton />
               </div>
-              <div className="flex items-center gap-2">
-                {isUploading && uploadProgress !== null && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <span>Uploading...</span>
-                    <Progress value={uploadProgress} className="w-24 h-2" />
-                    <span>{uploadProgress}%</span>
-                  </div>
-                )}
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => handleCreateFolder()}
-                >
-                  <FolderPlus className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Folder</span>
-                </Button>
-                <Button className="gap-2" onClick={() => document.getElementById('file-input')?.click()} disabled={isUploading}>
-                  <Upload className="h-4 w-4" />
-                  <span className="hidden sm:inline">Upload</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Search & Filters */}
-            <div className="mt-4 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search files..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value)
-                    resetPage()
-                  }}
-                  className="pl-9 pr-10"
-                />
-                {search && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
+            ) : (
+              <FileRowSkeleton />
+            )
+          ) : isEmpty ? (
+            <EmptyState
+              type={emptyStateType}
+              onAction={
+                emptyStateType === 'no-files'
+                  ? handleUploadClick
+                  : emptyStateType === 'no-results'
+                    ? () => {
                       setSearch('')
-                      resetPage()
-                    }}
-                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                      setTypeFilters(new Set())
+                      setConfidentialityFilters(new Set())
+                      setModifiedFilters(new Set())
+                    }
+                    : undefined
+              }
+            />
+          ) : viewMode === 'details' ? (
+            <DetailsView
+              folders={sortedFolders}
+              files={sortedFiles}
+              isSelected={(id, type) => selection.isSelected(id, type)}
+              isFavorite={(id) => favoriteFolders.has(id) || favoriteFiles.has(id)}
+              canPaste={canPaste}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
+              typeFilters={typeFilters}
+              onTypeFiltersChange={setTypeFilters}
+              confidentialityFilters={confidentialityFilters}
+              onConfidentialityFiltersChange={setConfidentialityFilters}
+              modifiedFilters={modifiedFilters}
+              onModifiedFiltersChange={setModifiedFilters}
+              onOpenFolderNewTab={openFolderInNewTab}
+              onSelectFile={(file, e) => {
+                e.stopPropagation()
+                selection.selectItem(file.fileId, 'file', sortedFolders.length + sortedFiles.indexOf(file), {
+                  shiftKey: e.shiftKey,
+                  ctrlKey: e.ctrlKey || e.metaKey,
+                })
+              }}
+              onSelectFolder={(folder, e) => {
+                e.stopPropagation()
+                selection.selectItem(folder._id, 'folder', sortedFolders.indexOf(folder), {
+                  shiftKey: e.shiftKey,
+                  ctrlKey: e.ctrlKey || e.metaKey,
+                })
+              }}
+              onOpenFile={handleFileOpen}
+              onOpenFolder={handleFolderOpen}
+              onPreviewFile={openPreview}
+              onDownloadFile={handleDownloadFile}
+              onShareFile={openShare}
+              onRenameFile={handleRenameFile}
+              onRenameFolder={handleRenameFolder}
+              onMoveFile={handleMoveFile}
+              onMoveFolder={handleMoveFolder}
+              onCopyFile={(file) => selection.setClipboardCopy('file')}
+              onCopyFolder={(folder) => selection.setClipboardCopy('folder')}
+              onCutFile={(file) => selection.setClipboardCut('file')}
+              onCutFolder={(folder) => selection.setClipboardCut('folder')}
+              onPaste={handlePaste}
+              onDeleteFile={handleDeleteFile}
+              onDeleteFolder={handleDeleteFolder}
+              onVersions={openVersions}
+              onToggleFavoriteFile={(file) => toggleFavoriteFile(file.fileId)}
+              onToggleFavoriteFolder={(folder) => toggleFavoriteFolder(folder._id)}
+              onProperties={openProperties}
+            />
+          ) : (
+            <div className="p-4">
+              <div
+                className={cn(
+                  'gap-3',
+                  viewMode === 'grid'
+                    ? gridIconSize === 'small'
+                      ? 'grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10'
+                      : gridIconSize === 'medium'
+                        ? 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                        : 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+                    : 'flex flex-col'
                 )}
-              </div>
-
-              <Select value={typeFilter} onValueChange={(value) => { setTypeFilter(value); resetPage() }}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="File Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FILE_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={confidentialityFilter} onValueChange={(value) => { setConfidentialityFilter(value); resetPage() }}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Confidentiality" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All My Levels</SelectItem>
-                  {(allowedLevelsForFilter as string[]).map((level) => (
-                    <SelectItem key={level} value={level}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full shrink-0"
-                          style={{ backgroundColor: confidentialityColorMap[level] || '#6b7280' }}
-                        />
-                        {confidentialityLabelMap[level] || level.replace(/_/g, ' ')}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* View Mode - Affects All Tabs */}
-              <div className="flex items-center border rounded-lg p-1">
-                <Button
-                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  onClick={() => setViewMode('grid')}
-                  className="h-8 w-8"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  onClick={() => setViewMode('list')}
-                  className="h-8 w-8"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {(search || typeFilter !== 'all' || confidentialityFilter !== 'all') && (
-                <Button variant="outline" size="sm" onClick={handleClearFilters}>
-                  Clear filters
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Folder Tree Panel */}
-        <FolderTreePanel
-          selectedFolderId={currentFolderId}
-          onFolderSelect={handleFolderSelect}
-          onCreateFolder={handleCreateFolder}
-          isExpanded={folderTreeExpanded}
-          onToggleExpanded={() => setFolderTreeExpanded(!folderTreeExpanded)}
-          favoriteFolders={favoriteFolders}
-          onToggleFavorite={toggleFavorite}
-          recentFolders={recentFolders}
-        />
-
-        {/* Stats Cards */}
-        <div className="p-6">
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            {[
-              { label: 'Total Files', value: stats.total, icon: File, color: 'bg-blue-500/10 text-blue-500' },
-              { label: 'Scanned Files', value: stats.scanned, icon: Scan, color: 'bg-green-500/10 text-green-500' },
-              { label: 'Shared With Me', value: stats.sharedWithMe, icon: Users, color: 'bg-purple-500/10 text-purple-500' },
-              { label: 'Files I Shared', value: stats.sharedByMe, icon: Share2, color: 'bg-orange-500/10 text-orange-500' },
-              { label: 'Pending Scans', value: stats.pending, icon: Loader2, color: 'bg-amber-500/10 text-amber-500' }
-            ].map((stat, i) => (
-              <Card key={i} className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-card to-muted/50">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">{stat.label}</p>
-                      <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
-                    </div>
-                    <div className={`p-3 rounded-xl ${stat.color} group-hover:scale-110 transition-transform`}>
-                      <stat.icon className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Bulk Actions Toolbar */}
-        {showBulkActions && selectedItems.size > 0 && (
-          <div className="px-6 py-3 bg-primary/5 border-b flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium">{selectedItems.size} selected</span>
-              <Button variant="ghost" size="sm" onClick={clearSelection}>
-                Clear
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleMoveFile()}>
-                <FolderInput className="h-4 w-4 mr-2" />
-                Move
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setClipboard({ items: Array.from(selectedItems), type: selectedItemType || 'file', action: 'copy' })}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copy
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleBulkDelete}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Folder Stats */}
-        {currentFolderId && (
-          <div className="px-6 py-3 bg-muted/30 border-b flex items-center gap-6 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Folder className="w-4 h-4" />
-              <span>{folderStats.folderCount} folders</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <File className="w-4 h-4" />
-              <span>{folderStats.fileCount} files</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>{formatBytes(folderStats.totalSize)}</span>
-            </div>
-            {folderStats.lastModified && (
-              <div className="flex items-center gap-1.5">
-                <span>Modified {formatDistanceToNow(new Date(folderStats.lastModified))} ago</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="px-6 pb-6 flex-1 flex flex-col min-h-0">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as FileTab)} className="flex-1 flex flex-col">
-            <TabsList className="w-full justify-start rounded-xl bg-muted p-1 mb-4">
-              <TabsTrigger value="myfiles">My Files</TabsTrigger>
-              <TabsTrigger value="received">Shared With Me</TabsTrigger>
-              <TabsTrigger value="sent">Shared By Me</TabsTrigger>
-              <TabsTrigger value="scanned">Scanned Files</TabsTrigger>
-              <TabsTrigger value="scanner">Pending Scans</TabsTrigger>
-              <TabsTrigger value="archive">Archive</TabsTrigger>
-            </TabsList>
-
-            <div className="flex-1 overflow-auto rounded-2xl bg-card border min-h-0">
-
-              {/* ==================== MY FILES ==================== */}
-              <TabsContent value="myfiles" className="m-0 h-full flex flex-col">
-                {ownedLoading || folderContentsLoading ? (
-                  <div className="p-6 space-y-4">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
-                        <Skeleton className="h-12 w-12 rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (childFolders.length === 0 && myAccessibleFiles.length === 0 && folderFiles.length === 0) ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center p-6">
-                      <FolderOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                      <p className="text-lg font-medium">No items found</p>
-                      <p className="text-sm">Upload files or create a folder to get started</p>
-                      <div className="flex gap-2 justify-center mt-4">
-                        <Button variant="outline" size="sm" onClick={() => handleCreateFolder()}>
-                          <FolderPlus className="h-4 w-4 mr-2" />
-                          New Folder
-                        </Button>
-                        <Button size="sm" onClick={() => document.getElementById('file-input')?.click()}>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="divide-y">
-                    {/* Folders first */}
-                    {childFolders.map((folder: FolderItem, index: number) => (
-                      <FolderCard
-                        key={folder._id}
-                        folder={folder}
-                        viewMode="list"
-                        isSelected={isItemSelected(folder._id, 'folder')}
-                        isFavorite={favoriteFolders.has(folder._id)}
-                        onSelect={(e) => toggleItemSelection(folder._id, 'folder', index, e?.shiftKey || false)}
-                        onOpen={() => handleFolderSelect(folder._id)}
-                        onRename={() => handleRenameFolder(folder._id)}
-                        onDelete={() => handleDeleteFolder(folder._id)}
-                        onMove={() => handleMoveFolder(folder._id, folder.name)}
-                        onToggleFavorite={() => toggleFavorite(folder._id)}
-                      />
-                    ))}
-                    {/* Then files */}
-                    {(currentFolderId ? folderFiles : myAccessibleFiles).map((f: any, index: number) => (
-                      <div
-                        key={f.fileId}
-                        data-file-id={f.fileId}
-                        className={cn(
-                          "flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group",
-                          isItemSelected(f.fileId, 'file') && "bg-primary/5 ring-1 ring-primary"
-                        )}
-                      >
-                        {/* Selection checkbox */}
-                        <button
-                          className={cn(
-                            'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0',
-                            isItemSelected(f.fileId, 'file')
-                              ? 'bg-primary border-primary text-white'
-                              : 'border-gray-300 hover:border-primary'
-                          )}
-                          onClick={(e) => toggleItemSelection(f.fileId, 'file', childFolders.length + index, e?.shiftKey || false)}
-                        >
-                          {isItemSelected(f.fileId, 'file') && <Check className="w-3 h-3" />}
-                        </button>
-                        <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">{f.alias || f.name}</span>
-                            <Badge variant="outline" className="text-xs">{f.type}</Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                            <span>{formatBytes(f.size)}</span>
-                            <span>{f.confidentialityLevel ? getConfidentialityLabel(f.confidentialityLevel) : '-'}</span>
-                            <span>{f.createdAt ? formatDistanceToNow(new Date(f.createdAt)) + ' ago' : ''}</span>
-                          </div>
-                        </div>
-                        <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handlePreview(f)}><Eye className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDownload(f.fileId, f.name)}><Download className="h-4 w-4" /></Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openShareDialog(f)}>Share</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleMoveFile(f.fileId, f.alias || f.name)}>Move</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }}>Version History</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-6">
-                    {/* Folders section */}
-                    {childFolders.length > 0 && (
-                      <>
-                        <div className="flex items-center gap-2 mb-4">
-                          <Folder className="w-5 h-5 text-amber-500" />
-                          <h3 className="text-sm font-semibold text-foreground">Folders ({childFolders.length})</h3>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-                          {childFolders.map((folder: FolderItem, index: number) => (
-                            <FolderCard
-                              key={folder._id}
-                              folder={folder}
-                              viewMode="grid"
-                              isSelected={isItemSelected(folder._id, 'folder')}
-                              isFavorite={favoriteFolders.has(folder._id)}
-                              onSelect={(e) => toggleItemSelection(folder._id, 'folder', index, e?.shiftKey || false)}
-                              onOpen={() => handleFolderSelect(folder._id)}
-                              onRename={() => handleRenameFolder(folder._id)}
-                              onDelete={() => handleDeleteFolder(folder._id)}
-                              onMove={() => handleMoveFolder(folder._id, folder.name)}
-                              onToggleFavorite={() => toggleFavorite(folder._id)}
-                            />
-                          ))}
-                        </div>
-                      </>
-                    )}
-
-                    {/* Files section */}
-                    {(currentFolderId ? folderFiles : myAccessibleFiles).length > 0 && (
-                      <>
-                        {childFolders.length > 0 && (
-                          <div className="flex items-center gap-2 mb-4">
-                            <File className="w-5 h-5 text-muted-foreground" />
-                            <h3 className="text-sm font-semibold text-foreground">Files ({currentFolderId ? folderFiles.length : myAccessibleFiles.length})</h3>
-                          </div>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {(currentFolderId ? folderFiles : myAccessibleFiles).map((f: any, index: number) => (
-                            <Card
-                              key={f.fileId}
-                              data-file-id={f.fileId}
-                              className={cn(
-                                "group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300 cursor-pointer",
-                                isItemSelected(f.fileId, 'file') && "ring-2 ring-primary bg-primary/5"
-                              )}
-                              onClick={(e) => toggleItemSelection(f.fileId, 'file', childFolders.length + index, e?.shiftKey || false)}
-                            >
-                              <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center relative">
-                                {/* Selection checkbox */}
-                                <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    className={cn(
-                                      'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
-                                      isItemSelected(f.fileId, 'file')
-                                        ? 'bg-primary border-primary text-white'
-                                        : 'bg-white/80 border-gray-300 hover:border-primary'
-                                    )}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      toggleItemSelection(f.fileId, 'file', childFolders.length + index, e?.shiftKey || false)
-                                    }}
-                                  >
-                                    {isItemSelected(f.fileId, 'file') && <Check className="w-3 h-3" />}
-                                  </button>
-                                </div>
-                                <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
-                                  {getFileIcon(f)}
-                                </div>
-                              </div>
-                              <div className="p-4">
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="font-semibold truncate">{f.alias || f.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{f.name}</p>
-                                  </div>
-                                  <Badge variant="outline" className="shrink-0">{f.type}</Badge>
-                                </div>
-                                <div className="space-y-2 text-sm">
-                                  <div className="flex items-center gap-2 text-muted-foreground">
-                                    <File className="h-3 w-3" />
-                                    <span className="truncate">{formatBytes(f.size)}</span>
-                                  </div>
-                                  {f.confidentialityLevel && (
-                                    <Badge className={cn("w-fit", getConfidentialityColor(f.confidentialityLevel))}>
-                                      {getConfidentialityLabel(f.confidentialityLevel)}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => handlePreview(f)}>
-                                    <Eye className="h-3 w-3" /> Preview
-                                  </Button>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button size="sm" variant="ghost" className="px-2">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleDownload(f.fileId, f.name)}>
-                                        <Download className="h-4 w-4 mr-2" /> Download
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => openShareDialog(f)}>
-                                        <Share2 className="h-4 w-4 mr-2" /> Share
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleMoveFile(f.fileId, f.alias || f.name)}>
-                                        Move
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }}>
-                                        Versions
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">
-                                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-                {myAccessibleFiles.length > 0 && !currentFolderId && renderPagination(
-                  page,
-                  Math.ceil((ownedFilesData?.total || myAccessibleFiles.length) / 50),
-                  (nextPage) => setPage(Math.max(1, nextPage))
-                )}
-              </TabsContent>
-              <TabsContent value="received" className="m-0 h-full flex flex-col p-6">
-                {receivedFilesList.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center p-6">
-                      <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                      <p className="text-lg font-medium">Nothing shared with you yet</p>
-                    </div>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="space-y-3">
-                    {receivedFilesList.map((f: any) => (
-                      <Card key={f.permissionId} data-file-id={f.fileId} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium">{f.name}</p>
-                                {f.confidentialityLevel && (
-                                  <Badge className={cn("text-xs", getConfidentialityColor(f.confidentialityLevel))}>
-                                    {getConfidentialityLabel(f.confidentialityLevel)}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">Shared by {f.grantedBy?.name || 'Unknown'}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handlePreview(f)}>Preview</Button>
-                            <Button size="sm" onClick={() => handleDownload(f.fileId, f.name)}>Download</Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {receivedFilesList.map((f: any) => (
-                      <Card key={f.permissionId} data-file-id={f.fileId} className="group overflow-hidden">
-                        <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
-                          <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl">{getFileIcon(f)}</div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{f.name}</p>
-                            {f.confidentialityLevel && (
-                              <Badge className={cn("text-xs shrink-0", getConfidentialityColor(f.confidentialityLevel))}>
-                                {getConfidentialityLabel(f.confidentialityLevel)}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">By {f.grantedBy?.name}</p>
-                          <div className="flex gap-2 mt-4">
-                            <Button size="sm" variant="outline" className="flex-1" onClick={() => handlePreview(f)}>Preview</Button>
-                            <Button size="sm" className="flex-1" onClick={() => handleDownload(f.fileId, f.name)}>Download</Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* ==================== FILES I SHARED ==================== */}
-              <TabsContent value="sent" className="m-0 h-full flex flex-col p-6">
-                {sentFilesList.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center p-6">
-                      <Share2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                      <p className="text-lg font-medium">You haven't shared any files yet</p>
-                    </div>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="space-y-3">
-                    {sentFilesList.map((f: any) => (
-                      <Card key={f.permissionId} data-file-id={f.fileId} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium">{f.name}</p>
-                                {f.confidentialityLevel && (
-                                  <Badge className={cn("text-xs", getConfidentialityColor(f.confidentialityLevel))}>
-                                    {getConfidentialityLabel(f.confidentialityLevel)}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">Shared with {f.grantedTo?.name || f.grantedTo?.email || 'Unknown'}</p>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => setRevokeConfirm(f.permissionId)}>Revoke</Button>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {sentFilesList.map((f: any) => (
-                      <Card key={f.permissionId} data-file-id={f.fileId} className="group overflow-hidden">
-                        <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
-                          <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl">{getFileIcon(f)}</div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{f.name}</p>
-                            {f.confidentialityLevel && (
-                              <Badge className={cn("text-xs shrink-0", getConfidentialityColor(f.confidentialityLevel))}>
-                                {getConfidentialityLabel(f.confidentialityLevel)}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">To {f.grantedTo?.name}</p>
-                          <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => setRevokeConfirm(f.permissionId)}>
-                            Revoke Access
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* ==================== PENDING SCANS ==================== */}
-              <TabsContent value="scanner" className="m-0 h-full flex flex-col p-6">
-                {scannerLoading ? (
-                  <div className="space-y-4">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
-                        <Skeleton className="h-12 w-12 rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : scannerFiles.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center p-6">
-                      <Scan className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                      <p className="text-lg font-medium">No pending scans</p>
-                      <p className="text-sm">Files scanned with the agent will appear here for review</p>
-                    </div>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="space-y-3">
-                    {scannerFiles.map((f: any) => (
-                      <Card key={f._id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-muted rounded-xl">
-                              {f.isImage ? <ImageIcon className="h-8 w-8 text-amber-500" /> : <File className="h-8 w-8 text-amber-500" />}
-                            </div>
-                            <div>
-                              <p className="font-medium">{f.originalName || f.fileName}</p>
-                              <p className="text-sm text-muted-foreground">{formatBytes(f.size || 0)}</p>
-                            </div>
-                          </div>
-                          <Button onClick={() => openScannerModal(f)}>Review</Button>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {scannerFiles.map((f: any) => (
-                      <Card key={f._id} className="p-6 text-center">
-                        <div className="mx-auto mb-4">
-                          {f.isImage ? <ImageIcon className="h-12 w-12 mx-auto text-amber-500" /> : <File className="h-12 w-12 mx-auto text-amber-500" />}
-                        </div>
-                        <p className="font-medium line-clamp-2">{f.originalName || f.fileName}</p>
-                        <Button className="mt-6 w-full" onClick={() => openScannerModal(f)}>Review</Button>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* ==================== SCANNED ==================== */}
-              <TabsContent value="scanned" className="m-0 h-full flex flex-col">
-                {scannedLoading ? (
-                  <div className="p-6 space-y-4">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
-                        <Skeleton className="h-12 w-12 rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : scannedOnlyFiles.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center p-6">
-                      <FileCheck className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                      <p className="text-lg font-medium">No scanned files yet</p>
-                      <p className="text-sm">Files uploaded via scanner will appear here</p>
-                    </div>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="divide-y">
-                    {scannedOnlyFiles.map((f: any) => (
-                      <div key={f.fileId} data-file-id={f.fileId} className="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors group">
-                        <div className="p-2 bg-muted rounded-xl">{getFileIcon(f)}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">{f.alias || f.name}</span>
-                            <Badge variant="outline" className="text-xs">{f.type}</Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                            <span>{formatBytes(f.size)}</span>
-                            <span>{f.confidentialityLevel ? getConfidentialityLabel(f.confidentialityLevel) : '-'}</span>
-                            <span>{f.createdAt ? formatDistanceToNow(new Date(f.createdAt)) + ' ago' : ''}</span>
-                          </div>
-                        </div>
-                        <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handlePreview(f)}><Eye className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDownload(f.fileId, f.name)}><Download className="h-4 w-4" /></Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openShareDialog(f)}>Share</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }}>Version History</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {scannedOnlyFiles.map((f: any) => (
-                      <Card key={f.fileId} data-file-id={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
-                        <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
-                          <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
-                            {getFileIcon(f)}
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold truncate">{f.alias || f.name}</p>
-                              <p className="text-xs text-muted-foreground truncate">{f.name}</p>
-                            </div>
-                            <Badge variant="outline" className="shrink-0">{f.type}</Badge>
-                          </div>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <File className="h-3 w-3" />
-                              <span className="truncate">{formatBytes(f.size)}</span>
-                            </div>
-                            {f.confidentialityLevel && (
-                              <Badge className={cn("w-fit", getConfidentialityColor(f.confidentialityLevel))}>
-                                {getConfidentialityLabel(f.confidentialityLevel)}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => handlePreview(f)}>
-                              <Eye className="h-3 w-3" /> Preview
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button size="sm" variant="ghost" className="px-2">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleDownload(f.fileId, f.name)}>
-                                  <Download className="h-4 w-4 mr-2" /> Download
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openShareDialog(f)}>
-                                  <Share2 className="h-4 w-4 mr-2" /> Share
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }}>
-                                  Versions
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleDelete(f.fileId)} className="text-red-600">
-                                  <Trash2 className="h-4 w-4 mr-2" /> Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-                {scannedOnlyFiles.length > 0 && renderPagination(
-                  page,
-                  Math.ceil((scannedFilesData?.total || scannedOnlyFiles.length) / 50),
-                  (nextPage) => setPage(Math.max(1, nextPage))
-                )}
-              </TabsContent>
-
-              {/* ==================== ARCHIVE FILES ==================== */}
-              <TabsContent value="archive" className="m-0 h-full flex flex-col">
-                {/* Admin Filters */}
-                {user?.role === 'admin' && (
-                  <div className="p-4 border-b bg-gray-50/50">
-                    <div className="flex flex-wrap gap-3 items-end">
-                      <div className="flex-1 min-w-48">
-                        <label className="text-sm font-medium text-gray-600 mb-1.5 block">Search</label>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search files..."
-                            value={archiveSearch}
-                            onChange={(e) => setArchiveSearch(e.target.value)}
-                            className="pl-10"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="w-40">
-                        <label className="text-sm font-medium text-gray-600 mb-1.5 block">Department</label>
-                        <Input
-                          placeholder="Department name"
-                          value={archiveDepartment}
-                          onChange={(e) => setArchiveDepartment(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="w-40">
-                        <label className="text-sm font-medium text-gray-600 mb-1.5 block">Uploaded By</label>
-                        <Input
-                          placeholder="Uploader name"
-                          value={archiveUploadedBy}
-                          onChange={(e) => setArchiveUploadedBy(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="w-36">
-                        <label className="text-sm font-medium text-gray-600 mb-1.5 block">Level</label>
-                        <Select value={archiveConfidentiality || "all"} onValueChange={(value) => setArchiveConfidentiality(value === "all" ? "" : value)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="All levels" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All levels</SelectItem>
-                            {(allowedLevelsForFilter as string[]).map((lvl) => (
-                              <SelectItem key={lvl} value={lvl}>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: confidentialityColorMap[lvl] || '#6b7280' }} />
-                                  {confidentialityLabelMap[lvl] || lvl}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-
-                      </div>
-
-                      <div className="w-32">
-                        <label className="text-sm font-medium text-gray-600 mb-1.5 block">Sort</label>
-                        <Select value={archiveSortBy} onValueChange={(value: 'newest' | 'oldest') => setArchiveSortBy(value)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="newest">Newest</SelectItem>
-                            <SelectItem value="oldest">Oldest</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="restricted-only"
-                          checked={archiveRestrictedOnly}
-                          onChange={(e) => setArchiveRestrictedOnly(e.target.checked)}
-                          className="rounded border-gray-300"
-                        />
-                        <label htmlFor="restricted-only" className="text-sm font-medium text-gray-600">
-                          Restricted only
-                        </label>
-                      </div>
-
-                      {(archiveSearch || archiveDepartment || archiveUploadedBy || archiveConfidentiality || archiveRestrictedOnly) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setArchiveSearch('')
-                            setArchiveDepartment('')
-                            setArchiveUploadedBy('')
-                            setArchiveConfidentiality('')
-                            setArchiveRestrictedOnly(false)
-                          }}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {archiveLoading ? (
-                  <div className="p-6 space-y-4">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
-                        <Skeleton className="h-12 w-12 rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : archiveFiles.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center p-6">
-                      <Archive className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                      <p className="text-lg font-medium">No archive files available</p>
-                      <p className="text-sm">
-                        {user?.role === 'admin'
-                          ? 'No files match your current filters'
-                          : 'Archive files from other departments will appear here'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="divide-y">
-                    {archiveFiles.map((f: any) => (
-                      <div key={f.fileId} data-file-id={f.fileId} className="flex items-center gap-3 p-4 hover:bg-accent/50 transition-colors group">
-                        <div className="p-1.5 sm:p-2 bg-muted rounded-lg sm:rounded-xl flex-shrink-0">{getFileIcon(f)}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm sm:text-base truncate">{f.alias || f.name}</span>
-                            <Badge variant="outline" className="text-xs shrink-0">{f.type}</Badge>
-                            {f.confidentialityLevel && (
-                              <Badge className={cn(
-                                "text-xs flex items-center gap-1",
-                                f.restricted
-                                  ? "bg-red-100 text-red-700 border-red-300"
-                                  : getConfidentialityColor(f.confidentialityLevel)
-                              )}>
-                                {f.restricted && <Lock className="h-2.5 w-2.5" />}
-                                {getConfidentialityLabel(f.confidentialityLevel)}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground mt-1 flex-wrap">
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {f.uploadedBy?.name || f.owner?.name || 'Unknown'}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3" />
-                              {typeof f.department === 'object' ? f.department.name : f.department}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <File className="h-3 w-3" />
-                              {formatBytes(f.size)}
-                            </span>
-                            <span className="hidden sm:inline">
-                              {f.createdAt ? formatDistanceToNow(new Date(f.createdAt)) + ' ago' : ''}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="opacity-0 group-hover:opacity-100 flex gap-1 flex-shrink-0">
-                          {f.restricted ? (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Lock className="h-4 w-4" />
-                              <span className="text-xs">Restricted</span>
-                            </div>
-                          ) : (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-1"
-                                onClick={() => handlePreview(f)}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-1"
-                                onClick={() => handleDownload(f.fileId, f.name)}
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                              </Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-1">
-                                    <MoreHorizontal className="h-3.5 w-3.5" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handlePreview(f)} className="text-sm">
-                                    <Eye className="h-4 w-4 mr-2" /> Preview
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDownload(f.fileId, f.name)} className="text-sm">
-                                    <Download className="h-4 w-4 mr-2" /> Download
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => openShareDialog(f)} className="text-sm">
-                                    <Share2 className="h-4 w-4 mr-2" /> Share
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }} className="text-sm">
-                                    File Details
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {archiveFiles.map((f: any) => (
-                      <Card key={f.fileId} data-file-id={f.fileId} className="group overflow-hidden border-0 bg-card hover:shadow-xl transition-all duration-300">
-                        <div className="aspect-[4/3] bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center">
-                          <div className="p-3 sm:p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
-                            {getFileIcon(f)}
-                          </div>
-                        </div>
-                        <div className="p-3 sm:p-4">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-sm sm:text-base truncate">{f.alias || f.name}</p>
-                              <p className="text-xs text-muted-foreground truncate">{f.name}</p>
-                            </div>
-                            <Badge variant="outline" className="shrink-0 text-xs">{f.type}</Badge>
-                          </div>
-                          <div className="space-y-1 text-xs sm:text-sm mb-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <User className="h-3 w-3" />
-                              <span className="truncate">{f.uploadedBy?.name || f.owner?.name || 'Unknown'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Building2 className="h-3 w-3" />
-                              <span className="truncate">{typeof f.department === 'object' ? f.department.name : f.department}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <File className="h-3 w-3" />
-                              <span>{formatBytes(f.size)}</span>
-                            </div>
-                          </div>
-                          {f.confidentialityLevel && (
-                            <Badge className={cn(
-                              "w-fit text-xs mb-3 flex items-center gap-1",
-                              f.restricted
-                                ? "bg-red-100 text-red-700 border-red-300"
-                                : getConfidentialityColor(f.confidentialityLevel)
-                            )}>
-                              {f.restricted && <Lock className="h-2.5 w-2.5" />}
-                              {getConfidentialityLabel(f.confidentialityLevel)}
-                            </Badge>
-                          )}
-                          {f.restricted ? (
-                            <div className="mt-3 sm:mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                              <div className="flex items-center gap-2 text-red-700">
-                                <Lock className="h-4 w-4" />
-                                <span className="text-xs sm:text-sm font-medium">Restricted Access</span>
-                              </div>
-                              <p className="text-xs text-red-600 mt-1">
-                                Highly confidential file. HODs can only view metadata.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="flex gap-1 mt-3 sm:mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button size="sm" variant="outline" className="flex-1 gap-1 text-xs sm:text-sm" onClick={() => handlePreview(f)}>
-                                <Eye className="h-3 w-3" /> <span className="hidden sm:inline">Preview</span>
-                              </Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button size="sm" variant="ghost" className="px-1 sm:px-2">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleDownload(f.fileId, f.name)} className="text-xs sm:text-sm">
-                                    <Download className="h-4 w-4 mr-2" /> Download
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => openShareDialog(f)} className="text-xs sm:text-sm">
-                                    <Share2 className="h-4 w-4 mr-2" /> Share
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setSelectedFile(f); setVersionHistoryOpen(true) }} className="text-xs sm:text-sm">
-                                    File Details
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          )}
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-
-
-
-
-            </div>
-          </Tabs>
-        </div>
-
-        {/* Preview Modal */}
-        <Dialog open={!!previewFile} onOpenChange={(o) => !o && closePreview()}>
-          <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full sm:max-w-5xl p-0 gap-0">
-            <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="text-lg">{previewFile?.alias || previewFile?.name}</DialogTitle>
-                  {previewFile?.confidentialityLevel && (
-                    <Badge className={cn("text-xs", getConfidentialityColor(previewFile.confidentialityLevel))}>
-                      {getConfidentialityLabel(previewFile.confidentialityLevel)}
-                    </Badge>
-                  )}
-                </div>
-                <Button variant="ghost" size="icon" onClick={closePreview}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </DialogHeader>
-
-            <div className="flex-1 flex overflow-hidden">
-              <div className="flex-1 relative bg-background">
-                {previewLoading ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <p className="text-muted-foreground">Loading preview...</p>
-                  </div>
-                ) : previewError ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                    <AlertCircle className="h-16 w-16 text-red-500" />
-                    <p className="text-muted-foreground">{previewError}</p>
-                    <Button variant="outline" onClick={() => previewFile && handleDownload(previewFile.fileId, previewFile.name)}>
-                      <Download className="h-4 w-4 mr-2" /> Download instead
-                    </Button>
-                  </div>
-                ) : blobUrl ? (
-                  previewFile?.restricted ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4">
-                      <div className="text-center">
-                        <Lock className="h-16 w-16 text-red-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Restricted Access</h3>
-                        <p className="text-gray-600 text-sm">
-                          Highly confidential file. HODs can only view metadata.
-                        </p>
-                      </div>
-
-                      {(search || typeFilter !== 'all' || confidentialityFilter !== 'all') && (
-                        <Button variant="outline" size="sm" onClick={handleClearFilters}>
-                          Clear filters
-                        </Button>
-                      )}
-                    </div>
-                  ) : previewType === 'image' ? (
-                    <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-6">
-                      <img src={blobUrl} alt={previewFile?.name} className="max-w-full max-h-full object-contain rounded-lg" />
-                    </div>
-                  ) : (
-                    <iframe src={blobUrl} className="w-full h-full border-0" title="Preview" />
-                  )
-                ) : null}
-              </div>
-            </div>
-
-            <div className="border-t p-4 flex justify-end">
-              <Button
-                variant="outline"
-                disabled={previewFile?.restricted}
-                className={cn(previewFile?.restricted && "cursor-not-allowed opacity-50")}
-                onClick={() => previewFile && !previewFile.restricted && handleDownload(previewFile.fileId, previewFile.name)}
               >
-                <Download className="mr-2 h-4 w-4" /> Download
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Share Dialog */}
-        <Dialog open={shareDialogOpen} onOpenChange={(open) => {
-          setShareDialogOpen(open)
-          if (!open) { setSelectedUsers([]); setSelectedFile(null); setShareSearch('') }
-        }}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Share2 className="h-5 w-5 text-blue-600" />
-                Share File
-              </DialogTitle>
-              <DialogDescription>
-                {selectedFile?.name} — Select up to {MAX_SHARE_USERS} users to share with
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* Selected users chips */}
-              {selectedUsers.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-                  {selectedUsersList.map((u: any) => (
-                    <span key={u._id} className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full">
-                      {u.name}
-                      <button
-                        onClick={() => toggleUserSelection(u._id)}
-                        className="hover:text-blue-600 cursor-pointer"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <span className="text-xs text-blue-600 self-center ml-1">
-                    {selectedUsers.length}/{MAX_SHARE_USERS} selected
-                  </span>
-                </div>
-              )}
-
-              {/* Search input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users by name or email..."
-                  value={shareSearch}
-                  onChange={(e) => setShareSearch(e.target.value)}
-                  className="pl-9 !outline-none focus:!outline-none focus:!ring-0 focus:!ring-offset-0 focus:!border-gray-300 !shadow-none focus:!shadow-none"
-                />
-              </div>
-
-              {/* User list */}
-              <div className="border rounded-lg max-h-60 overflow-y-auto">
-                {availableUsers.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">{shareSearch ? 'No users match your search' : 'No users available'}</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {availableUsers.map((u: any) => {
-                      const isSelected = selectedUsers.includes(u._id)
-                      const isMaxed = !isSelected && selectedUsers.length >= MAX_SHARE_USERS
-                      return (
-                        <label
-                          key={u._id}
-                          className={cn(
-                            "flex items-center gap-3 p-3 cursor-pointer transition-colors",
-                            isSelected ? "bg-blue-50/70" : "hover:bg-accent/50",
-                            isMaxed && "opacity-40 cursor-not-allowed"
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => !isMaxed && toggleUserSelection(u._id)}
-                            disabled={isMaxed}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                            {u.name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 truncate">{u.name}</p>
-                            <p className="text-xs text-gray-500 truncate">{u.email}</p>
-                          </div>
-                          {u.department && (
-                            <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:inline-flex">
-                              {typeof u.department === 'object' ? u.department.name || u.department._id : u.department}
-                            </Badge>
-                          )}
-                        </label>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Access level */}
-              <div>
-                <label className="text-sm font-medium text-gray-700">Access Level</label>
-                <Select value={accessLevel} onValueChange={(v: any) => setAccessLevel(v)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="view">
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-4 w-4" />
-                        <span>View Only</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="download">
-                      <div className="flex items-center gap-2">
-                        <Download className="h-4 w-4" />
-                        <span>Can Download</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="edit">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        <span>Can Edit</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                {sortedFolders.map((folder, index) => (
+                  <FolderCard
+                    key={folder._id}
+                    folder={folder}
+                    viewMode={viewMode as 'grid' | 'list'}
+                    size={gridIconSize}
+                    isSelected={selection.isSelected(folder._id, 'folder')}
+                    isFavorite={favoriteFolders.has(folder._id)}
+                    canPaste={canPaste}
+                    onSelect={(e) =>
+                      selection.selectItem(folder._id, 'folder', index, { shiftKey: e.shiftKey, ctrlKey: e.ctrlKey || e.metaKey })
+                    }
+                    onOpen={() => handleFolderOpen(folder)}
+                    onOpenNewTab={() => openFolderInNewTab(folder)}
+                    onRename={() => handleRenameFolder(folder)}
+                    onDelete={() => handleDeleteFolder(folder)}
+                    onMove={() => handleMoveFolder(folder)}
+                    onCopy={() => selection.setClipboardCopy('folder')}
+                    onCut={() => selection.setClipboardCut('folder')}
+                    onPaste={handlePaste}
+                    onToggleFavorite={() => toggleFavoriteFolder(folder._id)}
+                    onProperties={() => openProperties(folder, 'folder')}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDropOnFolder(folder)}
+                  />
+                ))}
+                {sortedFiles.map((file, index) => (
+                  <FileCard
+                    key={file.fileId}
+                    file={file}
+                    viewMode={viewMode as 'grid' | 'list'}
+                    size={gridIconSize}
+                    isSelected={selection.isSelected(file.fileId, 'file')}
+                    isFavorite={favoriteFiles.has(file.fileId)}
+                    canPaste={canPaste}
+                    onSelect={(e) =>
+                      selection.selectItem(file.fileId, 'file', sortedFolders.length + index, {
+                        shiftKey: e.shiftKey,
+                        ctrlKey: e.ctrlKey || e.metaKey,
+                      })
+                    }
+                    onOpen={() => handleFileOpen(file)}
+                    onPreview={() => openPreview(file)}
+                    onDownload={() => handleDownloadFile(file)}
+                    onShare={() => openShare(file)}
+                    onMove={() => handleMoveFile(file)}
+                    onCopy={() => selection.setClipboardCopy('file')}
+                    onCut={() => selection.setClipboardCut('file')}
+                    onPaste={handlePaste}
+                    onDelete={() => handleDeleteFile(file)}
+                    onRename={() => handleRenameFile(file)}
+                    onVersions={() => openVersions(file)}
+                    onToggleFavorite={() => toggleFavoriteFile(file.fileId)}
+                    onProperties={() => openProperties(file, 'file')}
+                    draggable
+                    onDragStart={handleDragStartFile(file)}
+                  />
+                ))}
               </div>
             </div>
-            <div className="flex gap-2 justify-end pt-2">
-              <Button variant="outline" onClick={() => { setShareDialogOpen(false); setSelectedUsers([]); setSelectedFile(null); setShareSearch('') }}>
-                Cancel
-              </Button>
-              <Button onClick={handleShare} disabled={selectedUsers.length === 0} className="gap-2">
-                <Share2 className="h-4 w-4" />
-                Share with {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          )}
+        </div>
+      </EmptyAreaContextMenu>
 
-        {/* Revoke Dialog */}
-        <AlertDialog open={!!revokeConfirm} onOpenChange={() => setRevokeConfirm(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Revoke Access?</AlertDialogTitle>
-              <AlertDialogDescription>
-                The user will no longer have access to this file. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => revokeConfirm && handleRevoke(revokeConfirm)}>Revoke</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      <StatusBar
+        folderCount={stats.folderCount}
+        fileCount={stats.fileCount}
+        totalSize={stats.totalSize}
+        selectedCount={selection.selectionCount}
+        viewMode={viewMode}
+      />
 
+      <PropertiesDialog
+        open={propertiesOpen}
+        onOpenChange={setPropertiesOpen}
+        item={propertiesItem}
+        onPreview={() => propertiesItem?._type === 'file' && openPreview(propertiesItem as FileItem)}
+        onDownload={() => propertiesItem?._type === 'file' && handleDownloadFile(propertiesItem as FileItem)}
+        onShare={() => propertiesItem?._type === 'file' && openShare(propertiesItem as FileItem)}
+        onCopy={() => propertiesItem && selection.setClipboardCopy(propertiesItem._type)}
+        onMove={() => {
+          if (propertiesItem?._type === 'file') handleMoveFile(propertiesItem as FileItem)
+          else if (propertiesItem?._type === 'folder') handleMoveFolder(propertiesItem as FolderItem)
+        }}
+        onDelete={() => {
+          if (!propertiesItem) return
+          if (propertiesItem._type === 'file') handleDeleteFile(propertiesItem as FileItem)
+          else handleDeleteFolder(propertiesItem as FolderItem)
+          setPropertiesOpen(false)
+        }}
+      />
 
+      <CreateFolderDialog
+        open={createFolderState.open}
+        onOpenChange={(open) => setCreateFolderState((s) => ({ ...s, open }))}
+        parentFolderId={createFolderState.parentFolderId}
+      />
 
-        {/* Version History Modal */}
-        <Dialog open={versionHistoryOpen} onOpenChange={setVersionHistoryOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Version History</DialogTitle>
-              <DialogDescription>{selectedFile?.name}</DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-3 max-h-96 overflow-y-auto">
-              {versionHistoryData.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No version history available</p>
-              ) : (
-                versionHistoryData.map((version: any, idx: number) => (
-                  <Card key={idx} className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">Version {version.versionNumber}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDistanceToNow(new Date(version.createdAt))} ago • {formatBytes(version.size)}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => rollbackVersion.mutate({
-                          fileId: selectedFile!.fileId,
-                          versionNumber: version.versionNumber
-                        })}
-                      >
-                        Restore
-                      </Button>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Scanner Modal */}
-        {pendingScannerFile && (
-          <ScannerConfirmModal
-            open={scannerModalOpen}
-            onOpenChange={(o) => { setScannerModalOpen(o); if (!o) setPendingScannerFile(null) }}
-            pendingFile={pendingScannerFile}
-            onConfirm={handleScannerConfirm}
-            onCancel={handleScannerCancel}
-            isConfirming={scannerConfirm.isPending}
-            isCancelling={scannerCancel.isPending}
-          />
-        )}
-
-        {/* Create Folder Dialog */}
-        <CreateFolderDialog
-          open={createFolderDialogOpen}
-          onOpenChange={setCreateFolderDialogOpen}
-          parentFolderId={createFolderParentId}
-        />
-
-        {/* Rename Folder Dialog */}
+      {renameFolderId && (
         <RenameFolderDialog
           open={!!renameFolderId}
-          onOpenChange={(o) => !o && setRenameFolderId(null)}
-          folderId={renameFolderId || ''}
+          onOpenChange={(open) => !open && setRenameFolderId(null)}
+          folderId={renameFolderId}
         />
+      )}
 
-        {/* Move Dialog */}
-        <MoveDialog
-          open={moveDialogOpen}
-          onOpenChange={setMoveDialogOpen}
-          type={moveDialogType}
-          itemIds={moveDialogItemIds}
-          itemName={moveDialogItemName}
+      {renameFileTarget && (
+        <RenameFileDialog
+          open={!!renameFileTarget}
+          onOpenChange={(open) => !open && setRenameFileTarget(null)}
+          fileId={renameFileTarget.fileId}
+          currentName={renameFileTarget.name}
         />
-      </div>
-    </ResponsiveContainer>
+      )}
+
+      {moveTarget && (
+        <MoveDialog
+          open={!!moveTarget}
+          onOpenChange={(open) => !open && setMoveTarget(null)}
+          type={moveTarget.type}
+          itemIds={moveTarget.itemIds}
+          itemName={moveTarget.itemName}
+        />
+      )}
+
+      <DeleteConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        onConfirm={confirmDelete}
+        isPending={isDeleteMutating}
+        permanent={pendingDelete?.kind === 'recycle-permanent'}
+        itemCount={pendingDelete?.kind === 'bulk' ? pendingDelete.fileIds.length + pendingDelete.folderIds.length : 1}
+        itemName={
+          pendingDelete?.kind === 'file'
+            ? pendingDelete.file.alias || pendingDelete.file.name
+            : pendingDelete?.kind === 'folder'
+              ? pendingDelete.folder.name
+              : pendingDelete?.kind === 'recycle-permanent'
+                ? pendingDelete.name
+                : undefined
+        }
+      />
+
+      <PreviewDialog
+        open={!!previewFile}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+        file={previewFile}
+        onDownload={() => previewFile && handleDownloadFile(previewFile)}
+        onShare={() => {
+          if (previewFile) {
+            openShare(previewFile)
+            setPreviewFile(null)
+          }
+        }}
+      />
+
+      <ShareDialog open={!!shareFile} onOpenChange={(open) => !open && setShareFile(null)} file={shareFile} />
+
+      <VersionHistoryDialog
+        open={!!versionsFile}
+        onOpenChange={(open) => !open && setVersionsFile(null)}
+        file={versionsFile}
+      />
+
+      <ScannerModal
+        open={!!reviewScan}
+        onOpenChange={(open) => !open && setReviewScan(null)}
+        scan={reviewScan}
+        onConfirm={handleConfirmScan}
+        onCancel={(id) => {
+          cancelScanMutation.mutate(id, { onSuccess: () => setReviewScan(null) })
+        }}
+        isConfirming={confirmScanMutation.isPending}
+        isCancelling={cancelScanMutation.isPending}
+      />
+    </div>
+  )
+}
+
+export default function FilesPage() {
+  return (
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden p-2">
+      <FileExplorer />
+    </div>
   )
 }

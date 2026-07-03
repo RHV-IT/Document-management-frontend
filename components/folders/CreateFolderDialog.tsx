@@ -49,15 +49,17 @@ export function CreateFolderDialog({
   const [confidentialityLevel, setConfidentialityLevel] = useState('internal')
   const [error, setError] = useState('')
 
-  const confidentialityLevels = configData?.confidentialityLevels || [
-    { value: 'public', label: 'Public' },
-    { value: 'internal', label: 'Internal' },
-    { value: 'confidential', label: 'Confidential' },
-    { value: 'highly_confidential', label: 'Highly Confidential' },
-  ]
+  const confidentialityLevels = configData && configData.length > 0
+    ? configData
+    : [
+      { value: 'public', label: 'Public' },
+      { value: 'internal', label: 'Internal' },
+      { value: 'confidential', label: 'Confidential' },
+      { value: 'highly_confidential', label: 'Highly Confidential' },
+    ]
 
-  const filteredLevels = confidentialityLevels.filter((level) =>
-    allowedLevels.includes(level.value)
+  const filteredLevels = confidentialityLevels.filter((level: { value: string; label: string }) =>
+    allowedLevels.includes(level.value as any)
   )
 
   useEffect(() => {

@@ -31,6 +31,7 @@ export interface FileItem {
   updatedAt?: string
   restricted?: boolean
   restrictionReason?: string
+  sharedCount?: number
 }
 
 export interface FilesResponse {

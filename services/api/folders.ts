@@ -19,6 +19,7 @@ export interface FolderItem {
   path: string
   createdAt: string
   updatedAt?: string
+  sharedCount?: number
 }
 
 export interface FolderResponse {

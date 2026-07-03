@@ -19,6 +19,7 @@ export interface FilesQueryParams {
   sortOrder?: 'asc' | 'desc'
   includeDeleted?: boolean
   isScanned?: boolean
+  folderId?: string
 }
 
 export interface ArchiveFilesQueryParams {
@@ -177,6 +178,54 @@ export function useRestoreFileMutation() {
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Failed to restore file'
       addNotification('error', 'Restore Failed', message)
+    },
+  })
+}
+
+export function usePermanentDeleteFileMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (fileId: string) => filesAPI.permanentDelete(fileId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.deleted() })
+      addNotification('success', 'File Permanently Deleted', 'File has been permanently removed.')
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to permanently delete file'
+      addNotification('error', 'Delete Failed', message)
+    },
+  })
+}
+
+export function useRenameFileMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ fileId, name }: { fileId: string; name: string }) => {
+      const formData = new FormData()
+      formData.append('alias', name)
+      return filesAPI.updateFile(fileId, formData)
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.detail(variables.fileId) })
+      addNotification('success', 'File Renamed', 'File has been renamed successfully.')
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to rename file'
+      addNotification('error', 'Rename Failed', message)
+    },
+  })
+}
+
+export function usePreviewFileMutation() {
+  return useMutation({
+    mutationFn: (fileId: string) => filesAPI.previewFile(fileId),
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to load preview'
+      addNotification('error', 'Preview Failed', message)
     },
   })
 }
