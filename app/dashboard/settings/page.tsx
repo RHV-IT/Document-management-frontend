@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DeleteConfirmDialog } from '@/components/files/DeleteConfirmDialog'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow, format } from 'date-fns'
 
@@ -62,7 +63,8 @@ export default function SettingsPage() {
   const { mutate: updateProfile, isPending: isUpdatingProfile } = useUpdateProfileMutation()
   const { mutate: changePassword, isPending: isChangingPassword } = useChangePasswordMutation()
 
-  const [includeInactive, setIncludeInactive] = useState(false)
+  const [includeInactive, setIncludeInactive] = useState(true)
+  const [deptToDelete, setDeptToDelete] = useState<Department | null>(null)
   const [editingDept, setEditingDept] = useState<Department | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editFormData, setEditFormData] = useState({ name: '', code: '', description: '', isActive: true })
@@ -778,7 +780,7 @@ export default function SettingsPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => deleteDepartment.mutate(dept._id)}
+                                onClick={() => setDeptToDelete(dept)}
                                 title="Delete department"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -977,6 +979,19 @@ export default function SettingsPage() {
                     )}
                   </DialogContent>
                 </Dialog>
+
+                <DeleteConfirmDialog
+                  open={!!deptToDelete}
+                  onOpenChange={(open) => !open && setDeptToDelete(null)}
+                  itemName={deptToDelete?.name}
+                  isPending={deleteDepartment.isPending}
+                  onConfirm={() => {
+                    if (!deptToDelete) return
+                    deleteDepartment.mutate(deptToDelete._id, {
+                      onSuccess: () => setDeptToDelete(null),
+                    })
+                  }}
+                />
               </TabsContent>
             )}
 
