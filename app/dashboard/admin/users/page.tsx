@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -15,14 +15,13 @@ import {
   useUsersQuery,
   useSuspendUserMutation,
   useActivateUserMutation,
-  useUpdateUserMutation,
   useResetPasswordMutation,
   useRestoreUserMutation,
   useDeleteUserMutation,
   useRequestSuspendMutation,
-  useRequestEditMutation,
   useRequestPasswordResetMutation,
 } from '@/hooks/useUsers'
+import { UserFormDialog } from '@/components/admin/UserFormDialog'
 import { useNotificationsQuery, useMarkAsReadMutation } from '@/hooks/useNotifications'
 import { useAuditLogsQuery } from '@/hooks/useAuditLog'
 import {
@@ -79,7 +78,7 @@ interface UserType {
   confidentialityLevel?: string
   confidentialityLevels?: string[]
   profiles?: {
-    _id: string
+    _id?: string
     department: string
     isPrimary: boolean
     confidentialityLevels?: string[]
@@ -101,98 +100,6 @@ const STATUS_COLORS = {
   deleted: 'bg-red-100 text-red-800',
 }
 
-function MultiDepartmentSelect({ value, onValueChange, departments, placeholder = "Select departments" }: {
-  value: string[]
-  onValueChange: (value: string[]) => void
-  departments: DepartmentOption[]
-  placeholder?: string
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  const toggleDepartment = (deptCode: string) => {
-    if (value.includes(deptCode)) {
-      onValueChange(value.filter(d => d !== deptCode))
-    } else {
-      onValueChange([...value, deptCode])
-    }
-  }
-
-  const removeDepartment = (deptCode: string) => {
-    onValueChange(value.filter(d => d !== deptCode))
-  }
-
-  const selectedDepts = departments.filter(d => value.includes(d.code))
-
-  return (
-    <div className="relative">
-      <div
-        className="w-full min-h-11 px-3 py-2 border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all bg-white cursor-pointer flex flex-wrap items-center gap-1.5"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {selectedDepts.length === 0 ? (
-          <span className="text-gray-400 text-sm">{placeholder}</span>
-        ) : (
-          selectedDepts.map(dept => (
-            <span
-              key={dept._id}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-100"
-            >
-              <span className="font-semibold">{dept.code}</span>
-              <span className="text-blue-300">·</span>
-              <span className="truncate max-w-[120px]">{dept.name}</span>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); removeDepartment(dept.code) }}
-                className="ml-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
-            </span>
-          ))
-        )}
-        <div className="ml-auto shrink-0">
-          <svg className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-          <div className="p-2">
-            {departments.length === 0 ? (
-              <div className="px-4 py-6 text-gray-400 text-sm text-center">No departments available</div>
-            ) : (
-              departments.map(dept => {
-                const isSelected = value.includes(dept.code)
-                return (
-                  <div
-                    key={dept._id}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                    onClick={() => toggleDepartment(dept.code)}
-                  >
-                    <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-150 ${isSelected ? 'bg-blue-600 border-blue-600 scale-110' : 'border-gray-300'}`}>
-                      {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{dept.code}</span>
-                        <span className="font-medium text-gray-900 text-sm truncate">{dept.name}</span>
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <span className="text-blue-600 text-[10px] font-medium shrink-0">Selected</span>
-                    )}
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function AdminUsersPage() {
   const searchParams = useSearchParams()
@@ -203,15 +110,11 @@ export default function AdminUsersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null)
   const [editingUser, setEditingUser] = useState<UserType | null>(null)
-  const [editingConfidentialityLevel, setEditingConfidentialityLevel] = useState('')
-  const [editingDepartments, setEditingDepartments] = useState<string[]>([])
-  const [editingConfidentialityLevels, setEditingConfidentialityLevels] = useState<Record<string, string[]>>({})
-  const [primaryDepartment, setPrimaryDepartment] = useState<string | null>(null)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [activityUser, setActivityUser] = useState<UserType | null>(null)
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false)
-  const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'confidential', 'highly_confidential']
 
   // Password reset
   const [resetPwUser, setResetPwUser] = useState<UserType | null>(null)
@@ -294,14 +197,12 @@ export default function AdminUsersPage() {
   // Mutations
   const { mutate: suspend } = useSuspendUserMutation()
   const { mutate: activate } = useActivateUserMutation()
-  const { mutate: updateUser } = useUpdateUserMutation()
   const { mutate: resetPassword } = useResetPasswordMutation()
   const { mutate: restore } = useRestoreUserMutation()
   const { mutate: deleteUser } = useDeleteUserMutation()
 
   // HOD request mutations
   const { mutate: requestSuspend } = useRequestSuspendMutation()
-  const { mutate: requestEdit } = useRequestEditMutation()
   const { mutate: requestPasswordReset } = useRequestPasswordResetMutation()
 
   // Notifications (for admins to see HOD requests)
@@ -314,26 +215,6 @@ export default function AdminUsersPage() {
 
   const handleEditUser = (user: UserType) => {
     setEditingUser(user)
-    const highest = (user.confidentialityLevels && user.confidentialityLevels.length > 0)
-      ? user.confidentialityLevels[user.confidentialityLevels.length - 1]
-      : (user.confidentialityLevel || '')
-    setEditingConfidentialityLevel(highest)
-    const profileDeptNames = user.profiles?.map(p => p.department) || []
-    const depts = profileDeptNames.length > 0
-      ? profileDeptNames
-      : (user.departments && user.departments.length > 0
-        ? user.departments
-        : (user.department ? [user.department] : []))
-    setEditingDepartments(depts)
-    // Initialize editingConfidentialityLevels from user's profiles
-    const initConfidentialityLevels: Record<string, string[]> = {};
-    (user.profiles || []).forEach(profile => {
-      initConfidentialityLevels[profile.department] = profile.confidentialityLevels || []
-    })
-    setEditingConfidentialityLevels(initConfidentialityLevels)
-    // Set primaryDepartment from user's primary profile or first department
-    const primaryProfile = user.profiles?.find(p => p.isPrimary)
-    setPrimaryDepartment(primaryProfile ? primaryProfile.department : null)
     setIsEditDialogOpen(true)
   }
 
@@ -407,12 +288,10 @@ export default function AdminUsersPage() {
                   <List className="h-4 w-4" />
                 </Button>
               </div>
-              <Link href="/dashboard/admin/create-user">
-                <Button size="lg" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add User
-                </Button>
-              </Link>
+              <Button size="lg" className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add User
+              </Button>
             </div>
           </div>
 
@@ -433,7 +312,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {/* HOD Action Requests — only visible to admins */}
+        {/* HOD Action Requests â€” only visible to admins */}
         {!isManager && notificationsData?.notifications && notificationsData.notifications.length > 0 && (
           <div className="px-6 pt-4">
             <Card className="border-amber-200 bg-amber-50/50">
@@ -453,7 +332,7 @@ export default function AdminUsersPage() {
                         <div className="min-w-0">
                           <p className="text-sm text-gray-800 truncate">{notif.message}</p>
                           <p className="text-xs text-gray-400">
-                            {notif.details?.requestedBy?.name && `From: ${notif.details.requestedBy.name} • `}
+                            {notif.details?.requestedBy?.name && `From: ${notif.details.requestedBy.name} â€¢ `}
                             {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                           </p>
                         </div>
@@ -585,7 +464,7 @@ export default function AdminUsersPage() {
                             {(user as UserType).profiles?.[0] ? (
                               (user as UserType).profiles!.map((profile, idx) => (
                                 <span key={profile._id ?? `profile-${idx}`} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${profile.isPrimary ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                                  {profile.department}{profile.isPrimary && ' • Primary'}
+                                  {profile.department}{profile.isPrimary && ' â€¢ Primary'}
                                 </span>
                               ))
                             ) : (
@@ -1157,334 +1036,18 @@ export default function AdminUsersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit User Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-          setIsEditDialogOpen(open)
-          if (!open) {
-            setEditingUser(null)
-            setEditingConfidentialityLevel('')
-          }
-        }}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader className="pb-6">
-              <DialogTitle className="flex items-center gap-3 text-2xl">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                  <User className="h-5 w-5 text-white" />
-                </div>
-                Edit User
-              </DialogTitle>
-              <DialogDescription className="text-base">
-                Update user information and permissions
-              </DialogDescription>
-            </DialogHeader>
+        <UserFormDialog
+          mode="edit"
+          open={isEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditDialogOpen(open)
+            if (!open) setEditingUser(null)
+          }}
+          user={editingUser}
+        />
 
-            {editingUser && (
-              <form onSubmit={(e) => {
-                e.preventDefault()
-                const formData = new FormData(e.currentTarget)
-                const name = formData.get('name') as string
-                const email = formData.get('email') as string
-                const role = (formData.get('role') as string) || ''   // only for admin
+        <UserFormDialog mode="create" open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
 
-                // Build profiles array
-                const profiles = editingDepartments.map(dept => ({
-                  department: dept,
-                  isPrimary: dept === primaryDepartment,
-                  confidentialityLevels: editingConfidentialityLevels[dept] || []
-                }))
-
-                // Determine the highest confidentiality level from the primary profile for backward compatibility
-                const primaryProfileLevels = primaryDepartment
-                  ? (editingConfidentialityLevels[primaryDepartment] || [])
-                  : []
-                const order: Record<string, number> = { public: 0, internal: 1, confidential: 2, highly_confidential: 3 }
-                // Ensure we have a clean list of levels, sort by defined order and pick the highest
-                const sortedLevels = [...primaryProfileLevels]
-                  .filter(Boolean)
-                  .sort((a, b) => (order[a as string] || 99) - (order[b as string] || 99))
-                const highestLevel = (sortedLevels.length > 0 ? sortedLevels[sortedLevels.length - 1] : '') as string
-
-                if (isManager) {
-                  const deptSameAsHod = editingDepartments.length === 1 && editingDepartments[0] === currentUserDept
-                  requestEdit({
-                    userId: editingUser._id || editingUser.id!,
-                    data: {
-                      name,
-                      email,
-                      ...(deptSameAsHod && primaryDepartment ? { department: primaryDepartment } : {}),
-                      departments: editingDepartments,
-                      // Note: For HOD requests, we do not send confidentiality levels or profiles because the HOD request endpoint may not support them.
-                      // We are only allowed to change department (if same as HOD) and name/email.
-                    }
-                  })
-                } else {
-                  // Admin: direct full update
-                  updateUser({
-                    userId: editingUser._id || editingUser.id!,
-                    data: {
-                      name,
-                      email,
-                      department: primaryDepartment || undefined,   // for backward compatibility
-                      departments: editingDepartments, // for backward compatibility
-                      role,
-                      confidentialityLevel: highestLevel || undefined,   // for backward compatibility (single string)
-                      confidentialityLevels: highestLevel ? [highestLevel] : [], // for backward compatibility (array with one element: the highest level)
-                      profiles   // the new field
-                    } as any
-                  })
-                }
-                setIsEditDialogOpen(false)
-                setEditingUser(null)
-                setEditingConfidentialityLevel('')   // keep for backward compatibility? we are not using it anymore but reset to avoid confusion
-                setEditingDepartments([])
-                setEditingConfidentialityLevels({})   // reset
-                setPrimaryDepartment(null)             // reset
-              }}>
-                <div className="space-y-6">
-                  {/* User Avatar and Name */}
-                  <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
-                      {editingUser.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{editingUser.name}</p>
-                      <p className="text-sm text-gray-600">{editingUser.email}</p>
-                    </div>
-                  </div>
-
-                  {isManager && (
-                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span>As a Manager, name and email edits will be sent as a request to the administrator for approval. Department can only be changed if it matches yours.</span>
-                    </div>
-                  )}
-
-                  {/* Form Fields */}
-                  <div className="grid grid-cols-1 gap-5">
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        Full Name
-                      </label>
-                      <Input
-                        name="name"
-                        defaultValue={editingUser.name}
-                        required
-                        className="h-11"
-                        placeholder="Enter full name"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        Email Address
-                      </label>
-                      <Input
-                        name="email"
-                        type="email"
-                        defaultValue={editingUser.email}
-                        required
-                        className="h-11"
-                        placeholder="Enter email address"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Building className="h-4 w-4" />
-                        Departments
-                      </label>
-                      {/* Department checkboxes */}
-                      <div className="mt-2 space-y-1">
-                        <p className="text-sm text-gray-500">Select departments</p>
-                        {departments.map(dept => (
-                          <div key={dept._id} className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={editingDepartments.includes(dept.name)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setEditingDepartments([...editingDepartments, dept.name]);
-                                  // Initialize confidentiality levels for this department if not present
-                                  if (!editingConfidentialityLevels[dept.name]) {
-                                    setEditingConfidentialityLevels(prev => ({
-                                      ...prev,
-                                      [dept.name]: []
-                                    }));
-                                  }
-                                } else {
-                                  setEditingDepartments(editingDepartments.filter(d => d !== dept.name));
-                                  setEditingConfidentialityLevels(prev => {
-                                    const newObj = { ...prev };
-                                    delete newObj[dept.name];
-                                    return newObj;
-                                  });
-                                }
-                              }}
-                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <div className="flex-1">
-                              <span className="font-medium">{dept.name}</span>
-                              <span className="text-xs text-gray-500">{dept.code}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Confidentiality levels per department (only show if departments selected) */}
-                      {editingDepartments.length > 0 && (
-                        <div className="mt-4">
-                          <label className="text-sm font-medium text-gray-700 flex items-center">
-                            Confidentiality Levels per Department
-                          </label>
-                          <div className="mt-2 space-y-3">
-                            {editingDepartments.map(dept => (
-                              <div key={dept} className="border rounded-lg p-3">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="font-medium">{dept}</span>
-                                  {editingDepartments.length > 1 && (
-                                    <span className="text-sm text-gray-500">
-                                      (set as {(primaryDepartment === dept ? 'primary' : 'not primary')})
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="space-y-1">
-                                  {CONFIDENTIALITY_LEVELS.map(level => (
-                                    <div key={level} className="flex items-center">
-                                      <input
-                                        type="checkbox"
-                                        checked={editingConfidentialityLevels[dept]?.includes(level) || false}
-                                        onChange={(e) => {
-                                          setEditingConfidentialityLevels(prev => {
-                                            const current = prev[dept] || [];
-                                            if (e.target.checked) {
-                                              if (!current.includes(level)) {
-                                                return {
-                                                  ...prev,
-                                                  [dept]: [...current, level]
-                                                };
-                                              }
-                                              return prev;
-                                            } else {
-                                              return {
-                                                ...prev,
-                                                [dept]: current.filter(l => l !== level)
-                                              };
-                                            }
-                                          });
-                                        }}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="ml-2 text-sm">{level.replace(/_/g, ' ')}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Primary department (only show if more than one department selected) */}
-                      {editingDepartments.length > 1 && (
-                        <div className="mt-4">
-                          <label className="text-sm font-medium text-gray-700 flex items-center">
-                            Primary Department
-                             <TooltipProvider>
-                               <Tooltip>
-                                 <TooltipTrigger asChild>
-                                   <HelpCircle className="ml-2 h-4 w-4 text-gray-400" />
-                                 </TooltipTrigger>
-                                 <TooltipContent align="start" sideOffset={4}>
-                                   <div className="space-y-1 text-sm">
-                                     <div className="flex items-center gap-2">
-                                       <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                                       <span>Primary department for visual indicators</span>
-                                     </div>
-                                   </div>
-                                 </TooltipContent>
-                               </Tooltip>
-                             </TooltipProvider>
-                          </label>
-                          <div className="mt-1 space-y-1">
-                            {editingDepartments.map(dept => (
-                              <div key={dept} className="flex items-center gap-3">
-                                <input
-                                  type="radio"
-                                  checked={primaryDepartment === dept}
-                                  onChange={(e) => setPrimaryDepartment(e.target.value)}
-                                  value={dept}
-                                  className="h-4 w-4 text-blue-600"
-                                />
-                                <span className="ml-2 text-sm">{dept}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Admin-only fields: role (if not manager) */}
-                      {!isManager && (
-                        <div className='flex items-start gap-6 w-full'>
-                          <div className="space-y-2 w-full">
-                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                              <Shield className="h-4 w-4" />
-                              Role
-                            </label>
-                            <Select name="role" defaultValue={editingUser.role}>
-                              <SelectTrigger className="h-11 w-full">
-                                <SelectValue placeholder="Select role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="user">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                    User
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="hod">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                    Manager
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="admin">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                    Administrator
-                                  </div>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter className="flex gap-3 pt-6 border-t border-gray-100 mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsEditDialogOpen(false)}
-                    className="flex-1 cursor-pointer bg-gray-100 hover:bg-red-500"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 cursor-pointer bg-blue-600 hover:bg-blue-700"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    {isManager ? 'Send Request' : 'Save Changes'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            )}
-          </DialogContent>
-        </Dialog>
 
         {/* Activity Dialog */}
         <Dialog open={isActivityDialogOpen} onOpenChange={(open) => {
@@ -1574,7 +1137,7 @@ export default function AdminUsersPage() {
                           <Badge variant="outline" className="text-xs capitalize">{log.resource}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {log.ipAddress} {log.location?.country && `• ${log.location.city}, ${log.location.country}`}
+                          {log.ipAddress} {log.location?.country && `â€¢ ${log.location.city}, ${log.location.country}`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {format(new Date(log.timestamp), 'MMM d, yyyy h:mm a')}

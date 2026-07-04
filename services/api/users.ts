@@ -43,8 +43,11 @@ export const usersAPI = {
     email: string
     password: string
     department: string
+    departments?: string[]
     role?: string
     confidentialityLevel?: string
+    confidentialityLevels?: string[]
+    profiles?: { department: string; isPrimary: boolean; confidentialityLevels?: string[] }[]
   }): Promise<UserResponse> => {
     const response = await apiClient.post('/api/v1/users', data)
     return response.data
@@ -57,9 +60,12 @@ export const usersAPI = {
       name: string
       email: string
       department: string
+      departments: string[]
       role: string
       status: string
       confidentialityLevel: string
+      confidentialityLevels: string[]
+      profiles: { department: string; isPrimary: boolean; confidentialityLevels?: string[] }[]
     }>
   ): Promise<UserResponse> => {
     const response = await apiClient.put(`/api/v1/users/${id}`, data)

@@ -412,13 +412,13 @@ export function GlobalSearch() {
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="absolute right-3 top-[18px] z-10 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="absolute right-3 top-4.5 z-10 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
 
-          <CommandList className="max-h-[420px] scroll-smooth">
+          <CommandList className="max-h-105 scroll-smooth">
             {!hasSearched && (
               <div className="px-2 pt-3 pb-2">
                 <div className="flex items-center gap-2 px-3 py-2 mb-1">
@@ -432,7 +432,7 @@ export function GlobalSearch() {
                       onClick={() => selectNavItem(item)}
                       className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all hover:bg-blue-50/80 focus:bg-blue-50/80 focus:outline-none group"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-100 group-hover:from-blue-50 group-hover:to-blue-100 group-hover:border-blue-200 transition-all">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-gray-50 to-gray-100 border border-gray-100 group-hover:from-blue-50 group-hover:to-blue-100 group-hover:border-blue-200 transition-all">
                         <item.icon className="h-4 w-4 text-gray-500 group-hover:text-blue-600 transition-colors" />
                       </div>
                       <div className="min-w-0">
@@ -460,7 +460,7 @@ export function GlobalSearch() {
 
             {hasSearched && !isFetching && groupedResults.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 px-4">
-                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4">
+                <div className="h-16 w-16 rounded-2xl bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4">
                   <Search className="h-7 w-7 text-gray-300" />
                 </div>
                 <p className="text-sm font-medium text-gray-600">No results found</p>

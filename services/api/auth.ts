@@ -115,6 +115,8 @@ export interface RegisterRequest {
   departments?: string[]
   role?: string
   confidentialityLevel?: string
+  confidentialityLevels?: string[]
+  profiles?: { department: string; isPrimary: boolean; confidentialityLevels: string[] }[]
 }
 
 export interface User {
@@ -129,6 +131,7 @@ export interface User {
   createdAt?: string
   confidentialityLevel?: string
   confidentialityLevels?: string[]
+  profiles?: { _id?: string; department: string; isPrimary: boolean; confidentialityLevels?: string[] }[]
   loginCount?: number
 }
 
