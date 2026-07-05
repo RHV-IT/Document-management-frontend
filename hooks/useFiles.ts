@@ -35,11 +35,12 @@ export interface ArchiveFilesQueryParams {
   restrictedOnly?: boolean
 }
 
-export function useFilesQuery(params?: FilesQueryParams) {
+export function useFilesQuery(params?: FilesQueryParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.files.list(params),
     queryFn: () => filesAPI.getFiles(params),
     select: (response) => response.data,
+    enabled: options?.enabled ?? true,
   })
 }
 
@@ -67,6 +68,7 @@ export function useUploadFileMutation() {
     mutationFn: (formData: FormData) => filesAPI.uploadFile(formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'File Uploaded', 'Your file has been uploaded successfully.')
     },
     onError: (error: any) => {
@@ -88,6 +90,7 @@ export function useBulkUploadMutation() {
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'Files Uploaded', `${response.data.length} files uploaded successfully.`)
     },
     onError: (error: any) => {
@@ -104,6 +107,7 @@ export function useUploadScannedDocumentMutation() {
     mutationFn: (formData: FormData) => filesAPI.uploadScan(formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'Document Scanned', 'Your scanned document has been uploaded successfully.')
     },
     onError: (error: any) => {
@@ -120,6 +124,7 @@ export function useBulkScanUploadMutation() {
     mutationFn: (files: File[]) => filesAPI.bulkScanUpload(files),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'Documents Scanned', `${response.data.length} scanned documents uploaded successfully.`)
     },
     onError: (error: any) => {
@@ -156,6 +161,7 @@ export function useDeleteFileMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.deleted() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'File Deleted', 'File has been moved to recycle bin.')
     },
     onError: (error: any) => {
@@ -173,6 +179,7 @@ export function useRestoreFileMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.deleted() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'File Restored', 'File has been restored from recycle bin.')
     },
     onError: (error: any) => {
@@ -190,6 +197,7 @@ export function usePermanentDeleteFileMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.deleted() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'File Permanently Deleted', 'File has been permanently removed.')
     },
     onError: (error: any) => {

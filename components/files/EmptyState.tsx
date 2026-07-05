@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { FolderOpen, File, Upload, Search, Trash2, Archive, Share2, Inbox, ScanLine } from 'lucide-react'
 
 interface EmptyStateProps {
-  type: 'no-files' | 'no-folders' | 'no-results' | 'no-shared' | 'no-scanned' | 'no-pending' | 'no-archive' | 'recycle-bin' | 'drag-drop'
+  type: 'no-files' | 'folder-empty' | 'no-folders' | 'no-results' | 'no-shared' | 'no-scanned' | 'no-pending' | 'no-archive' | 'recycle-bin' | 'drag-drop'
   title?: string
   description?: string
   actionLabel?: string
@@ -18,8 +18,14 @@ interface EmptyStateProps {
 const emptyStateConfigs = {
   'no-files': {
     icon: FolderOpen,
-    title: 'No files here yet',
+    title: 'No loose files.',
     description: 'Drag and drop files here, or click Upload to get started',
+    defaultActionLabel: 'Upload Files',
+  },
+  'folder-empty': {
+    icon: FolderOpen,
+    title: 'This folder is empty.',
+    description: 'Drag and drop files here, or click Upload to add something',
     defaultActionLabel: 'Upload Files',
   },
   'no-folders': {
@@ -51,7 +57,7 @@ const emptyStateConfigs = {
   },
   'no-archive': {
     icon: Archive,
-    title: 'No archived files',
+    title: 'No archived files.',
     description: 'Archived documents will appear here',
   },
   'recycle-bin': {

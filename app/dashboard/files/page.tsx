@@ -50,6 +50,15 @@ import { PendingScansView } from '@/components/files/PendingScansView'
 import { CreateFolderDialog } from '@/components/folders/CreateFolderDialog'
 import { RenameFolderDialog } from '@/components/folders/RenameFolderDialog'
 import { MoveDialog } from '@/components/folders/MoveDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useSelectionManager } from '@/hooks/useSelectionManager'
 import {
   fileMatchesSearch,
@@ -256,15 +265,24 @@ function FileExplorer() {
   }, [activeView, selectedFolderId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Data fetching per active view ----
-  const { data: folderContents, isLoading: folderContentsLoading } = useFolderContentsQuery(selectedFolderId)
+  const {
+    data: folderContents,
+    isLoading: folderContentsLoading,
+    isError: folderContentsError,
+  } = useFolderContentsQuery(selectedFolderId)
 
-  const { data: ownedFilesData, isLoading: ownedLoading } = useFilesQuery({
-    owner: user?._id,
-    page: 1,
-    limit: 200,
-    search: debouncedSearch || undefined,
-    folderId: selectedFolderId || undefined,
-  })
+  const { data: ownedFilesData, isLoading: ownedLoading } = useFilesQuery(
+    {
+      owner: user?._id,
+      page: 1,
+      limit: 200,
+      search: debouncedSearch || undefined,
+      // Root view must only show unassigned files; explicitly ask for folderId=null
+      // instead of omitting the param (which the backend treats as "no filter").
+      folderId: selectedFolderId || 'null',
+    },
+    { enabled: !selectedFolderId }
+  )
 
   const { data: myPermissionsData, isLoading: receivedLoading } = useMyPermissionsQuery()
   const { data: sentPermissionsData, isLoading: sentLoading } = useMySentPermissionsQuery()
@@ -805,9 +823,9 @@ function FileExplorer() {
       case 'recycle':
         return 'recycle-bin' as const
       default:
-        return 'no-files' as const
+        return selectedFolderId ? ('folder-empty' as const) : ('no-files' as const)
     }
-  }, [hasActiveFilters, activeView])
+  }, [hasActiveFilters, activeView, selectedFolderId])
 
   const isDeleteMutating = deleteFileMutation.isPending || deleteFolderMutation.isPending || permanentDeleteMutation.isPending
 
@@ -938,7 +956,7 @@ function FileExplorer() {
             <EmptyState
               type={emptyStateType}
               onAction={
-                emptyStateType === 'no-files'
+                emptyStateType === 'no-files' || emptyStateType === 'folder-empty'
                   ? handleUploadClick
                   : emptyStateType === 'no-results'
                     ? () => {
@@ -1191,6 +1209,23 @@ function FileExplorer() {
         isConfirming={confirmScanMutation.isPending}
         isCancelling={cancelScanMutation.isPending}
       />
+
+      <AlertDialog
+        open={folderContentsError && !!selectedFolderId}
+        onOpenChange={(open) => !open && setSelectedFolderId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Folder not found</AlertDialogTitle>
+            <AlertDialogDescription>
+              This folder could not be found — it may have been deleted or moved. You'll be returned to My Drive.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setSelectedFolderId(null)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

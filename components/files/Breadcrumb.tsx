@@ -26,20 +26,18 @@ export function Breadcrumb({ currentFolderId, onNavigate, onCreateFolder }: Brea
   const path = useMemo(() => {
     if (!currentFolderId || !folderTree) return []
 
-    const findPath = (folders: any[], targetId: string, currentPath: any[] = []): any[] | null => {
-      for (const folder of folders) {
-        if (folder._id === targetId) {
-          return [...currentPath, folder]
-        }
-        if (folder.children && folder.children.length > 0) {
-          const found = findPath(folder.children, targetId, [...currentPath, folder])
-          if (found) return found
-        }
-      }
-      return null
+    // folderTree is a FLAT array (no `children` field) — walk up via parentFolderId
+    // pointers instead of assuming a nested shape.
+    const byId = new Map<string, any>(folderTree.map((f: any) => [f._id, f]))
+    const chain: any[] = []
+    let current = byId.get(currentFolderId)
+    const seen = new Set<string>()
+    while (current && !seen.has(current._id)) {
+      chain.unshift(current)
+      seen.add(current._id)
+      current = current.parentFolderId ? byId.get(current.parentFolderId) : undefined
     }
-
-    return findPath(folderTree, currentFolderId) || []
+    return chain
   }, [currentFolderId, folderTree])
 
   if (!currentFolderId) {

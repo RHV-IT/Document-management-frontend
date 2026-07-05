@@ -44,6 +44,7 @@ export function useCreateFolderMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'Folder Created', 'Your folder has been created successfully.')
     },
     onError: (error: any) => {
@@ -60,6 +61,7 @@ export function useUpdateFolderMutation() {
       foldersAPI.updateFolder(folderId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       addNotification('success', 'Folder Updated', 'Folder has been updated successfully.')
     },
     onError: (error: any) => {
@@ -76,6 +78,7 @@ export function useDeleteFolderMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'Folder Deleted', 'Folder has been deleted successfully.')
     },
     onError: (error: any) => {
@@ -92,6 +95,7 @@ export function useMoveFolderMutation() {
       foldersAPI.moveFolder({ folderId, targetFolderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
       addNotification('success', 'Folder Moved', 'Folder has been moved successfully.')
     },
     onError: (error: any) => {
@@ -109,6 +113,7 @@ export function useMoveFileToFolderMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'File Moved', 'File has been moved successfully.')
     },
     onError: (error: any) => {
@@ -126,6 +131,7 @@ export function useBulkMoveFilesToFolderMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'Files Moved', 'Files have been moved successfully.')
     },
     onError: (error: any) => {
@@ -143,6 +149,7 @@ export function useCopyFileToFolderMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
       addNotification('success', 'File Copied', 'File has been copied successfully.')
     },
     onError: (error: any) => {
