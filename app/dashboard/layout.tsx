@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     debug.render('DashboardLayout', 'loading state')
     return (
       <div className="flex h-screen">
-        <div className="w-64 bg-sidebar border-r p-4 space-y-4">
+        <div className="w-72 bg-sidebar border-r p-4 space-y-4">
           <SkeletonLoader count={1} type="circle" />
           <SkeletonLoader count={5} type="text" />
         </div>

@@ -189,7 +189,7 @@ export default function UserActivityPage() {
 
         {/* User Info Card */}
         <Card className="border-0 shadow-sm mb-6">
-          <CardContent className="p-6">
+          <CardContent>
             {userLoading ? (
               <div className="flex items-center gap-4">
                 <SkeletonLoader type="circle" className="h-16 w-16" />

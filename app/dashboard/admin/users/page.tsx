@@ -315,8 +315,8 @@ export default function AdminUsersPage() {
         {/* HOD Action Requests â€” only visible to admins */}
         {!isManager && notificationsData?.notifications && notificationsData.notifications.length > 0 && (
           <div className="px-6 pt-4">
-            <Card className="border-amber-200 bg-amber-50/50">
-              <CardContent className="p-4">
+            <Card className="py-4 border-amber-200 bg-amber-50/50">
+              <CardContent className="px-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
                   <span className="text-sm font-semibold text-amber-800">Pending Requests from Managers</span>
@@ -396,7 +396,7 @@ export default function AdminUsersPage() {
                 {data.users.map((user) => (
                   <Card
                     key={user._id || user.id}
-                    className="hover:shadow-md transition-shadow relative cursor-pointer"
+                    className="py-4 hover:shadow-md transition-shadow relative cursor-pointer"
                     onClick={() => {
                       if (openDropdown === (user._id || user.id)) {
                         setOpenDropdown(null)
@@ -405,8 +405,8 @@ export default function AdminUsersPage() {
                       }
                     }}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
+                    <CardContent className="px-4">
+                      <div className="flex items-start gap-3 pr-8">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-semibold shrink-0">
                           {user.name?.charAt(0).toUpperCase()}
                         </div>
@@ -467,29 +467,14 @@ export default function AdminUsersPage() {
                                   {profile.department}{profile.isPrimary && ' â€¢ Primary'}
                                 </span>
                               ))
-                            ) : (
-                              <span className="truncate">{(user as UserType).department}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3 w-3" />
-                          <span>{formatDistanceToNow(new Date(user.createdAt || ''), { addSuffix: true })}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-start gap-2">
-                          <Building className="h-3 w-3 mt-0.5 shrink-0" />
-                          <div className="flex flex-wrap gap-1">
-                            {user.departments && user.departments.length > 0 ? (
+                            ) : user.departments && user.departments.length > 0 ? (
                               user.departments.map((dept, idx) => (
                                 <span key={idx} className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
                                   {dept}
                                 </span>
                               ))
                             ) : (
-                              <span className="truncate">{user.department}</span>
+                              <span className="truncate">{(user as UserType).department}</span>
                             )}
                           </div>
                         </div>
@@ -889,7 +874,7 @@ export default function AdminUsersPage() {
                               <Building className="h-4 w-4" />
                               <span className="font-medium">{profile.department}</span>
                               {profile.isPrimary && (
-                                <span className="ml-2 px-1.5 px-2.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                <span className="ml-2 px-2.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                   Primary
                                 </span>
                               )}

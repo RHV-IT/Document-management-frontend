@@ -11,15 +11,6 @@ export function useFoldersQuery(params?: { parentFolderId?: string | null; searc
   })
 }
 
-export function useFolderQuery(folderId: string) {
-  return useQuery({
-    queryKey: queryKeys.folders.detail(folderId),
-    queryFn: () => foldersAPI.getFolder(folderId),
-    select: (response) => response.data,
-    enabled: !!folderId,
-  })
-}
-
 export function useFolderTreeQuery() {
   return useQuery({
     queryKey: queryKeys.folders.tree(),
@@ -101,6 +92,24 @@ export function useMoveFolderMutation() {
     onError: (error: any) => {
       const message = error?.response?.data?.message || 'Failed to move folder'
       addNotification('error', 'Move Failed', message)
+    },
+  })
+}
+
+export function useCopyFolderMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ folderId, targetFolderId }: { folderId: string; targetFolderId: string | null }) =>
+      foldersAPI.copyFolder({ folderId, targetFolderId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.folders.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() })
+      addNotification('success', 'Folder Copied', 'Folder has been copied successfully.')
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to copy folder'
+      addNotification('error', 'Copy Failed', message)
     },
   })
 }

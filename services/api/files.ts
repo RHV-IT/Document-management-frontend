@@ -90,25 +90,6 @@ export const filesAPI = {
      return response.data
    },
 
-   // Get archive files
-   getArchiveFiles: async (params?: {
-     page?: number
-     limit?: number
-     search?: string
-     confidentialityLevel?: string
-     uploadedBy?: string
-     department?: string
-     sortBy?: string
-     sortOrder?: 'asc' | 'desc'
-     type?: string
-     fileCategory?: string
-     category?: string
-     restrictedOnly?: boolean
-   }): Promise<FilesResponse> => {
-     const response = await apiClient.get('/api/v1/files/archive', { params })
-     return response.data
-   },
-
   // Get single file
   getFile: async (fileId: string): Promise<{ success: boolean; data: FileItem }> => {
     const response = await apiClient.get(`/api/v1/files/${fileId}`)

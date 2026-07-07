@@ -3,6 +3,7 @@
 import React from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Crown, Briefcase, Users } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export const ROLE_OPTIONS = [
   {
@@ -39,7 +40,7 @@ interface RoleSelectProps {
 export function RoleSelect({ value, onValueChange, placeholder = 'Select role', className = '', disabled }: RoleSelectProps) {
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger className={className}>
+      <SelectTrigger className={cn('w-full', className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

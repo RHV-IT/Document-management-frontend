@@ -9,6 +9,7 @@ import {
     FileCode,
 } from 'lucide-react'
 import { FileItem } from '@/services/api/files'
+import { FolderItem } from '@/services/api/folders'
 
 export const CONFIDENTIALITY_LEVELS = ['public', 'internal', 'confidential', 'highly_confidential'] as const
 export type ConfidentialityLevel = (typeof CONFIDENTIALITY_LEVELS)[number]
@@ -107,6 +108,26 @@ export function getFileCategoryIcon(category: FileCategory) {
 
 function normalizeSearch(value: string) {
     return value.trim().toLowerCase()
+}
+
+/** The folder tree endpoint returns real nesting via `children` — walk it recursively rather than assuming a flat array. */
+export function findFolderInTree(nodes: FolderItem[] | undefined, id: string): FolderItem | null {
+    for (const node of nodes || []) {
+        if (node._id === id) return node
+        const found = findFolderInTree(node.children, id)
+        if (found) return found
+    }
+    return null
+}
+
+/** Ancestor chain (root first, target last) for a folder id within the nested tree. Empty array if not found. */
+export function findFolderPath(nodes: FolderItem[] | undefined, id: string): FolderItem[] {
+    for (const node of nodes || []) {
+        if (node._id === id) return [node]
+        const childPath = findFolderPath(node.children, id)
+        if (childPath.length > 0) return [node, ...childPath]
+    }
+    return []
 }
 
 export function getDepartmentName(department: any) {

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
@@ -12,7 +12,6 @@ import {
     Share2,
     ScanLine,
     Inbox,
-    Archive,
     Trash2,
     Clock,
     Star,
@@ -20,7 +19,7 @@ import {
     ChevronDown,
 } from 'lucide-react'
 
-export type FilterView = 'myfiles' | 'received' | 'sent' | 'scanned' | 'scanner' | 'archive' | 'recycle' | 'recent' | 'starred'
+export type FilterView = 'myfiles' | 'received' | 'sent' | 'scanned' | 'scanner' | 'recycle' | 'recent' | 'starred'
 
 interface ExplorerPanelProps {
     isOpen: boolean
@@ -50,7 +49,6 @@ const SCAN_FILTERS: { id: FilterView; label: string; icon: any }[] = [
 ]
 
 const SYSTEM_FILTERS: { id: FilterView; label: string; icon: any }[] = [
-    { id: 'archive', label: 'Archive', icon: Archive },
     { id: 'recycle', label: 'Recycle Bin', icon: Trash2 },
 ]
 
@@ -171,23 +169,8 @@ export function ExplorerPanel({
         })
     }, [])
 
-    const tree = useMemo(() => {
-        const map = new Map<string, any>()
-        const roots: any[] = []
-        const folders = folderTree || []
-        folders.forEach((folder: any) => {
-            map.set(folder._id, { ...folder, children: [] })
-        })
-        folders.forEach((folder: any) => {
-            const node = map.get(folder._id)!
-            if (folder.parentFolderId && map.has(folder.parentFolderId)) {
-                map.get(folder.parentFolderId)!.children.push(node)
-            } else {
-                roots.push(node)
-            }
-        })
-        return roots
-    }, [folderTree])
+    // The tree endpoint already returns real nesting via `children` — no client-side rebuild needed.
+    const tree = folderTree || []
 
     const body = (
         <div className="p-3">

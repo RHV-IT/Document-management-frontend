@@ -1,11 +1,18 @@
 import apiClient from './axios'
+import { FileItem } from './files'
+
+export interface FolderStats {
+  totalFiles: number
+  totalFolders: number
+  totalSize: number
+}
 
 export interface FolderItem {
   _id: string
   name: string
   description?: string
   parentFolderId: string | null
-  owner: {
+  createdBy: string | {
     _id: string
     name: string
     email: string
@@ -17,14 +24,17 @@ export interface FolderItem {
   confidentialityLevel: string
   isSystemFolder: boolean
   path: string
+  level?: number
+  isDeleted?: boolean
+  deletedAt?: string | null
+  deletedBy?: string | null
   createdAt: string
   updatedAt?: string
   sharedCount?: number
-}
-
-export interface FolderResponse {
-  success: boolean
-  data: FolderItem
+  /** Present on `/api/v1/folders/tree` nodes — nested child folders. Not present on `childFolders` returned by the folder-details endpoint. */
+  children?: FolderItem[]
+  /** Backend-computed aggregate stats for this folder. Present on tree nodes and on the folder-details endpoint's own `folder`/root `stats`; not present on `childFolders` entries. */
+  stats?: FolderStats
 }
 
 export interface FoldersResponse {
@@ -37,11 +47,18 @@ export interface FoldersResponse {
   }
 }
 
+export interface FolderTreeResponse {
+  success: boolean
+  data: FolderItem[]
+}
+
 export interface FolderContentsResponse {
   success: boolean
   data: {
-    folders: FolderItem[]
-    files: any[]
+    folder: FolderItem
+    childFolders: FolderItem[]
+    files: FileItem[]
+    stats: FolderStats
   }
 }
 
@@ -68,27 +85,23 @@ export const foldersAPI = {
     return response.data
   },
 
-  getFolder: async (folderId: string): Promise<FolderResponse> => {
-    const response = await apiClient.get(`/api/v1/folders/${folderId}`)
-    return response.data
-  },
-
-  getFolderTree: async (): Promise<{ success: boolean; data: FolderItem[] }> => {
+  getFolderTree: async (): Promise<FolderTreeResponse> => {
     const response = await apiClient.get('/api/v1/folders/tree')
     return response.data
   },
 
+  /** Folder details/contents endpoint — returns the folder itself, its immediate child folders, its files, and stats. */
   getFolderContents: async (folderId: string): Promise<FolderContentsResponse> => {
     const response = await apiClient.get(`/api/v1/folders/${folderId}`)
     return response.data
   },
 
-  createFolder: async (payload: CreateFolderPayload): Promise<FolderResponse> => {
+  createFolder: async (payload: CreateFolderPayload): Promise<{ success: boolean; data: FolderItem }> => {
     const response = await apiClient.post('/api/v1/folders', payload)
     return response.data
   },
 
-  updateFolder: async (folderId: string, payload: UpdateFolderPayload): Promise<FolderResponse> => {
+  updateFolder: async (folderId: string, payload: UpdateFolderPayload): Promise<{ success: boolean; data: FolderItem }> => {
     const response = await apiClient.put(`/api/v1/folders/${folderId}`, payload)
     return response.data
   },
@@ -113,12 +126,12 @@ export const foldersAPI = {
     return response.data
   },
 
-  moveFolder: async (payload: { folderId: string; targetFolderId: string | null }): Promise<FolderResponse> => {
+  moveFolder: async (payload: { folderId: string; targetFolderId: string | null }): Promise<{ success: boolean; data: FolderItem }> => {
     const response = await apiClient.post('/api/v1/folders/move-folder', payload)
     return response.data
   },
 
-  copyFolder: async (payload: { folderId: string; targetFolderId: string | null }): Promise<FolderResponse> => {
+  copyFolder: async (payload: { folderId: string; targetFolderId: string | null }): Promise<{ success: boolean; data: FolderItem }> => {
     const response = await apiClient.post('/api/v1/folders/copy-folder', payload)
     return response.data
   },

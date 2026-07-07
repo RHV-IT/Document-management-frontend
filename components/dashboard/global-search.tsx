@@ -402,21 +402,23 @@ export function GlobalSearch() {
 
       <CommandDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setQuery(''); }}>
         <Command className="rounded-2xl border-0 shadow-2xl shadow-black/10 overflow-hidden" shouldFilter={false}>
-          <CommandInput
-            value={query}
-            onValueChange={setQuery}
-            placeholder="Search files, users, pages, notifications..."
-            className="h-14 text-base pl-4 pr-10"
-            wrapperClassName="h-12 px-3 relative"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="absolute right-3 top-4.5 z-10 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <div className="relative">
+            <CommandInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder="Search files, users, pages, notifications..."
+              className="h-14 text-base pl-4 pr-10"
+              wrapperClassName="h-12 px-3"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-10 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
           <CommandList className="max-h-105 scroll-smooth">
             {!hasSearched && (

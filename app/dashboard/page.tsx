@@ -95,7 +95,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Files */}
           <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-            <CardContent className="p-6">
+            <CardContent>
               <div className="flex items-center justify-between">
                 <div className={cn(
                   'p-3 rounded-xl transition-transform group-hover:scale-110',
@@ -118,7 +118,7 @@ export default function DashboardPage() {
 
           {/* Recent Uploads */}
           <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-            <CardContent className="p-6">
+            <CardContent>
               <div className="flex items-center justify-between">
                 <div className={cn(
                   'p-3 rounded-xl transition-transform group-hover:scale-110',
@@ -141,7 +141,7 @@ export default function DashboardPage() {
 
           {/* Storage Used */}
           <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-            <CardContent className="p-6">
+            <CardContent>
               <div className="flex items-center justify-between">
                 <div className={cn(
                   'p-3 rounded-xl transition-transform group-hover:scale-110',
@@ -164,7 +164,7 @@ export default function DashboardPage() {
 
           {/* Pending Shares */}
           <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-            <CardContent className="p-6">
+            <CardContent>
               <div className="flex items-center justify-between">
                 <div className={cn(
                   'p-3 rounded-xl transition-transform group-hover:scale-110',
@@ -190,11 +190,11 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Link href="/dashboard/upload">
             <Card className="border-0 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all cursor-pointer group">
-              <CardContent className="p-6 flex items-center gap-4">
+              <CardContent className="flex items-center gap-4">
                 <div className="p-4 rounded-xl bg-blue-50 group-hover:bg-blue-100 transition-colors">
                   <Upload className="h-6 w-6 text-blue-600" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900">Upload Files</p>
                   <p className="text-sm text-gray-500">Add new documents</p>
                 </div>
@@ -205,11 +205,11 @@ export default function DashboardPage() {
 
           <Link href="/dashboard/files">
             <Card className="border-0 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all cursor-pointer group">
-              <CardContent className="p-6 flex items-center gap-4">
+              <CardContent className="flex items-center gap-4">
                 <div className="p-4 rounded-xl bg-green-50 group-hover:bg-green-100 transition-colors">
                   <FileText className="h-6 w-6 text-green-600" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900">My Files</p>
                   <p className="text-sm text-gray-500">View all documents</p>
                 </div>
@@ -221,11 +221,11 @@ export default function DashboardPage() {
           {canAccess(['admin', 'hod']) && (
             <Link href="/dashboard/admin/users">
               <Card className="border-0 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all cursor-pointer group">
-                <CardContent className="p-6 flex items-center gap-4">
+                <CardContent className="flex items-center gap-4">
                   <div className="p-4 rounded-xl bg-purple-50 group-hover:bg-purple-100 transition-colors">
                     <Users className="h-6 w-6 text-purple-600" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">Manage Users</p>
                     <p className="text-sm text-gray-500">User administration</p>
                   </div>
@@ -257,7 +257,7 @@ export default function DashboardPage() {
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-3">
                       <SkeletonLoader type="circle" className="h-8 w-8" />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <SkeletonLoader type="text" className="h-4 w-full" />
                         <SkeletonLoader type="text" className="h-3 w-2/3 mt-1" />
                       </div>
@@ -265,25 +265,25 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : recentFiles && recentFiles.length > 0 ? (
-                <Table>
+                <Table className="table-fixed">
                   <TableBody>
                     {recentFiles.slice(0, 5).map((file) => (
                       <TableRow key={file.fileId} className="hover:bg-gray-50/50 cursor-pointer">
                         <TableCell className="py-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg">{getFileTypeIcon(file.type || 'unknown')}</span>
-                            <div>
-                              <p className="font-medium text-gray-900 text-sm">{file.alias || file.name}</p>
-                              {file.alias && <p className="text-xs text-gray-400">{file.name}</p>}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-lg shrink-0">{getFileTypeIcon(file.type || 'unknown')}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 text-sm truncate">{file.alias || file.name}</p>
+                              {file.alias && <p className="text-xs text-gray-400 truncate">{file.name}</p>}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 text-right">
+                        <TableCell className="py-3 text-right w-28">
                           <Badge variant="outline" className="text-xs">
                             {file.confidentialityLevel}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-3 text-right text-xs text-gray-500">
+                        <TableCell className="py-3 text-right text-xs text-gray-500 w-28">
                           {formatDistanceToNow(new Date(file.createdAt || Date.now()), { addSuffix: true })}
                         </TableCell>
                       </TableRow>
@@ -325,7 +325,7 @@ export default function DashboardPage() {
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-3">
                       <SkeletonLoader type="circle" className="h-8 w-8" />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <SkeletonLoader type="text" className="h-4 w-full" />
                         <SkeletonLoader type="text" className="h-3 w-2/3 mt-1" />
                       </div>

@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { FolderContextMenu } from '@/components/files/ContextMenus'
 import { FolderItem } from '@/services/api/folders'
-import { GridIconSize } from '@/lib/file-utils'
+import { GridIconSize, getConfidentialityLabel, getConfidentialityColor } from '@/lib/file-utils'
+import { formatBytes } from '@/lib/utils'
 
 interface FolderCardProps {
   folder: FolderItem
@@ -142,7 +143,7 @@ export function FolderCard({
             {isFavorite && <Star className="w-3 h-3 text-yellow-500 shrink-0" fill="currentColor" />}
           </div>
           {size !== 'small' && (
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               {isSystemFolder && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">System</span>
               )}
@@ -152,7 +153,20 @@ export function FolderCard({
                   Restricted
                 </Badge>
               )}
+              {folder.confidentialityLevel && (
+                <Badge
+                  className={cn('max-w-full shrink truncate text-[10px] font-medium', getConfidentialityColor(folder.confidentialityLevel))}
+                  title={getConfidentialityLabel(folder.confidentialityLevel)}
+                >
+                  {getConfidentialityLabel(folder.confidentialityLevel)}
+                </Badge>
+              )}
             </div>
+          )}
+          {size !== 'small' && folder.stats && (
+            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+              {folder.stats.totalFolders} {folder.stats.totalFolders === 1 ? 'folder' : 'folders'} · {folder.stats.totalFiles} {folder.stats.totalFiles === 1 ? 'file' : 'files'} · {formatBytes(folder.stats.totalSize)}
+            </p>
           )}
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -193,12 +207,25 @@ export function FolderCard({
         </button>
         <Folder className="h-5 w-5 text-amber-500 shrink-0" />
         {isFavorite && <Star className="w-3.5 h-3.5 text-yellow-500 shrink-0" fill="currentColor" />}
-        <div className="flex-1 min-w-0">
-          <span className="font-medium truncate text-sm">{folder.name}</span>
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <span className="flex-1 min-w-0 truncate font-medium text-sm">{folder.name}</span>
           {isSystemFolder && (
-            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">System</span>
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">System</span>
+          )}
+          {folder.confidentialityLevel && (
+            <Badge
+              className={cn('max-w-40 shrink truncate text-[10px] font-medium', getConfidentialityColor(folder.confidentialityLevel))}
+              title={getConfidentialityLabel(folder.confidentialityLevel)}
+            >
+              {getConfidentialityLabel(folder.confidentialityLevel)}
+            </Badge>
           )}
         </div>
+        {folder.stats && (
+          <span className="text-xs text-muted-foreground shrink-0 hidden lg:inline">
+            {folder.stats.totalFolders} folders · {folder.stats.totalFiles} files · {formatBytes(folder.stats.totalSize)}
+          </span>
+        )}
         <span className="text-xs text-muted-foreground w-24 shrink-0 hidden md:inline">Folder</span>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
           <DropdownMenu>

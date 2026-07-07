@@ -315,21 +315,33 @@ export function DetailsView(props: DetailsViewProps) {
                       System
                     </span>
                   )}
+                  {folder.stats && (
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      ({folder.stats.totalFolders} folders, {folder.stats.totalFiles} files)
+                    </span>
+                  )}
                 </div>
               </td>
               <td className="px-3 py-1.5 text-muted-foreground">Folder</td>
-              <td className="px-3 py-1.5 text-muted-foreground truncate">{folder.owner?.name || '—'}</td>
+              <td className="px-3 py-1.5 text-muted-foreground truncate">
+                {typeof folder.createdBy === 'object' ? folder.createdBy?.name || '—' : '—'}
+              </td>
               <td className="px-3 py-1.5 text-muted-foreground truncate">{getDepartmentName(folder.department) || '—'}</td>
               <td className="px-3 py-1.5">
                 {folder.confidentialityLevel ? (
-                  <Badge className={cn('text-[10px]', getConfidentialityColor(folder.confidentialityLevel))}>
+                  <Badge
+                    className={cn('max-w-full truncate text-[10px]', getConfidentialityColor(folder.confidentialityLevel))}
+                    title={getConfidentialityLabel(folder.confidentialityLevel)}
+                  >
                     {getConfidentialityLabel(folder.confidentialityLevel)}
                   </Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
               </td>
-              <td className="px-3 py-1.5 text-muted-foreground">—</td>
+              <td className="px-3 py-1.5 text-muted-foreground">
+                {folder.stats ? formatBytes(folder.stats.totalSize) : '—'}
+              </td>
               <td className="px-3 py-1.5 text-muted-foreground">
                 {folder.updatedAt ? formatDistanceToNow(new Date(folder.updatedAt)) + ' ago' : '—'}
               </td>
@@ -388,7 +400,10 @@ export function DetailsView(props: DetailsViewProps) {
                 <td className="px-3 py-1.5 text-muted-foreground truncate">{getDepartmentName(file.department) || '—'}</td>
                 <td className="px-3 py-1.5">
                   {file.confidentialityLevel ? (
-                    <Badge className={cn('text-[10px]', getConfidentialityColor(file.confidentialityLevel))}>
+                    <Badge
+                      className={cn('max-w-full truncate text-[10px]', getConfidentialityColor(file.confidentialityLevel))}
+                      title={getConfidentialityLabel(file.confidentialityLevel)}
+                    >
                       {getConfidentialityLabel(file.confidentialityLevel)}
                     </Badge>
                   ) : (

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useFolderTreeQuery, useMoveFolderMutation, useMoveFileToFolderMutation, useBulkMoveFilesToFolderMutation } from '@/hooks/useFolders'
+import { FolderItem } from '@/services/api/folders'
 import {
   Dialog,
   DialogContent,
@@ -25,13 +26,8 @@ interface MoveDialogProps {
   itemName: string
 }
 
-interface TreeNode {
-  _id: string
-  name: string
-  parentFolderId: string | null
-  isSystemFolder: boolean
-  children: TreeNode[]
-}
+// The tree endpoint already nests folders via `children` — reuse FolderItem directly.
+type TreeNode = FolderItem
 
 interface FolderOptionProps {
   node: TreeNode
@@ -55,7 +51,8 @@ function FolderOption({
   const isExpanded = expandedFolders.has(node._id)
   const isSelected = selectedId === node._id
   const isExcluded = excludedIds.has(node._id)
-  const hasChildren = node.children.length > 0
+  const children = node.children || []
+  const hasChildren = children.length > 0
 
   if (isExcluded) return null
 
@@ -103,7 +100,7 @@ function FolderOption({
 
       {isExpanded && hasChildren && (
         <div>
-          {node.children.map((child) => (
+          {children.map((child) => (
             <FolderOption
               key={child._id}
               node={child}
@@ -121,43 +118,13 @@ function FolderOption({
   )
 }
 
-function buildTree(folders: any[]): TreeNode[] {
-  const map = new Map<string, TreeNode>()
-  const roots: TreeNode[] = []
-
-  if (!folders || !Array.isArray(folders)) return roots
-
-  folders.forEach((folder) => {
-    map.set(folder._id, {
-      _id: folder._id,
-      name: folder.name,
-      parentFolderId: folder.parentFolderId,
-      isSystemFolder: folder.isSystemFolder,
-      children: [],
-    })
-  })
-
-  folders.forEach((folder) => {
-    const node = map.get(folder._id)!
-    if (folder.parentFolderId && map.has(folder.parentFolderId)) {
-      map.get(folder.parentFolderId)!.children.push(node)
-    } else {
-      roots.push(node)
-    }
-  })
-
-  return roots
-}
-
 function findFolderName(nodes: TreeNode[], targetId: string): string | null {
   for (const node of nodes) {
     if (node._id === targetId) {
       return node.name
     }
-    if (node.children.length > 0) {
-      const found = findFolderName(node.children, targetId)
-      if (found) return found
-    }
+    const found = findFolderName(node.children || [], targetId)
+    if (found) return found
   }
   return null
 }
@@ -177,7 +144,8 @@ export function MoveDialog({
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
-  const tree = folderTree ? buildTree(folderTree) : []
+  // The tree endpoint already returns real nesting via `children` — no client-side rebuild needed.
+  const tree: TreeNode[] = folderTree || []
 
   const excludedIds = new Set<string>()
   if (type === 'folder') {
@@ -187,19 +155,19 @@ export function MoveDialog({
     const addChildren = (nodes: TreeNode[]) => {
       nodes.forEach((node) => {
         excludedIds.add(node._id)
-        addChildren(node.children)
+        addChildren(node.children || [])
       })
     }
     const findNode = (nodes: TreeNode[], id: string): TreeNode | null => {
       for (const node of nodes) {
         if (node._id === id) return node
-        const found = findNode(node.children, id)
+        const found = findNode(node.children || [], id)
         if (found) return found
       }
       return null
     }
     const node = findNode(tree, mainItemId)
-    if (node) addChildren(node.children)
+    if (node) addChildren(node.children || [])
   }
 
   const toggleFolder = (folderId: string) => {

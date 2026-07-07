@@ -11,7 +11,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import { getDepartmentDefinition } from '@/lib/department-info'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { User, Lock, Bell, Shield, Building2, FileLock2, Save, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Monitor, Download, Trash2, Plus } from 'lucide-react'
+import { User, Lock, Bell, Shield, Building2, FileLock2, Save, RefreshCw, CheckCircle, AlertCircle, Eye, EyeOff, Monitor, Download, Trash2, Plus, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -671,12 +671,12 @@ export default function SettingsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Add new department */}
-                    <div className="flex gap-3 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-lg">
                       <Input
                         placeholder="Department name"
                         value={newDepartment.name}
                         onChange={(e) => setNewDepartment({ ...newDepartment, name: e.target.value.toUpperCase() })}
-                        className="flex-1"
+                        className="flex-1 min-w-40"
                       />
                       <Input
                         placeholder="Code (e.g. HR)"
@@ -688,7 +688,7 @@ export default function SettingsPage() {
                         placeholder="Description (optional)"
                         value={newDepartment.description}
                         onChange={(e) => setNewDepartment({ ...newDepartment, description: e.target.value })}
-                        className="flex-1"
+                        className="flex-1 min-w-40"
                       />
                       <Button
                         onClick={handleAddDepartment}
@@ -762,7 +762,7 @@ export default function SettingsPage() {
                                 onClick={() => openEditDialog(dept)}
                                 title="Edit department"
                               >
-                                <Eye className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"

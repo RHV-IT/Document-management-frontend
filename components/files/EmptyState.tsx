@@ -2,10 +2,10 @@
 
 import React from 'react'
 import { cn } from '@/lib/utils'
-import { FolderOpen, File, Upload, Search, Trash2, Archive, Share2, Inbox, ScanLine } from 'lucide-react'
+import { FolderOpen, File, Upload, Search, Trash2, Share2, Inbox, ScanLine } from 'lucide-react'
 
 interface EmptyStateProps {
-  type: 'no-files' | 'folder-empty' | 'no-folders' | 'no-results' | 'no-shared' | 'no-scanned' | 'no-pending' | 'no-archive' | 'recycle-bin' | 'drag-drop'
+  type: 'no-files' | 'folder-empty' | 'no-folders' | 'no-results' | 'no-shared' | 'no-scanned' | 'no-pending' | 'recycle-bin' | 'drag-drop'
   title?: string
   description?: string
   actionLabel?: string
@@ -54,11 +54,6 @@ const emptyStateConfigs = {
     icon: Inbox,
     title: 'No pending scans',
     description: "You're all caught up — new scans awaiting confirmation will show here",
-  },
-  'no-archive': {
-    icon: Archive,
-    title: 'No archived files.',
-    description: 'Archived documents will appear here',
   },
   'recycle-bin': {
     icon: Trash2,

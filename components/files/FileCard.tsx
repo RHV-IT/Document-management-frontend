@@ -236,7 +236,10 @@ export function FileCard({
             </div>
           )}
           {size === 'large' && file.confidentialityLevel && (
-            <Badge className={cn('w-fit text-[10px]', getConfidentialityColor(file.confidentialityLevel))}>
+            <Badge
+              className={cn('max-w-full truncate text-[10px]', getConfidentialityColor(file.confidentialityLevel))}
+              title={getConfidentialityLabel(file.confidentialityLevel)}
+            >
               {getConfidentialityLabel(file.confidentialityLevel)}
             </Badge>
           )}
@@ -284,7 +287,10 @@ export function FileCard({
 
         <span className="text-xs text-muted-foreground w-24 shrink-0 hidden md:inline">{formatBytes(file.size)}</span>
         {file.confidentialityLevel ? (
-          <Badge className={cn('text-[10px] shrink-0 hidden lg:inline-flex', getConfidentialityColor(file.confidentialityLevel))}>
+          <Badge
+            className={cn('max-w-32 shrink truncate text-[10px] hidden lg:inline-flex', getConfidentialityColor(file.confidentialityLevel))}
+            title={getConfidentialityLabel(file.confidentialityLevel)}
+          >
             {getConfidentialityLabel(file.confidentialityLevel)}
           </Badge>
         ) : (

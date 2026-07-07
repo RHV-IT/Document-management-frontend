@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils'
 
 import {
   useFilesQuery,
-  useArchiveFilesQuery,
   useDeletedFilesQuery,
   useDeleteFileMutation,
   useRestoreFileMutation,
@@ -21,8 +20,11 @@ import {
   useFolderTreeQuery,
   useFolderContentsQuery,
   useDeleteFolderMutation,
+  useMoveFolderMutation,
+  useCopyFolderMutation,
   useMoveFileToFolderMutation,
   useBulkMoveFilesToFolderMutation,
+  useCopyFileToFolderMutation,
 } from '@/hooks/useFolders'
 import { useAuth } from '@/hooks/useAuth'
 import { useAccessControl } from '@/hooks/useAccessControl'
@@ -68,6 +70,7 @@ import {
   getDepartmentName,
   getFileCategory,
   unwrapFilesList,
+  findFolderInTree,
   DateBucket,
   GridIconSize,
 } from '@/lib/file-utils'
@@ -109,7 +112,6 @@ const VIEW_LABELS: Record<FilterView, string> = {
   sent: 'Shared By Me',
   scanned: 'Scanned Files',
   scanner: 'Pending Scans',
-  archive: 'Archive',
   recycle: 'Recycle Bin',
   recent: 'Recent',
   starred: 'Starred',
@@ -298,14 +300,6 @@ function FileExplorer() {
   const { data: scannerFilesData = [], isLoading: scannerLoading } = usePendingScans()
   const { data: scannerStatsData } = useScannerPendingStatsQuery()
 
-  const { data: archiveFilesData, isLoading: archiveLoading } = useArchiveFilesQuery({
-    page: 1,
-    limit: 200,
-    search: debouncedSearch || undefined,
-    sortBy: 'createdAt',
-    sortOrder: sortDir === 'asc' ? 'asc' : 'desc',
-  })
-
   const isRecycleView = activeView === 'recycle'
   const { data: deletedFilesData, isLoading: deletedLoading } = useDeletedFilesQuery({ page: 1, limit: 200 })
 
@@ -319,6 +313,9 @@ function FileExplorer() {
   const deleteFolderMutation = useDeleteFolderMutation()
   const { mutate: moveFileToFolder } = useMoveFileToFolderMutation()
   const { mutate: bulkMoveFiles } = useBulkMoveFilesToFolderMutation()
+  const { mutate: copyFileToFolder } = useCopyFileToFolderMutation()
+  const { mutate: moveFolder } = useMoveFolderMutation()
+  const { mutate: copyFolder } = useCopyFolderMutation()
   const restoreFileMutation = useRestoreFileMutation()
   const permanentDeleteMutation = usePermanentDeleteFileMutation()
   const confirmScanMutation = useConfirmScan()
@@ -329,7 +326,7 @@ function FileExplorer() {
     switch (activeView) {
       case 'myfiles': {
         const rawFolders: FolderItem[] = selectedFolderId
-          ? folderContents?.folders || []
+          ? folderContents?.childFolders || []
           : (folderTree || []).filter((f: FolderItem) => !f.parentFolderId)
         const rawFiles: FileItem[] = selectedFolderId ? folderContents?.files || [] : unwrapFilesList(ownedFilesData)
         return { folders: rawFolders, files: rawFiles, isLoading: folderContentsLoading || ownedLoading, isSystemView: false }
@@ -349,10 +346,6 @@ function FileExplorer() {
       case 'scanner': {
         // PendingScan items are a different shape than FileItem and render via PendingScansView instead.
         return { folders: [], files: [], isLoading: scannerLoading, isSystemView: true }
-      }
-      case 'archive': {
-        const rawFiles: FileItem[] = unwrapFilesList(archiveFilesData)
-        return { folders: [], files: rawFiles, isLoading: archiveLoading, isSystemView: true }
       }
       case 'starred': {
         const rawFiles: FileItem[] = unwrapFilesList(ownedFilesData).filter((f: FileItem) =>
@@ -383,8 +376,6 @@ function FileExplorer() {
     scannedFilesData,
     scannedLoading,
     scannerLoading,
-    archiveFilesData,
-    archiveLoading,
     favoriteFiles,
     favoriteFolders,
     folderTree,
@@ -419,10 +410,10 @@ function FileExplorer() {
       sortItems(visibleFolders, sortKey, sortDir, {
         name: (f: FolderItem) => f.name?.toLowerCase() || '',
         type: () => 'folder',
-        owner: (f: any) => f.owner?.name?.toLowerCase() || '',
+        owner: (f: FolderItem) => (typeof f.createdBy === 'object' ? f.createdBy?.name?.toLowerCase() : '') || '',
         department: (f: any) => getDepartmentName(f.department).toLowerCase(),
         confidentiality: (f: any) => f.confidentialityLevel || '',
-        size: () => 0,
+        size: (f: FolderItem) => f.stats?.totalSize || 0,
         modified: (f: FolderItem) => (f.updatedAt ? new Date(f.updatedAt).getTime() : 0),
       }),
     [visibleFolders, sortKey, sortDir]
@@ -659,11 +650,21 @@ function FileExplorer() {
 
   const handlePaste = useCallback(() => {
     if (!selection.clipboard) return
-    if (selection.clipboard.type === 'file') {
-      bulkMoveFiles({ fileIds: selection.clipboard.ids, targetFolderId: selectedFolderId })
+    const { type, ids, action } = selection.clipboard
+    if (type === 'file') {
+      if (action === 'copy') {
+        ids.forEach((fileId) => copyFileToFolder({ fileId, folderId: selectedFolderId }))
+      } else {
+        bulkMoveFiles({ fileIds: ids, targetFolderId: selectedFolderId })
+      }
+    } else {
+      ids.forEach((folderId) => {
+        if (action === 'copy') copyFolder({ folderId, targetFolderId: selectedFolderId })
+        else moveFolder({ folderId, targetFolderId: selectedFolderId })
+      })
     }
     selection.clearClipboard()
-  }, [selection, selectedFolderId, bulkMoveFiles])
+  }, [selection, selectedFolderId, bulkMoveFiles, copyFileToFolder, copyFolder, moveFolder])
 
   const handleDragStartFile = useCallback((file: FileItem) => (e: React.DragEvent) => {
     e.dataTransfer.setData('application/x-file-id', file.fileId)
@@ -685,10 +686,13 @@ function FileExplorer() {
   )
 
   const parentFolderId = useMemo(() => {
-    if (!selectedFolderId || !folderTree) return null
-    const current = folderTree.find((f) => f._id === selectedFolderId)
-    return current?.parentFolderId || null
-  }, [selectedFolderId, folderTree])
+    if (!selectedFolderId) return null
+    // The folder-details endpoint already returns the current folder's own record —
+    // prefer it over searching the tree, and fall back to a recursive tree lookup
+    // (the tree nests folders via `children`, so a flat `.find` would miss non-root folders).
+    if (folderContents?.folder?._id === selectedFolderId) return folderContents.folder.parentFolderId
+    return findFolderInTree(folderTree, selectedFolderId)?.parentFolderId || null
+  }, [selectedFolderId, folderTree, folderContents])
 
   const handleReviewScan = useCallback((scan: PendingScan) => setReviewScan(scan), [])
 
@@ -808,8 +812,6 @@ function FileExplorer() {
         return 'no-scanned' as const
       case 'scanner':
         return 'no-pending' as const
-      case 'archive':
-        return 'no-archive' as const
       case 'recycle':
         return 'recycle-bin' as const
       default:
@@ -821,7 +823,7 @@ function FileExplorer() {
 
   const tabInfos = tabs.map((tab) => {
     if (tab.selectedFolderId) {
-      const folder = folderTree?.find((f) => f._id === tab.selectedFolderId)
+      const folder = findFolderInTree(folderTree, tab.selectedFolderId)
       return { id: tab.id, label: folder?.name || 'Folder', isFolder: true }
     }
     return { id: tab.id, label: VIEW_LABELS[tab.activeView], isFolder: false }

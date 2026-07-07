@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useUpdateFolderMutation, useFolderQuery } from '@/hooks/useFolders'
+import { useUpdateFolderMutation, useFolderContentsQuery } from '@/hooks/useFolders'
 import {
   Dialog,
   DialogContent,
@@ -26,7 +26,8 @@ export function RenameFolderDialog({
   onOpenChange,
   folderId,
 }: RenameFolderDialogProps) {
-  const { data: folder } = useFolderQuery(folderId)
+  const { data: folderContents } = useFolderContentsQuery(folderId)
+  const folder = folderContents?.folder
   const updateFolderMutation = useUpdateFolderMutation()
   const [name, setName] = useState('')
   const [error, setError] = useState('')

@@ -183,13 +183,13 @@ export default function ProfilePage() {
               {/* Details */}
               <div className="flex-1 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-500">Full Name</p>
-                    <p className="text-base font-semibold text-gray-900">{user.name}</p>
+                    <p className="text-base font-semibold text-gray-900 break-all">{user.name}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-500">Email Address</p>
-                    <p className="text-base text-gray-900">{user.email}</p>
+                    <p className="text-base text-gray-900 break-all">{user.email}</p>
                   </div>
                    <div>
                      <p className="text-sm font-medium text-gray-500">Department</p>
@@ -269,16 +269,16 @@ export default function ProfilePage() {
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors animate-slide-in-up"
                       style={{ animationDelay: `${index * 50}ms` }}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold shadow-md">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold shadow-md shrink-0">
                           {deptUser.name?.charAt(0).toUpperCase() || '?'}
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{deptUser.name}</p>
-                          <p className="text-sm text-gray-500">{deptUser.email}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{deptUser.name}</p>
+                          <p className="text-sm text-gray-500 truncate">{deptUser.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Badge className={getRoleBadgeColor(deptUser.role || 'user')}>
                           {getRoleLabel(deptUser.role)}
                         </Badge>

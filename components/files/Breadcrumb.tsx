@@ -6,6 +6,7 @@ import { useFolderTreeQuery } from '@/hooks/useFolders'
 import { ChevronRight, Home, Folder, MoreHorizontal } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { findFolderPath } from '@/lib/file-utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,19 +26,9 @@ export function Breadcrumb({ currentFolderId, onNavigate, onCreateFolder }: Brea
 
   const path = useMemo(() => {
     if (!currentFolderId || !folderTree) return []
-
-    // folderTree is a FLAT array (no `children` field) — walk up via parentFolderId
-    // pointers instead of assuming a nested shape.
-    const byId = new Map<string, any>(folderTree.map((f: any) => [f._id, f]))
-    const chain: any[] = []
-    let current = byId.get(currentFolderId)
-    const seen = new Set<string>()
-    while (current && !seen.has(current._id)) {
-      chain.unshift(current)
-      seen.add(current._id)
-      current = current.parentFolderId ? byId.get(current.parentFolderId) : undefined
-    }
-    return chain
+    // folderTree is a nested tree (root folders carry a `children` array) — walk it
+    // recursively to find the ancestor chain down to the current folder.
+    return findFolderPath(folderTree, currentFolderId)
   }, [currentFolderId, folderTree])
 
   if (!currentFolderId) {

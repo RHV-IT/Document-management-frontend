@@ -292,8 +292,8 @@ export default function AuditLogPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4">
+        <Card className="py-4 border-0 shadow-sm">
+          <CardContent className="px-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500">Total (30d)</p>
@@ -310,8 +310,8 @@ export default function AuditLogPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4">
+        <Card className="py-4 border-0 shadow-sm">
+          <CardContent className="px-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500">Today's</p>
@@ -328,8 +328,8 @@ export default function AuditLogPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4">
+        <Card className="py-4 border-0 shadow-sm">
+          <CardContent className="px-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500">Action Types</p>
@@ -346,8 +346,8 @@ export default function AuditLogPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4">
+        <Card className="py-4 border-0 shadow-sm">
+          <CardContent className="px-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500">Top Action</p>
@@ -366,8 +366,8 @@ export default function AuditLogPage() {
       </div>
 
       {/* Filters */}
-      <Card className="border-0 shadow-sm mb-6">
-        <CardContent className="p-4">
+      <Card className="py-4 border-0 shadow-sm mb-6">
+        <CardContent className="px-4">
           <div className="flex flex-wrap gap-3 items-end">
             <div className="flex-1 min-w-64">
               <label className="text-sm font-medium text-gray-600 mb-1.5 block">Search</label>

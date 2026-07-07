@@ -6,6 +6,7 @@ import { useAccessControl } from '@/hooks/useAccessControl'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { CONFIDENTIALITY_LEVELS, getClearanceLabel, getHighestConfidentialityLevel } from '@/lib/access-control'
 import { Shield } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface ConfidentialityLevelSelectProps {
   value?: string
@@ -82,7 +83,7 @@ export function ConfidentialityLevelSelect({
   return (
     <div className="w-full">
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger className={className}>
+        <SelectTrigger className={cn('w-full', className)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

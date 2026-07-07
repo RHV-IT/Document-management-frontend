@@ -58,14 +58,14 @@ export default function RecycleBinPage() {
           <TableSkeleton rows={5} columns={4} />
         ) : (
           <Card>
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Deleted</TableHead>
-                  <TableHead>Expires In</TableHead>
-                  <TableHead className="w-24 text-right">Actions</TableHead>
+                  <TableHead className="w-28">Size</TableHead>
+                  <TableHead className="w-36">Deleted</TableHead>
+                  <TableHead className="w-36">Expires In</TableHead>
+                  <TableHead className="w-52 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -77,7 +77,7 @@ export default function RecycleBinPage() {
 
                     return (
                       <TableRow key={file.fileId}>
-                         <TableCell className="font-medium">{file.name}</TableCell>
+                         <TableCell className="font-medium truncate" title={file.name}>{file.name}</TableCell>
                          <TableCell>{formatBytes(0)}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDistanceToNow(new Date(file.deletedAt || ''), { addSuffix: true })}
@@ -89,7 +89,7 @@ export default function RecycleBinPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right space-x-2">
+                        <TableCell className="text-right space-x-2 whitespace-nowrap">
                           <Button
                             size="sm"
                             variant="outline"

@@ -22,33 +22,12 @@ export interface FilesQueryParams {
   folderId?: string
 }
 
-export interface ArchiveFilesQueryParams {
-  page?: number
-  limit?: number
-  search?: string
-  confidentialityLevel?: string
-  uploadedBy?: string
-  department?: string
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
-  type?: string
-  restrictedOnly?: boolean
-}
-
 export function useFilesQuery(params?: FilesQueryParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.files.list(params),
     queryFn: () => filesAPI.getFiles(params),
     select: (response) => response.data,
     enabled: options?.enabled ?? true,
-  })
-}
-
-export function useArchiveFilesQuery(params?: ArchiveFilesQueryParams) {
-  return useQuery({
-    queryKey: queryKeys.files.archive(params),
-    queryFn: () => filesAPI.getArchiveFiles(params),
-    select: (response) => response.data,
   })
 }
 

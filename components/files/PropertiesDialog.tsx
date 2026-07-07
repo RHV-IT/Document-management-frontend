@@ -57,9 +57,13 @@ export function PropertiesDialog({ open, onOpenChange, item, onPreview, onDownlo
     const isRestricted = isFile && file?.restricted === true
 
     const name = isFile ? file!.alias || file!.name : folder!.name
-    const confidentiality = isFile ? file!.confidentialityLevel : (folder as any)?.confidentialityLevel
-    const owner = isFile ? file!.owner?.name || file!.uploadedBy?.name : (folder as any)?.owner?.name
-    const department = getDepartmentName(isFile ? file!.department : (folder as any)?.department)
+    const confidentiality = isFile ? file!.confidentialityLevel : folder?.confidentialityLevel
+    const owner = isFile
+      ? file!.owner?.name || file!.uploadedBy?.name
+      : typeof folder?.createdBy === 'object'
+        ? folder.createdBy?.name
+        : undefined
+    const department = getDepartmentName(isFile ? file!.department : folder?.department)
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -79,9 +83,20 @@ export function PropertiesDialog({ open, onOpenChange, item, onPreview, onDownlo
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Size</p>
-                            <p className="font-medium">{isFile ? formatBytes(file!.size) : '—'}</p>
+                            <p className="font-medium">
+                                {isFile ? formatBytes(file!.size) : folder?.stats ? formatBytes(folder.stats.totalSize) : '—'}
+                            </p>
                         </div>
                     </div>
+
+                    {!isFile && folder?.stats && (
+                        <div className="pt-2 border-t border-border/50">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Contents</p>
+                            <p className="font-medium">
+                                {folder.stats.totalFolders} {folder.stats.totalFolders === 1 ? 'folder' : 'folders'}, {folder.stats.totalFiles} {folder.stats.totalFiles === 1 ? 'file' : 'files'}
+                            </p>
+                        </div>
+                    )}
 
                     {isFile && file!.currentVersion && (
                         <div className="pt-2 border-t border-border/50">
@@ -95,8 +110,8 @@ export function PropertiesDialog({ open, onOpenChange, item, onPreview, onDownlo
                     {confidentiality && (
                         <div className="pt-2 border-t border-border/50">
                             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Confidentiality</p>
-                            <Badge className={cn('w-fit', getConfidentialityColor(confidentiality))}>
-                                <Shield className="h-2.5 w-2.5 mr-1.5" />
+                            <Badge className={cn('max-w-full truncate', getConfidentialityColor(confidentiality))} title={getConfidentialityLabel(confidentiality)}>
+                                <Shield className="h-2.5 w-2.5 mr-1.5 shrink-0" />
                                 {getConfidentialityLabel(confidentiality)}
                             </Badge>
                         </div>

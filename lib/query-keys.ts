@@ -27,7 +27,6 @@ export const queryKeys = {
     all: () => ['files'] as const,
     list: (params?: any) => ['files', 'list', params] as const,
     detail: (fileId: string) => ['files', 'detail', fileId] as const,
-    archive: (params?: any) => ['files', 'archive', params] as const,
     deleted: (params?: any) => ['files', 'deleted', params] as const,
     versions: (fileId: string) => ['files', 'versions', fileId] as const,
     permissions: (fileId: string) => ['files', 'permissions', fileId] as const,
@@ -92,9 +91,7 @@ export const queryKeys = {
   folders: {
     all: () => ['folders'] as const,
     list: (params?: any) => ['folders', 'list', params] as const,
-    detail: (folderId: string) => ['folders', 'detail', folderId] as const,
     tree: () => ['folders', 'tree'] as const,
-    breadcrumb: (folderId: string) => ['folders', 'breadcrumb', folderId] as const,
     contents: (folderId: string) => ['folders', 'contents', folderId] as const,
   },
 } as const

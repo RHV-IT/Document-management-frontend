@@ -160,8 +160,8 @@ export default function NotificationsPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
+              <Card key={i} className="py-4">
+                <CardContent className="px-4">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-lg bg-gray-100 animate-pulse" />
                     <div className="flex-1 space-y-2">
@@ -181,14 +181,14 @@ export default function NotificationsPage() {
                   <Card
                     key={notification._id}
                     className={cn(
-                      'transition-all duration-200 hover:shadow-lg border-l-4 cursor-pointer group',
+                      'py-4 transition-all duration-200 hover:shadow-lg border-l-4 cursor-pointer group',
                       notification.isRead
                         ? 'border-l-gray-200 bg-white hover:border-l-gray-300'
                         : 'border-l-blue-500 bg-gradient-to-r from-blue-50/40 to-white hover:from-blue-50/60 hover:to-white'
                     )}
                     onClick={() => handleCardClick(notification)}
                   >
-                    <CardContent className="p-4">
+                    <CardContent className="px-4">
                       <div className="flex items-start gap-4">
                         {/* Icon with animated background */}
                         <div className={cn(
@@ -346,8 +346,8 @@ export default function NotificationsPage() {
                     )}>
                       {getNotificationIcon(selectedNotification.type)}
                     </div>
-                    <div className="flex-1">
-                      <DialogTitle className="text-xl font-bold text-gray-900 leading-tight">
+                    <div className="flex-1 min-w-0">
+                      <DialogTitle className="text-xl font-bold text-gray-900 leading-tight break-words">
                         {selectedNotification.message}
                       </DialogTitle>
                       <DialogDescription className="text-sm text-gray-600 mt-2">
