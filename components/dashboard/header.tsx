@@ -285,7 +285,7 @@ export function DashboardHeader() {
             {hasMultipleProfiles && (
               <>
                 <DropdownMenuItem
-                  className="cursor-pointer rounded-xl hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+                  className="cursor-pointer rounded-xl text-gray-900 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-900 transition-colors"
                   onClick={() => setProfileSwitcherOpen(true)}
                 >
                   <User className="h-4 w-4 mr-2 text-gray-500" />
@@ -296,14 +296,14 @@ export function DashboardHeader() {
             )}
 
             <DropdownMenuItem
-              className="cursor-pointer rounded-xl hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+              className="cursor-pointer rounded-xl text-gray-900 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-900 transition-colors"
               onClick={() => router.push('/dashboard/profile')}
             >
               <User className="h-4 w-4 mr-2 text-gray-500" />
               Profile Settings
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="cursor-pointer rounded-xl hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+              className="cursor-pointer rounded-xl text-gray-900 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-900 transition-colors"
               onClick={() => router.push('/dashboard/settings')}
             >
               <Settings className="h-4 w-4 mr-2 text-gray-500" />
@@ -311,7 +311,8 @@ export function DashboardHeader() {
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-3" />
             <DropdownMenuItem
-              className="text-red-600 cursor-pointer rounded-xl hover:bg-red-50/50 focus:bg-red-50/50 transition-colors"
+              variant="destructive"
+              className="cursor-pointer rounded-xl hover:bg-red-50/50 transition-colors"
               onClick={() => logout()}
             >
               <LogOut className="h-4 w-4 mr-2" />

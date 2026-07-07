@@ -5,7 +5,6 @@ import { useAuthContext } from '@/contexts/auth'
 import { useProfileStore } from '@/stores/useProfileStore'
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -60,10 +59,6 @@ export function ProfileSwitcher({ open, onOpenChange }: ProfileSwitcherProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <button className="p-1 rounded-hover">{/* Trigger is handled by parent */}</button>
-      </DialogTrigger>
-
       <DialogContent className="w-80 sm:w-96">
         <DialogHeader>
           <DialogTitle>Switch Department Profile</DialogTitle>

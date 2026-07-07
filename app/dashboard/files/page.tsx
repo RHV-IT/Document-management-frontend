@@ -11,7 +11,6 @@ import {
   useRestoreFileMutation,
   usePermanentDeleteFileMutation,
   useDownloadFileMutation,
-  useUploadFileMutation,
 } from '@/hooks/useFiles'
 
 import { useMyPermissionsQuery, useMySentPermissionsQuery } from '@/hooks/usePermissions'
@@ -47,6 +46,7 @@ import { ShareDialog } from '@/components/files/ShareDialog'
 import { VersionHistoryDialog } from '@/components/files/VersionHistoryDialog'
 import { RecycleBinView } from '@/components/files/RecycleBinView'
 import { PendingScansView } from '@/components/files/PendingScansView'
+import { UploadDialog } from '@/components/files/UploadDialog'
 import { CreateFolderDialog } from '@/components/folders/CreateFolderDialog'
 import { RenameFolderDialog } from '@/components/folders/RenameFolderDialog'
 import { MoveDialog } from '@/components/folders/MoveDialog'
@@ -202,7 +202,8 @@ function FileExplorer() {
   const [favoriteFiles, setFavoriteFiles] = useState<Set<string>>(new Set())
   const [recentFolders, setRecentFolders] = useState<string[]>([])
   const [isDragActive, setIsDragActive] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [dropFilesForUpload, setDropFilesForUpload] = useState<FileList | null>(null)
 
   useEffect(() => {
     setFavoriteFolders(loadSet(FAVORITES_KEY))
@@ -313,7 +314,6 @@ function FileExplorer() {
   const { data: folderTree } = useFolderTreeQuery()
 
   // ---- Mutations ----
-  const { mutate: uploadFile } = useUploadFileMutation()
   const deleteFileMutation = useDeleteFileMutation()
   const { mutate: downloadFile } = useDownloadFileMutation()
   const deleteFolderMutation = useDeleteFolderMutation()
@@ -506,26 +506,16 @@ function FileExplorer() {
     [selectedFolderId]
   )
 
-  const handleUploadClick = useCallback(() => fileInputRef.current?.click(), [])
+  const handleUploadClick = useCallback(() => {
+    setDropFilesForUpload(null)
+    setUploadDialogOpen(true)
+  }, [])
 
-  const handleFilesSelected = useCallback(
-    (fileList: FileList | null) => {
-      if (!fileList || fileList.length === 0) return
-      Array.from(fileList).forEach((file) => {
-        const formData = new FormData()
-        formData.append('file', file)
-        if (selectedFolderId) formData.append('folderId', selectedFolderId)
-        uploadFile(
-          formData,
-          {
-            onSuccess: () => addNotification('success', 'Upload complete', `"${file.name}" uploaded successfully.`),
-            onError: () => addNotification('error', 'Upload failed', `Could not upload "${file.name}".`),
-          }
-        )
-      })
-    },
-    [uploadFile, selectedFolderId]
-  )
+  const handleFilesDropped = useCallback((fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return
+    setDropFilesForUpload(fileList)
+    setUploadDialogOpen(true)
+  }, [])
 
   const handleDeleteFile = useCallback((file: FileItem) => setPendingDelete({ kind: 'file', file }), [])
 
@@ -839,17 +829,9 @@ function FileExplorer() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 h-full bg-background rounded-xl border overflow-hidden">
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => handleFilesSelected(e.target.files)}
-      />
-
       <TabBar tabs={tabInfos} activeTabId={activeTabId} onSelect={setActiveTabId} onClose={closeTab} onNewTab={() => newTab()} />
 
-      <DragOverlay isActive={isDragActive} onDrop={(fl) => handleFilesSelected(fl)} />
+      <DragOverlay isActive={isDragActive} onDrop={(fl) => handleFilesDropped(fl)} />
 
       <ExplorerPanel
         isOpen={explorerOpen}
@@ -1226,6 +1208,16 @@ function FileExplorer() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={(open) => {
+          setUploadDialogOpen(open)
+          if (!open) setDropFilesForUpload(null)
+        }}
+        folderId={selectedFolderId}
+        initialFiles={dropFilesForUpload}
+      />
     </div>
   )
 }
