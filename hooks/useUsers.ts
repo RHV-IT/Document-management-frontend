@@ -165,7 +165,7 @@ export function useActivateUserMutation() {
    const queryClient = useQueryClient()
 
    return useMutation({
-      mutationFn: (variables: { userId: string; data: { name?: string; email?: string; department?: string; departments?: string[] } }) =>
+      mutationFn: (variables: { userId: string; data: { name?: string; email?: string } }) =>
        usersAPI.requestEdit(variables.userId, variables.data),
      onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ['notifications'] })

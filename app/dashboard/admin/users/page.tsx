@@ -20,8 +20,6 @@ import {
   useResetPasswordMutation,
   useRestoreUserMutation,
   useDeleteUserMutation,
-  useRequestSuspendMutation,
-  useRequestPasswordResetMutation,
 } from '@/hooks/useUsers'
 import { UserFormDialog } from '@/components/admin/UserFormDialog'
 import { ResendWelcomeEmailDialog, ResendEmailTarget } from '@/components/admin/ResendWelcomeEmailDialog'
@@ -246,10 +244,6 @@ export default function AdminUsersPage() {
   const { mutate: restore } = useRestoreUserMutation()
   const { mutate: deleteUser } = useDeleteUserMutation()
 
-  // HOD request mutations
-  const { mutate: requestSuspend } = useRequestSuspendMutation()
-  const { mutate: requestPasswordReset } = useRequestPasswordResetMutation()
-
   // Notifications (for admins to see HOD requests)
   const { data: notificationsData } = useNotificationsQuery({ type: 'user_action_request', limit: 20 })
   const { mutate: markNotifAsRead } = useMarkAsReadMutation()
@@ -328,12 +322,6 @@ export default function AdminUsersPage() {
       case 'suspend':
         suspend(userId)
         break
-      case 'request-suspend':
-        requestSuspend(userId)
-        break
-      case 'request-password-reset':
-        requestPasswordReset(userId)
-        break
       case 'activate':
         activate(userId)
         break
@@ -377,10 +365,12 @@ export default function AdminUsersPage() {
                   <List className="h-4 w-4" />
                 </Button>
               </div>
-              <Button size="lg" className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Add User
-              </Button>
+              {!isManager && (
+                <Button size="lg" className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Add User
+                </Button>
+              )}
             </div>
           </div>
 
@@ -583,41 +573,30 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {/* Edit: HOD can only edit name/email; admin has full edit */}
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Edit User</DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
-                            {!user.welcomeEmailSentAt && (
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setResendEmailUser({ id: (user._id || user.id)!, name: user.name, email: user.email })
-                                  setOpenDropdown(null)
-                                }}
-                              >
-                                Resend Welcome Email
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
                             {isManager ? (
+                              /* Manager: view + edit request only */
                               <>
-                                {/* HOD: request actions that notify admin */}
-                                {user.status === 'active' && (
-                                  <DropdownMenuItem
-                                    className="text-orange-600"
-                                    onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-suspend'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                                  >
-                                    Request Suspend
-                                  </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
+                                {user.role !== 'admin' && (
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Request Edit</DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem
-                                  onClick={(e) => { e.stopPropagation(); setActionUser(user); setActionType('request-password-reset'); setActionDialogOpen(true); setOpenDropdown(null) }}
-                                >
-                                  Request Password Reset
-                                </DropdownMenuItem>
                               </>
                             ) : (
                               <>
-                                {/* Admin: direct actions */}
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Edit User</DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
+                                {!user.welcomeEmailSentAt && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setResendEmailUser({ id: (user._id || user.id)!, name: user.name, email: user.email })
+                                      setOpenDropdown(null)
+                                    }}
+                                  >
+                                    Resend Welcome Email
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
                                 {user.status === 'active' ? (
                                   <DropdownMenuItem
                                     className="text-orange-600"
@@ -721,34 +700,26 @@ export default function AdminUsersPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                              <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit User</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleViewActivity(user)}>View Activity</DropdownMenuItem>
-                              {!user.welcomeEmailSentAt && (
-                                <DropdownMenuItem
-                                  onClick={() => setResendEmailUser({ id: (user._id || user.id)!, name: user.name, email: user.email })}
-                                >
-                                  Resend Welcome Email
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
                               {isManager ? (
+                                /* Manager: view + edit request only */
                                 <>
-                                  {user.status === 'active' && (
-                                    <DropdownMenuItem
-                                      className="text-orange-600"
-                                      onClick={() => { setActionUser(user); setActionType('request-suspend'); setActionDialogOpen(true) }}
-                                    >
-                                      Request Suspend
-                                    </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleViewActivity(user)}>View Activity</DropdownMenuItem>
+                                  {user.role !== 'admin' && (
+                                    <DropdownMenuItem onClick={() => handleEditUser(user)}>Request Edit</DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem
-                                    onClick={() => { setActionUser(user); setActionType('request-password-reset'); setActionDialogOpen(true) }}
-                                  >
-                                    Request Password Reset
-                                  </DropdownMenuItem>
                                 </>
                               ) : (
                                 <>
+                                  <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit User</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleViewActivity(user)}>View Activity</DropdownMenuItem>
+                                  {!user.welcomeEmailSentAt && (
+                                    <DropdownMenuItem
+                                      onClick={() => setResendEmailUser({ id: (user._id || user.id)!, name: user.name, email: user.email })}
+                                    >
+                                      Resend Welcome Email
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => { setResetPwUser(user); setIsResetPwOpen(true) }}>Reset Password</DropdownMenuItem>
                                   {user.status === 'active' ? (
                                     <DropdownMenuItem
@@ -953,7 +924,7 @@ export default function AdminUsersPage() {
                         </p>
                       </div>
                     </div>
-                    {!selectedUser.welcomeEmailSentAt && (
+                    {!isManager && !selectedUser.welcomeEmailSentAt && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1032,24 +1003,16 @@ export default function AdminUsersPage() {
                     <Eye className="h-4 w-4" />
                     Activity
                   </Button>
-                  <Button
-                    onClick={() => handleEditUser(selectedUser!)}
-                    className="flex-1 cursor-pointer gap-2"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit User
-                  </Button>
-                  {isManager ? (
-                    selectedUser.status === 'active' ? (
-                      <Button
-                        variant="outline"
-                        className="cursor-pointer text-orange-600"
-                        onClick={() => { setActionUser(selectedUser); setActionType('request-suspend'); setActionDialogOpen(true); setSelectedUser(null) }}
-                      >
-                        Request Suspend
-                      </Button>
-                    ) : null
-                  ) : (
+                  {(!isManager || selectedUser.role !== 'admin') && (
+                    <Button
+                      onClick={() => handleEditUser(selectedUser!)}
+                      className="flex-1 cursor-pointer gap-2"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      {isManager ? 'Request Edit' : 'Edit User'}
+                    </Button>
+                  )}
+                  {!isManager && (
                     selectedUser.status === 'active' ? (
                       <Button
                         variant="destructive"
@@ -1251,16 +1214,12 @@ export default function AdminUsersPage() {
                 {actionType === 'activate' && 'Activate User'}
                 {actionType === 'restore' && 'Restore User'}
                 {actionType === 'delete' && 'Delete User'}
-                {actionType === 'request-suspend' && 'Request Suspend'}
-                {actionType === 'request-password-reset' && 'Request Password Reset'}
               </DialogTitle>
               <DialogDescription>
                 {actionType === 'suspend' && `Are you sure you want to suspend ${actionUser?.name}? They will not be able to access the system.`}
                 {actionType === 'activate' && `Are you sure you want to activate ${actionUser?.name}?`}
                 {actionType === 'restore' && `Are you sure you want to restore ${actionUser?.name}?`}
                 {actionType === 'delete' && `Are you sure you want to delete ${actionUser?.name}? This action cannot be undone.`}
-                {actionType === 'request-suspend' && `Send a request to the administrator to suspend ${actionUser?.name}?`}
-                {actionType === 'request-password-reset' && `Send a request to the administrator to reset the password for ${actionUser?.name}?`}
               </DialogDescription>
             </DialogHeader>
             <div className="flex gap-2">
@@ -1273,8 +1232,6 @@ export default function AdminUsersPage() {
                 {actionType === 'activate' && 'Activate'}
                 {actionType === 'restore' && 'Restore'}
                 {actionType === 'delete' && 'Delete'}
-                {actionType === 'request-suspend' && 'Send Request'}
-                {actionType === 'request-password-reset' && 'Send Request'}
               </Button>
               <Button variant="outline" onClick={() => setActionDialogOpen(false)} className="flex-1 cursor-pointer">
                 Cancel

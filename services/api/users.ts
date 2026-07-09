@@ -89,7 +89,9 @@ export const usersAPI = {
     return response.data
   },
 
-  requestEdit: async (userId: string, data: { name?: string; email?: string; department?: string; departments?: string[] }): Promise<{ success: boolean; message: string }> => {
+  // Only name/email are requestable — role, status, confidentialityLevels/confidentialityLevel,
+  // and department/departments are rejected by the backend with a 400 if present in the body.
+  requestEdit: async (userId: string, data: { name?: string; email?: string }): Promise<{ success: boolean; message: string }> => {
     const response = await apiClient.post(`/api/v1/users/${userId}/request-edit`, data)
     return response.data
   },

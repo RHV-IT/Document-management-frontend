@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, Loader2, User as UserIcon, Mail, Lock, Building2, Shield } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { useAuth } from '@/hooks/useAuth'
 import { useDepartmentsQuery } from '@/hooks/useSettings'
@@ -55,7 +56,7 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
   const isMobile = useIsMobile()
   const { user: currentUser } = useAuth()
   const isManager = isHodRole(currentUser?.role)
-  const currentUserDept = currentUser?.department || ''
+  const isManagerEditRequest = isManager && mode === 'edit'
   const queryClient = useQueryClient()
 
   const { data: departmentsData } = useDepartmentsQuery()
@@ -123,6 +124,17 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
 
   const onSubmit = async (data: UserFormData) => {
     if (isPending) return
+
+    if (isManagerEditRequest) {
+      if (!user) return
+      const userId = user._id || user.id!
+      requestEdit(
+        { userId, data: { name: data.name, email: data.email } },
+        { onSuccess: () => onOpenChange(false) }
+      )
+      return
+    }
+
     if (selectedDepartments.length === 0) {
       addNotification('error', 'Validation Error', 'Please select at least one department')
       return
@@ -189,54 +201,88 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
       return
     }
 
+    // Remaining path: admin editing a user (manager edit-requests are handled above)
     if (!user) return
     const userId = user._id || user.id!
-    if (isManager) {
-      const deptSameAsHod = selectedDepartments.length === 1 && selectedDepartments[0] === currentUserDept
-      requestEdit(
-        {
-          userId,
-          data: {
-            name: data.name,
-            email: data.email,
-            ...(deptSameAsHod && primaryDepartment ? { department: primaryDepartment } : {}),
-            departments: selectedDepartments,
-          },
+    updateUser(
+      {
+        userId,
+        data: {
+          name: data.name,
+          email: data.email,
+          department: primaryDepartment || undefined,
+          departments: selectedDepartments,
+          role: data.role,
+          confidentialityLevel: highestLevel || undefined,
+          confidentialityLevels: highestLevel ? [highestLevel] : [],
+          profiles,
         },
-        { onSuccess: () => onOpenChange(false) }
-      )
-    } else {
-      updateUser(
-        {
-          userId,
-          data: {
-            name: data.name,
-            email: data.email,
-            department: primaryDepartment || undefined,
-            departments: selectedDepartments,
-            role: data.role,
-            confidentialityLevel: highestLevel || undefined,
-            confidentialityLevels: highestLevel ? [highestLevel] : [],
-            profiles,
-          },
-        },
-        { onSuccess: () => onOpenChange(false) }
-      )
-    }
+      },
+      { onSuccess: () => onOpenChange(false) }
+    )
   }
 
-  const title = mode === 'create' ? 'Create User' : 'Edit User'
-  const description = mode === 'create' ? 'Add a new team member to the system' : 'Update user information and permissions'
+  const title = mode === 'create' ? 'Create User' : isManagerEditRequest ? 'Request Edit' : 'Edit User'
+  const description = mode === 'create'
+    ? 'Add a new team member to the system'
+    : isManagerEditRequest
+      ? 'Propose a name or email change for admin approval'
+      : 'Update user information and permissions'
   const submitLabel =
     mode === 'create' && isCreating
       ? 'Creating User...'
-      : isManager && mode === 'edit'
+      : isManagerEditRequest
         ? 'Send Request'
         : mode === 'create'
           ? 'Create User'
           : 'Save Changes'
 
-  const body = (
+  const body = isManagerEditRequest ? (
+    <div className="p-6 space-y-4">
+      {user && (
+        <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl">
+          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
+            {user.name?.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium truncate">{user.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+        <AlertCircle className="h-4 w-4 shrink-0" />
+        <span>Only name and email changes can be requested. Department, role, and confidentiality access can&apos;t be changed here — an administrator will review and apply your request.</span>
+      </div>
+
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="user-name" className="flex items-center gap-1.5 text-xs font-medium">
+            <UserIcon className="h-3.5 w-3.5" />
+            Full Name
+          </Label>
+          <Input id="user-name" {...register('name')} placeholder="Enter full name" />
+          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="user-email" className="flex items-center gap-1.5 text-xs font-medium">
+            <Mail className="h-3.5 w-3.5" />
+            Email Address
+          </Label>
+          <Input
+            id="user-email"
+            type="email"
+            aria-invalid={!!errors.email}
+            {...register('email')}
+            placeholder="user@company.com"
+          />
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+        </div>
+      </div>
+    </div>
+  ) : (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
       {/* Left column */}
       <div className="space-y-5">
@@ -252,13 +298,6 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
                 <p className="font-medium truncate">{user.name}</p>
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
-            </div>
-          )}
-
-          {isManager && mode === 'edit' && (
-            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 mb-4">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>As a Manager, name and email edits will be sent as a request to the administrator for approval. Department can only be changed if it matches yours.</span>
             </div>
           )}
 
@@ -400,7 +439,7 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[980px] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogContent className={cn('max-h-[90vh] p-0 flex flex-col overflow-hidden', isManagerEditRequest ? 'max-w-md' : 'max-w-[980px]')}>
           <DialogHeader className="p-6 pb-4 border-b shrink-0">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
