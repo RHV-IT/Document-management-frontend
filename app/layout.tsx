@@ -1,6 +1,7 @@
 import React from 'react'
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { GeistSans } from 'geist/font/sans'
+import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth'
 import { ProfileProvider } from '@/stores/useProfileStore'
@@ -12,9 +13,6 @@ import { ScannerListener } from '@/components/ScannerListener'
 import { ScannerAgentFlow } from '@/components/scanner/ScannerAgentFlow'
 import { AgentEnforcement } from '@/components/AgentEnforcement'
 // Design System: see lib/design-system.ts + DESIGN_CONSISTENCY.md for rules
-
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'RHV DMS',
@@ -38,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     console.log('[RootLayout] rendering')
   }
   return (
-    <html lang="en" className="bg-background">
+    <html lang="en" className={`bg-background ${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="font-sans antialiased">
         <QueryClientProvider>
           <ProfileProvider>

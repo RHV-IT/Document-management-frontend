@@ -13,6 +13,9 @@ export interface UsersListResponse {
 
 export interface UserResponse {
   success: boolean
+  message?: string
+  emailSent?: boolean
+  emailQueued?: boolean
   data: User
 }
 
@@ -117,6 +120,12 @@ export const usersAPI = {
   // Activate user
   activateUser: async (id: string): Promise<{ success: boolean; message: string }> => {
     const response = await apiClient.post(`/api/v1/users/${id}/activate`)
+    return response.data
+  },
+
+  // Resend welcome/onboarding email
+  resendWelcomeEmail: async (id: string): Promise<{ success: boolean; message: string; emailSent?: boolean }> => {
+    const response = await apiClient.post(`/api/v1/users/${id}/resend-welcome-email`)
     return response.data
   },
 }

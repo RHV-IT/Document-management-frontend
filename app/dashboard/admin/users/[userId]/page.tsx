@@ -7,7 +7,7 @@ import { useUserQuery, useUpdateUserMutation, useResetPasswordMutation, useSuspe
 import { useAuditLogsQuery } from '@/hooks/useAuditLog'
 import {
   Activity, ArrowLeft, User, Mail, Building, Shield, Clock, Calendar,
-  MoreVertical, Edit, Key, Trash2, PlayCircle, PauseCircle, RotateCcw
+  MoreVertical, Edit, Key, Trash2, PlayCircle, PauseCircle, RotateCcw, CheckCircle2
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ import { Input } from '@/components/ui/input'
 import { formatDistanceToNow, format } from 'date-fns'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import { getRoleBadgeColor, getRoleLabel } from '@/lib/roles'
+import { ResendWelcomeEmailDialog, ResendEmailTarget } from '@/components/admin/ResendWelcomeEmailDialog'
 
 type ClearanceLevel = 'public' | 'internal' | 'confidential' | 'highly_confidential'
 
@@ -137,6 +138,7 @@ export default function UserActivityPage() {
   const [page, setPage] = useState(1)
   const [showResetPassword, setShowResetPassword] = useState(false)
   const [newPassword, setNewPassword] = useState('')
+  const [resendEmailUser, setResendEmailUser] = useState<ResendEmailTarget | null>(null)
 
   const { data: user, isLoading: userLoading } = useUserQuery(userId)
   const { data: activity, isLoading: activityLoading } = useAuditLogsQuery({
@@ -248,6 +250,34 @@ export default function UserActivityPage() {
                             </Badge>
                           ) : null
                         })()}
+                      </div>
+                      <div className="flex items-center gap-2 mt-3 text-sm">
+                        {user.welcomeEmailSentAt ? (
+                          <span className="inline-flex items-center gap-1.5 text-green-700">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Welcome Email Sent
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-orange-600">
+                            <Clock className="h-4 w-4" />
+                            Pending Delivery
+                          </span>
+                        )}
+                        {user.welcomeEmailSentAt && (
+                          <span className="text-gray-400">
+                            &middot; Sent {format(new Date(user.welcomeEmailSentAt), 'MMM d, yyyy h:mm a')}
+                          </span>
+                        )}
+                        {!user.welcomeEmailSentAt && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-orange-700 cursor-pointer"
+                            onClick={() => setResendEmailUser({ id: user._id || user.id!, name: user.name, email: user.email })}
+                          >
+                            Resend Email
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -407,6 +437,11 @@ export default function UserActivityPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <ResendWelcomeEmailDialog
+          user={resendEmailUser}
+          onOpenChange={(open) => { if (!open) setResendEmailUser(null) }}
+        />
       </div>
     </ResponsiveContainer>
   )

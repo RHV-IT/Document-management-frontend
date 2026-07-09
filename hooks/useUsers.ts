@@ -178,6 +178,18 @@ export function useActivateUserMutation() {
    })
  }
 
+ export function useResendWelcomeEmailMutation() {
+   const queryClient = useQueryClient()
+
+   return useMutation({
+     mutationFn: (userId: string) => usersAPI.resendWelcomeEmail(userId),
+     onSuccess: (_, userId) => {
+       queryClient.invalidateQueries({ queryKey: ['users'] })
+       queryClient.invalidateQueries({ queryKey: ['user', userId] })
+     },
+   })
+ }
+
  export function useRequestPasswordResetMutation() {
    const queryClient = useQueryClient()
 

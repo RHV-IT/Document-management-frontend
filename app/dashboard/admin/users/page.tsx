@@ -22,6 +22,7 @@ import {
   useRequestPasswordResetMutation,
 } from '@/hooks/useUsers'
 import { UserFormDialog } from '@/components/admin/UserFormDialog'
+import { ResendWelcomeEmailDialog, ResendEmailTarget } from '@/components/admin/ResendWelcomeEmailDialog'
 import { useNotificationsQuery, useMarkAsReadMutation } from '@/hooks/useNotifications'
 import { useAuditLogsQuery } from '@/hooks/useAuditLog'
 import {
@@ -62,7 +63,7 @@ import { ResponsiveContainer } from '@/components/ResponsiveContainer'
 import { SkeletonLoader } from '@/components/loaders/SkeletonLoader'
 import { TableSkeleton } from '@/components/loaders/TableSkeleton'
 import { getRoleBadgeColor, getRoleLabel, isHodRole } from '@/lib/roles'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@radix-ui/react-tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type ViewMode = 'grid' | 'table'
 
@@ -84,6 +85,7 @@ interface UserType {
     confidentialityLevels?: string[]
   }[]
   createdAt?: string
+  welcomeEmailSentAt?: string | null
 }
 
 interface DepartmentOption {
@@ -126,6 +128,9 @@ export default function AdminUsersPage() {
   const [actionType, setActionType] = useState<string>('')
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
 
+  // Resend welcome email
+  const [resendEmailUser, setResendEmailUser] = useState<ResendEmailTarget | null>(null)
+
   // Helper: get the highest clearance level from user's profiles or legacy fields
   const getUserHighestClearanceLevel = (user: UserType) => {
     // If profiles exist, collect all confidentiality levels from all profiles
@@ -162,6 +167,29 @@ export default function AdminUsersPage() {
       return user.confidentialityLevel
     }
     return ''
+  }
+
+  const renderEmailStatusBadge = (targetUser: UserType) => {
+    const sent = !!targetUser.welcomeEmailSentAt
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-xs gap-1 shrink-0',
+              sent ? 'text-green-700 border-green-200 bg-green-50' : 'text-orange-700 border-orange-200 bg-orange-50'
+            )}
+          >
+            <span aria-hidden="true">{sent ? '🟢' : '🟠'}</span>
+            {sent ? 'Sent' : 'Pending'}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          {sent ? 'Welcome email successfully delivered' : 'Waiting to be delivered'}
+        </TooltipContent>
+      </Tooltip>
+    )
   }
 
   const { user } = useAuth()
@@ -412,7 +440,10 @@ export default function AdminUsersPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold truncate">{user.name}</p>
-                          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                            {renderEmailStatusBadge(user)}
+                          </div>
                         </div>
                       </div>
 
@@ -506,6 +537,17 @@ export default function AdminUsersPage() {
                             {/* Edit: HOD can only edit name/email; admin has full edit */}
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditUser(user); setOpenDropdown(null) }}>Edit User</DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewActivity(user); setOpenDropdown(null) }}>View Activity</DropdownMenuItem>
+                            {!user.welcomeEmailSentAt && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setResendEmailUser({ id: (user._id || user.id)!, name: user.name, email: user.email })
+                                  setOpenDropdown(null)
+                                }}
+                              >
+                                Resend Welcome Email
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             {isManager ? (
                               <>
@@ -590,7 +632,12 @@ export default function AdminUsersPage() {
                     {data.users.map((user) => (
                       <TableRow key={user._id || user.id} className="cursor-pointer" onClick={() => setSelectedUser(user)}>
                         <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <span>{user.email}</span>
+                            {renderEmailStatusBadge(user)}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge className={getRoleBadgeColor(user.role)}>
                             {getRoleLabel(user.role)}
@@ -649,6 +696,13 @@ export default function AdminUsersPage() {
                             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                               <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit User</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleViewActivity(user)}>View Activity</DropdownMenuItem>
+                              {!user.welcomeEmailSentAt && (
+                                <DropdownMenuItem
+                                  onClick={() => setResendEmailUser({ id: (user._id || user.id)!, name: user.name, email: user.email })}
+                                >
+                                  Resend Welcome Email
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               {isManager ? (
                                 <>
@@ -1222,6 +1276,11 @@ export default function AdminUsersPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <ResendWelcomeEmailDialog
+          user={resendEmailUser}
+          onOpenChange={(open) => { if (!open) setResendEmailUser(null) }}
+        />
       </div>
     </ResponsiveContainer>
   )

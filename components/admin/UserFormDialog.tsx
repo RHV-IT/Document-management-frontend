@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from '@/components/ui/drawer'
 import { Button } from '@/components/ui/button'
@@ -20,12 +21,13 @@ import { isHodRole } from '@/lib/roles'
 import { RoleSelect } from './RoleSelect'
 import { DepartmentMultiSelect, DepartmentOption } from './DepartmentMultiSelect'
 import { DepartmentAccessCard } from './DepartmentAccessCard'
+import { UserCreatedDialog, CreatedUserInfo } from './UserCreatedDialog'
 
 const CONFIDENTIALITY_ORDER: Record<string, number> = { public: 0, internal: 1, confidential: 2, highly_confidential: 3 }
 
 const userFormSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().trim().toLowerCase().email('Please enter a valid email address.'),
   password: z.string().min(2, 'Password must be at least 2 characters').optional().or(z.literal('')),
   role: z.enum(['admin', 'hod', 'user'], { errorMap: () => ({ message: 'Please select a valid role' }) }),
 })
@@ -54,6 +56,7 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
   const { user: currentUser } = useAuth()
   const isManager = isHodRole(currentUser?.role)
   const currentUserDept = currentUser?.department || ''
+  const queryClient = useQueryClient()
 
   const { data: departmentsData } = useDepartmentsQuery()
   const departments: DepartmentOption[] = departmentsData || []
@@ -62,6 +65,7 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
   const { mutate: requestEdit, isPending: isRequestingEdit } = useRequestEditMutation()
   const [isCreating, setIsCreating] = useState(false)
   const isPending = isUpdating || isRequestingEdit || isCreating
+  const [createdResult, setCreatedResult] = useState<CreatedUserInfo | null>(null)
 
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([])
   const [primaryDepartment, setPrimaryDepartment] = useState<string | null>(null)
@@ -118,6 +122,7 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
   }
 
   const onSubmit = async (data: UserFormData) => {
+    if (isPending) return
     if (selectedDepartments.length === 0) {
       addNotification('error', 'Validation Error', 'Please select at least one department')
       return
@@ -152,7 +157,26 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
           profiles,
         })
         if (response.success || response.data) {
-          addNotification('success', 'User Created', `${data.name} has been added to ${selectedDepartments.length} department(s).`)
+          queryClient.invalidateQueries({ queryKey: ['users'] })
+          const createdUser = response.data?.user
+          // Backend reports delivery via either `emailSent` (synchronous result) or
+          // `emailQueued` (email handed off to an async delivery queue) depending on
+          // the endpoint/config — treat either explicit `true` as a success signal.
+          const emailSent =
+            typeof response.emailSent === 'boolean'
+              ? response.emailSent
+              : typeof response.emailQueued === 'boolean'
+                ? response.emailQueued
+                : false
+          setCreatedResult({
+            userId: createdUser?._id || createdUser?.id,
+            name: data.name,
+            email: data.email,
+            tempPassword: data.password!,
+            department: primaryDepartment || selectedDepartments[0],
+            role: data.role,
+            emailSent,
+          })
           onOpenChange(false)
         } else {
           addNotification('error', 'Creation Failed', 'Failed to create user account.')
@@ -203,7 +227,14 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
 
   const title = mode === 'create' ? 'Create User' : 'Edit User'
   const description = mode === 'create' ? 'Add a new team member to the system' : 'Update user information and permissions'
-  const submitLabel = isManager && mode === 'edit' ? 'Send Request' : mode === 'create' ? 'Create User' : 'Save Changes'
+  const submitLabel =
+    mode === 'create' && isCreating
+      ? 'Creating User...'
+      : isManager && mode === 'edit'
+        ? 'Send Request'
+        : mode === 'create'
+          ? 'Create User'
+          : 'Save Changes'
 
   const body = (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
@@ -246,7 +277,13 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
                 <Mail className="h-3.5 w-3.5" />
                 Email Address
               </Label>
-              <Input id="user-email" type="email" {...register('email')} placeholder="user@company.com" />
+              <Input
+                id="user-email"
+                type="email"
+                aria-invalid={!!errors.email}
+                {...register('email')}
+                placeholder="user@company.com"
+              />
               {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
 
@@ -323,36 +360,59 @@ export function UserFormDialog({ mode, open, onOpenChange, user }: UserFormDialo
     </>
   )
 
+  const handleCreateAnother = () => {
+    setCreatedResult(null)
+    reset({ name: '', email: '', role: '' as any, password: '' })
+    setSelectedDepartments([])
+    setPrimaryDepartment(null)
+    setConfidentialityByDept({})
+    onOpenChange(true)
+  }
+
+  const createdDialog = (
+    <UserCreatedDialog
+      result={createdResult}
+      onCreateAnother={handleCreateAnother}
+      onClose={() => setCreatedResult(null)}
+    />
+  )
+
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="h-[95dvh] max-h-[95dvh] flex flex-col">
-          <DrawerHeader>
-            <DrawerTitle>{title}</DrawerTitle>
-            <DrawerDescription>{description}</DrawerDescription>
-          </DrawerHeader>
-          <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto min-h-0">
-            {body}
-          </form>
-          <DrawerFooter className="flex-row justify-end border-t">{footer}</DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+      <>
+        <Drawer open={open} onOpenChange={onOpenChange}>
+          <DrawerContent className="h-[95dvh] max-h-[95dvh] flex flex-col">
+            <DrawerHeader>
+              <DrawerTitle>{title}</DrawerTitle>
+              <DrawerDescription>{description}</DrawerDescription>
+            </DrawerHeader>
+            <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto min-h-0">
+              {body}
+            </form>
+            <DrawerFooter className="flex-row justify-end border-t">{footer}</DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+        {createdDialog}
+      </>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[980px] max-h-[90vh] p-0 flex flex-col overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b shrink-0">
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto min-h-0">
-          {body}
-        </form>
-        <DialogFooter className="p-4 border-t shrink-0">{footer}</DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[980px] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto min-h-0">
+            {body}
+          </form>
+          <DialogFooter className="p-4 border-t shrink-0">{footer}</DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {createdDialog}
+    </>
   )
 }
 

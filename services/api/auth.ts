@@ -133,6 +133,7 @@ export interface User {
   confidentialityLevels?: string[]
   profiles?: { _id?: string; department: string; isPrimary: boolean; confidentialityLevels?: string[] }[]
   loginCount?: number
+  welcomeEmailSentAt?: string | null
 }
 
 export interface Profile {
@@ -146,6 +147,8 @@ export interface Profile {
 export interface AuthResponse {
   success: boolean
   message?: string
+  emailSent?: boolean
+  emailQueued?: boolean
   data: {
     user: User
     profiles: Profile[]
