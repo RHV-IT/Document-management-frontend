@@ -11,7 +11,7 @@ export interface Notification {
     targetUserId?: string
     targetUserName?: string
     requestedBy?: { name: string; email?: string; role?: string }
-    requestedChanges?: { name?: string; email?: string; department?: string }
+    requestedChanges?: { name?: string; email?: string; department?: string; departments?: string[] }
   }
 }
 

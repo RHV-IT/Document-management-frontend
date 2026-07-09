@@ -7,7 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Shield, Star, ChevronDown } from 'lucide-react'
 import { CONFIDENTIALITY_LEVELS } from '@/lib/access-control'
-import { useAccessControl } from '@/hooks/useAccessControl'
 import { cn } from '@/lib/utils'
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -34,7 +33,6 @@ export function DepartmentAccessCard({
   onConfidentialityLevelsChange,
   defaultOpen = true,
 }: DepartmentAccessCardProps) {
-  const { allowedLevels } = useAccessControl()
   const [open, setOpen] = useState(defaultOpen)
 
   const toggleLevel = (level: string) => {
@@ -75,25 +73,15 @@ export function DepartmentAccessCard({
           <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-1.5 pt-2">
-          {CONFIDENTIALITY_LEVELS.map((level) => {
-            const disabled = !allowedLevels.includes(level)
-            return (
-              <label
-                key={level}
-                className={cn(
-                  'flex items-center gap-2 text-sm',
-                  disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-                )}
-              >
-                <Checkbox
-                  checked={confidentialityLevels.includes(level)}
-                  disabled={disabled}
-                  onCheckedChange={() => toggleLevel(level)}
-                />
-                {LEVEL_LABELS[level]}
-              </label>
-            )
-          })}
+          {CONFIDENTIALITY_LEVELS.map((level) => (
+            <label key={level} className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={confidentialityLevels.includes(level)}
+                onCheckedChange={() => toggleLevel(level)}
+              />
+              {LEVEL_LABELS[level]}
+            </label>
+          ))}
         </CollapsibleContent>
       </Collapsible>
     </div>

@@ -11,6 +11,8 @@ import { ConfidentialityLevelSelect } from '@/components/ui/ConfidentialityLevel
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { settingsAPI } from '@/services/api/settings'
+import { usersAPI } from '@/services/api/users'
+import { Notification } from '@/services/api/notifications'
 import {
   useUsersQuery,
   useSuspendUserMutation,
@@ -23,6 +25,7 @@ import {
 } from '@/hooks/useUsers'
 import { UserFormDialog } from '@/components/admin/UserFormDialog'
 import { ResendWelcomeEmailDialog, ResendEmailTarget } from '@/components/admin/ResendWelcomeEmailDialog'
+import { addNotification } from '@/components/notifications/NotificationCenter'
 import { useNotificationsQuery, useMarkAsReadMutation } from '@/hooks/useNotifications'
 import { useAuditLogsQuery } from '@/hooks/useAuditLog'
 import {
@@ -56,7 +59,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle, AlertTriangle, X, Check, HelpCircle } from 'lucide-react'
+import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle, AlertTriangle, X, Check, HelpCircle, Star, Copy, IdCard, Loader2, Pencil } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
@@ -102,6 +105,19 @@ const STATUS_COLORS = {
   deleted: 'bg-red-100 text-red-800',
 }
 
+const CONFIDENTIALITY_COLORS: Record<string, { bg: string; text: string }> = {
+  public: { bg: '#10b981', text: '#065f46' },
+  internal: { bg: '#3b82f6', text: '#1e40af' },
+  confidential: { bg: '#f59e0b', text: '#92400e' },
+  highly_confidential: { bg: '#ef4444', text: '#991b1b' },
+}
+
+function getConfidentialityBadgeStyle(level?: string): React.CSSProperties | undefined {
+  const c = level ? CONFIDENTIALITY_COLORS[level] : undefined
+  if (!c) return undefined
+  return { backgroundColor: `${c.bg}20`, color: c.text, border: `1px solid ${c.bg}` }
+}
+
 
 export default function AdminUsersPage() {
   const searchParams = useSearchParams()
@@ -112,6 +128,7 @@ export default function AdminUsersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null)
   const [editingUser, setEditingUser] = useState<UserType | null>(null)
+  const [reviewingNotifId, setReviewingNotifId] = useState<string | null>(null)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -246,9 +263,53 @@ export default function AdminUsersPage() {
     setIsEditDialogOpen(true)
   }
 
+  const handleReviewEditRequest = async (notif: Notification) => {
+    const targetId = notif.details?.targetUserId
+    if (!targetId) return
+    setReviewingNotifId(notif._id)
+    try {
+      const res = await usersAPI.getUser(targetId)
+      const fullUser = res.data as UserType
+      const changes = notif.details?.requestedChanges || {}
+
+      const merged: UserType = { ...fullUser }
+      if (changes.name) merged.name = changes.name
+      if (changes.email) merged.email = changes.email
+
+      const requestedDepartments = changes.departments || (changes.department ? [changes.department] : null)
+      if (requestedDepartments && requestedDepartments.length > 0) {
+        const primary = changes.department || requestedDepartments[0]
+        merged.departments = requestedDepartments
+        merged.department = primary
+        merged.profiles = requestedDepartments.map((dept) => ({
+          department: dept,
+          isPrimary: dept === primary,
+          confidentialityLevels: fullUser.profiles?.find((p) => p.department === dept)?.confidentialityLevels || [],
+        }))
+      }
+
+      setEditingUser(merged)
+      setIsEditDialogOpen(true)
+      markNotifAsRead(notif._id)
+    } catch {
+      addNotification('error', 'Failed to Load Request', 'Could not load the user for this edit request.')
+    } finally {
+      setReviewingNotifId(null)
+    }
+  }
+
   const handleViewActivity = (user: UserType) => {
     setActivityUser(user)
     setIsActivityDialogOpen(true)
+  }
+
+  const copyToClipboard = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      addNotification('success', 'Copied', `${label} copied to clipboard.`)
+    } catch {
+      addNotification('error', 'Copy Failed', `Could not copy ${label.toLowerCase()}.`)
+    }
   }
 
   const handleResetPassword = (e: React.FormEvent) => {
@@ -340,7 +401,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {/* HOD Action Requests â€” only visible to admins */}
+        {/* HOD Action Requests — only visible to admins */}
         {!isManager && notificationsData?.notifications && notificationsData.notifications.length > 0 && (
           <div className="px-6 pt-4">
             <Card className="py-4 border-amber-200 bg-amber-50/50">
@@ -360,7 +421,7 @@ export default function AdminUsersPage() {
                         <div className="min-w-0">
                           <p className="text-sm text-gray-800 truncate">{notif.message}</p>
                           <p className="text-xs text-gray-400">
-                            {notif.details?.requestedBy?.name && `From: ${notif.details.requestedBy.name} â€¢ `}
+                            {notif.details?.requestedBy?.name && `From: ${notif.details.requestedBy.name} • `}
                             {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                           </p>
                         </div>
@@ -380,9 +441,11 @@ export default function AdminUsersPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-xs h-7 cursor-pointer"
-                            onClick={() => { markNotifAsRead(notif._id); }}
+                            className="text-xs h-7 cursor-pointer gap-1.5"
+                            disabled={reviewingNotifId === notif._id}
+                            onClick={() => handleReviewEditRequest(notif)}
                           >
+                            {reviewingNotifId === notif._id && <Loader2 className="h-3 w-3 animate-spin" />}
                             Review
                           </Button>
                         )}
@@ -457,29 +520,7 @@ export default function AdminUsersPage() {
                         {(() => {
                           const lvl = getUserHighestClearanceLevel(user)
                           return lvl ? (
-                            <Badge
-                              className="text-xs"
-                              style={{
-                                backgroundColor: {
-                                  public: '#10b981',
-                                  internal: '#3b82f6',
-                                  confidential: '#f59e0b',
-                                  highly_confidential: '#ef4444'
-                                }[lvl] + '20',
-                                color: {
-                                  public: '#065f46',
-                                  internal: '#1e40af',
-                                  confidential: '#92400e',
-                                  highly_confidential: '#991b1b'
-                                }[lvl],
-                                border: `1px solid ${{
-                                  public: '#10b981',
-                                  internal: '#3b82f6',
-                                  confidential: '#f59e0b',
-                                  highly_confidential: '#ef4444'
-                                }[lvl]}`
-                              }}
-                            >
+                            <Badge className="text-xs" style={getConfidentialityBadgeStyle(lvl)}>
                               {lvl.replace(/_/g, ' ')}
                             </Badge>
                           ) : (
@@ -491,11 +532,19 @@ export default function AdminUsersPage() {
                       <div className="mt-3 space-y-1 text-sm text-muted-foreground">
                         <div className="flex items-start gap-2">
                           <Building className="h-3 w-3 mt-0.5 shrink-0" />
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1.5">
                             {(user as UserType).profiles?.[0] ? (
                               (user as UserType).profiles!.map((profile, idx) => (
-                                <span key={profile._id ?? `profile-${idx}`} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${profile.isPrimary ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                                  {profile.department}{profile.isPrimary && ' â€¢ Primary'}
+                                <span
+                                  key={profile._id ?? `profile-${idx}`}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${profile.isPrimary ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                                >
+                                  {profile.department}
+                                  {profile.isPrimary && (
+                                    <span className="inline-flex items-center gap-0.5 text-blue-500">
+                                      <Star className="h-2.5 w-2.5 fill-current" />
+                                    </span>
+                                  )}
                                 </span>
                               ))
                             ) : user.departments && user.departments.length > 0 ? (
@@ -653,29 +702,7 @@ export default function AdminUsersPage() {
                           {(() => {
                             const lvl = getUserHighestClearanceLevel(user)
                             return lvl ? (
-                              <Badge
-                                className="text-xs"
-                                style={{
-                                  backgroundColor: {
-                                    public: '#10b981',
-                                    internal: '#3b82f6',
-                                    confidential: '#f59e0b',
-                                    highly_confidential: '#ef4444'
-                                  }[lvl] + '20',
-                                  color: {
-                                    public: '#065f46',
-                                    internal: '#1e40af',
-                                    confidential: '#92400e',
-                                    highly_confidential: '#991b1b'
-                                  }[lvl],
-                                  border: `1px solid ${{
-                                    public: '#10b981',
-                                    internal: '#3b82f6',
-                                    confidential: '#f59e0b',
-                                    highly_confidential: '#ef4444'
-                                  }[lvl]}`
-                                }}
-                              >
+                              <Badge className="text-xs" style={getConfidentialityBadgeStyle(lvl)}>
                                 {lvl.replace(/_/g, ' ')}
                               </Badge>
                             ) : (
@@ -842,195 +869,188 @@ export default function AdminUsersPage() {
 
         {/* User Details Dialog */}
         <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden">
+          <DialogContent className="max-w-xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
             {selectedUser && (
               <>
-                <DialogHeader className="pb-6">
+                <DialogHeader className="p-6 pb-5 border-b shrink-0">
                   <DialogTitle className="flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 flex items-center justify-center text-white text-2xl font-bold shadow-lg ring-4 ring-blue-50">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-semibold shrink-0">
                       {selectedUser.name?.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-2xl font-bold text-gray-900 truncate">{selectedUser.name}</h2>
-                      <p className="text-base text-gray-600 mt-1">{selectedUser.email}</p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <Badge className={`${getRoleBadgeColor(selectedUser.role)} text-white font-medium px-3 py-1`}>
+                      <h2 className="text-lg font-bold text-foreground truncate">{selectedUser.name}</h2>
+                      <p className="text-sm text-muted-foreground truncate">{selectedUser.email}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                        <Badge className={`${getRoleBadgeColor(selectedUser.role)} text-white`}>
                           <Shield className="h-3 w-3 mr-1" />
                           {getRoleLabel(selectedUser.role)}
                         </Badge>
-                        <Badge className={`${STATUS_COLORS[selectedUser.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'} font-medium px-3 py-1`}>
+                        <Badge className={STATUS_COLORS[selectedUser.status as keyof typeof STATUS_COLORS] || 'bg-gray-100'}>
                           <Clock className="h-3 w-3 mr-1" />
                           {selectedUser.status || 'active'}
                         </Badge>
+                        {renderEmailStatusBadge(selectedUser)}
                       </div>
                     </div>
                   </DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-6 overflow-y-auto max-h-96">
-                  {/* Key Information Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Building className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <h3 className="font-semibold text-blue-900">Department</h3>
-                      </div>
-                      <p className="text-blue-800 text-lg font-medium">{selectedUser.department}</p>
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {/* Overview */}
+                  <div className="rounded-xl border divide-y overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Building className="h-3.5 w-3.5" />
+                        Primary Department
+                      </span>
+                      <span className="text-sm font-medium text-foreground text-right">{selectedUser.department || '—'}</span>
                     </div>
-
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-xl p-5">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                          <Mail className="h-4 w-4 text-green-600" />
-                        </div>
-                        <h3 className="font-semibold text-green-900">Contact</h3>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="h-3.5 w-3.5" />
+                        Email
+                      </span>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-sm font-medium text-foreground truncate">{selectedUser.email}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 cursor-pointer"
+                          onClick={() => copyToClipboard(selectedUser.email, 'Email')}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                       </div>
-                      <p className="text-green-800 text-sm break-all">{selectedUser.email}</p>
                     </div>
-                  </div>
-
-                  {/* Account Information */}
-                  <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-100 rounded-xl p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <Calendar className="h-4 w-4 text-gray-600" />
-                      </div>
-                      <h3 className="font-semibold text-gray-900">Account Information</h3>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" />
+                        Member Since
+                      </span>
+                      <span className="text-sm font-medium text-foreground">
+                        {formatDistanceToNow(new Date(selectedUser.createdAt || ''), { addSuffix: true })}
+                      </span>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Member since</span>
-                        <span className="text-gray-900 font-semibold">
-                          {formatDistanceToNow(new Date(selectedUser.createdAt || ''), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-gray-600 font-medium">User ID</span>
-                        <code className="text-gray-900 bg-gray-100 px-2 py-1 rounded text-sm">
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <IdCard className="h-3.5 w-3.5" />
+                        User ID
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <code className="text-xs bg-muted px-2 py-1 rounded truncate max-w-[140px]">
                           {selectedUser._id || selectedUser.id}
                         </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 cursor-pointer"
+                          onClick={() => copyToClipboard((selectedUser._id || selectedUser.id) || '', 'User ID')}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {selectedUser.welcomeEmailSentAt ? (
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-orange-500" />
+                        )}
+                        Welcome Email
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${selectedUser.welcomeEmailSentAt ? 'text-green-700' : 'text-orange-600'}`}>
+                          {selectedUser.welcomeEmailSentAt
+                            ? `Sent ${format(new Date(selectedUser.welcomeEmailSentAt), 'MMM d, yyyy')}`
+                            : 'Pending Delivery'}
+                        </span>
+                        {!selectedUser.welcomeEmailSentAt && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs cursor-pointer"
+                            onClick={() =>
+                              setResendEmailUser({
+                                id: (selectedUser._id || selectedUser.id)!,
+                                name: selectedUser.name,
+                                email: selectedUser.email,
+                              })
+                            }
+                          >
+                            Resend
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Departments & Access Profiles */}
-                <div className="border-t pt-4">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-3">Departments & Access Profiles</h2>
-                  {selectedUser.profiles && selectedUser.profiles.length > 0 ? (
-                    <div className="space-y-4">
-                      {selectedUser.profiles.map((profile, index) => (
-                        <div key={profile._id || index} className="border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Building className="h-4 w-4" />
-                              <span className="font-medium">{profile.department}</span>
+                  {/* Departments & Access Profiles */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-3">Departments & Access</h3>
+                    {selectedUser.profiles && selectedUser.profiles.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedUser.profiles.map((profile, index) => (
+                          <div key={profile._id || index} className="rounded-lg border bg-muted/20 p-3.5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-sm font-medium truncate">{profile.department}</span>
                               {profile.isPrimary && (
-                                <span className="ml-2 px-2.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                <Badge variant="secondary" className="gap-1 text-[10px] shrink-0">
+                                  <Star className="h-2.5 w-2.5 fill-current" />
                                   Primary
-                                </span>
+                                </Badge>
                               )}
                             </div>
-                          </div>
-                          <div className="space-y-2">
                             {profile.confidentialityLevels && profile.confidentialityLevels.length > 0 ? (
-                              <>
-                                <p className="text-sm font-medium text-gray-700">Confidentiality Levels:</p>
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                  {profile.confidentialityLevels.map((level, idx) => (
-                                    <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium"
-                                      style={{
-                                        backgroundColor: {
-                                          public: '#10b981',
-                                          internal: '#3b82f6',
-                                          confidential: '#f59e0b',
-                                          highly_confidential: '#ef4444'
-                                        }[level] + '20',
-                                        color: {
-                                          public: '#065f46',
-                                          internal: '#1e40af',
-                                          confidential: '#92400e',
-                                          highly_confidential: '#991b1b'
-                                        }[level],
-                                        border: `1px solid ${{
-                                          public: '#10b981',
-                                          internal: '#3b82f6',
-                                          confidential: '#f59e0b',
-                                          highly_confidential: '#ef4444'
-                                        }[level]}`
-                                      }}>
-                                      {level.replace(/_/g, ' ')}
-                                    </span>
-                                  ))}
-                                </div>
-                              </>
+                              <div className="flex flex-wrap gap-1.5">
+                                {profile.confidentialityLevels.map((level, idx) => (
+                                  <Badge key={idx} className="text-[10px]" style={getConfidentialityBadgeStyle(level)}>
+                                    {level.replace(/_/g, ' ')}
+                                  </Badge>
+                                ))}
+                              </div>
                             ) : (
-                              <p className="text-sm text-muted-foreground">No specific confidentiality levels assigned for this department.</p>
+                              <p className="text-xs text-muted-foreground">No confidentiality levels assigned for this department.</p>
                             )}
                           </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground space-y-2">
+                        <p>No department profiles found.</p>
+                        <div className="flex items-center justify-center gap-2">
+                          <Building className="h-3.5 w-3.5" />
+                          <span className="font-medium text-foreground">{selectedUser.department}</span>
+                          {(() => {
+                            const lvl = getUserHighestClearanceLevel(selectedUser)
+                            return lvl ? (
+                              <Badge className="text-[10px]" style={getConfidentialityBadgeStyle(lvl)}>
+                                {lvl.replace(/_/g, ' ')}
+                              </Badge>
+                            ) : null
+                          })()}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-sm text-muted-foreground">
-                      <p>No department profiles found. Falling back to legacy department field.</p>
-                      <p className="mt-2">
-                        <Building className="h-4 w-4 mr-2" />
-                        <span className="font-medium">{selectedUser.department}</span>
-                      </p>
-                      {(() => {
-                        if (!selectedUser) return null
-                        const lvl = getUserHighestClearanceLevel(selectedUser)
-                        if (!lvl) return null
-                        const bg = {
-                          public: '#10b981',
-                          internal: '#3b82f6',
-                          confidential: '#f59e0b',
-                          highly_confidential: '#ef4444'
-                        }[lvl]
-                        const color = {
-                          public: '#065f46',
-                          internal: '#1e40af',
-                          confidential: '#92400e',
-                          highly_confidential: '#991b1b'
-                        }[lvl]
-
-                        return (
-                          <p className="mt-2">
-                            <span className="font-medium">Confidentiality Level:</span>{' '}
-                            <span
-                              className="ml-2"
-                              style={{
-                                backgroundColor: bg + '20',
-                                color: color,
-                                border: `1px solid ${bg}`
-                              }}
-                            >
-                              {lvl.replace(/_/g, ' ')}
-                            </span>
-                          </p>
-                        )
-                      })()}
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
-                <DialogFooter className="flex gap-3 pt-6 border-t border-gray-100">
+                <DialogFooter className="flex-row flex-wrap gap-2 p-4 border-t shrink-0">
                   <Button
                     variant="outline"
                     onClick={() => handleViewActivity(selectedUser!)}
-                    className="flex-1 cursor-pointer"
+                    className="flex-1 cursor-pointer gap-2"
                   >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Activity
+                    <Eye className="h-4 w-4" />
+                    Activity
                   </Button>
                   <Button
                     onClick={() => handleEditUser(selectedUser!)}
-                    className="flex-1 cursor-pointer bg-blue-600 hover:bg-blue-700"
+                    className="flex-1 cursor-pointer gap-2"
                   >
+                    <Pencil className="h-4 w-4" />
                     Edit User
                   </Button>
                   {isManager ? (
@@ -1051,9 +1071,9 @@ export default function AdminUsersPage() {
                           suspend((selectedUser._id || selectedUser.id)!)
                           setSelectedUser(null)
                         }}
-                        className="cursor-pointer"
+                        className="cursor-pointer gap-2"
                       >
-                        <AlertCircle className="h-4 w-4 mr-2" />
+                        <AlertCircle className="h-4 w-4" />
                         Suspend
                       </Button>
                     ) : (
@@ -1062,9 +1082,9 @@ export default function AdminUsersPage() {
                           activate((selectedUser._id || selectedUser.id)!)
                           setSelectedUser(null)
                         }}
-                        className="cursor-pointer bg-green-600 hover:bg-green-700"
+                        className="cursor-pointer gap-2 bg-green-600 hover:bg-green-700"
                       >
-                        <CheckCircle className="h-4 w-4 mr-2" />
+                        <CheckCircle className="h-4 w-4" />
                         Activate
                       </Button>
                     )
@@ -1176,7 +1196,7 @@ export default function AdminUsersPage() {
                           <Badge variant="outline" className="text-xs capitalize">{log.resource}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {log.ipAddress} {log.location?.country && `â€¢ ${log.location.city}, ${log.location.country}`}
+                          {log.ipAddress} {log.location?.country && `• ${log.location.city}, ${log.location.country}`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {format(new Date(log.timestamp), 'MMM d, yyyy h:mm a')}
