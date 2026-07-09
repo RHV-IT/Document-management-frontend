@@ -59,7 +59,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle, AlertTriangle, X, Check, HelpCircle, Star, Copy, IdCard, Loader2, Pencil } from 'lucide-react'
+import { MoreHorizontal, Plus, Grid3X3, List, Search, Mail, Building, Calendar, MoreVertical, User, Shield, Clock, MapPin, Activity, Lock, CheckCircle, Eye, AlertCircle, AlertTriangle, X, Check, HelpCircle, Star, Copy, Loader2, Pencil } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { ResponsiveContainer } from '@/components/ResponsiveContainer'
@@ -879,7 +879,17 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h2 className="text-lg font-bold text-foreground truncate">{selectedUser.name}</h2>
-                      <p className="text-sm text-muted-foreground truncate">{selectedUser.email}</p>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <p className="text-sm text-muted-foreground truncate">{selectedUser.email}</p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 shrink-0 cursor-pointer"
+                          onClick={() => copyToClipboard(selectedUser.email, 'Email')}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
                       <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                         <Badge className={`${getRoleBadgeColor(selectedUser.role)} text-white`}>
                           <Shield className="h-3 w-3 mr-1" />
@@ -897,92 +907,68 @@ export default function AdminUsersPage() {
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   {/* Overview */}
-                  <div className="rounded-xl border divide-y overflow-hidden">
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building className="h-3.5 w-3.5" />
-                        Primary Department
-                      </span>
-                      <span className="text-sm font-medium text-foreground text-right">{selectedUser.department || '—'}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Mail className="h-3.5 w-3.5" />
-                        Email
-                      </span>
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-sm font-medium text-foreground truncate">{selectedUser.email}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0 cursor-pointer"
-                          onClick={() => copyToClipboard(selectedUser.email, 'Email')}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-lg bg-blue-100 shrink-0">
+                          <Building className="h-3.5 w-3.5 text-blue-600" />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">Department</span>
                       </div>
+                      <p className="text-sm font-semibold text-foreground truncate">{selectedUser.department || '—'}</p>
                     </div>
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" />
-                        Member Since
-                      </span>
-                      <span className="text-sm font-medium text-foreground">
+                    <div className="rounded-xl border p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-lg bg-purple-100 shrink-0">
+                          <Calendar className="h-3.5 w-3.5 text-purple-600" />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">Member Since</span>
+                      </div>
+                      <p className="text-sm font-semibold text-foreground truncate">
                         {formatDistanceToNow(new Date(selectedUser.createdAt || ''), { addSuffix: true })}
-                      </span>
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <IdCard className="h-3.5 w-3.5" />
-                        User ID
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <code className="text-xs bg-muted px-2 py-1 rounded truncate max-w-[140px]">
-                          {selectedUser._id || selectedUser.id}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0 cursor-pointer"
-                          onClick={() => copyToClipboard((selectedUser._id || selectedUser.id) || '', 'User ID')}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  </div>
+
+                  <div
+                    className={cn(
+                      'rounded-xl border p-4 flex items-center justify-between gap-3',
+                      selectedUser.welcomeEmailSentAt ? 'bg-green-50/50 border-green-100' : 'bg-orange-50/50 border-orange-100'
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cn('p-2 rounded-lg shrink-0', selectedUser.welcomeEmailSentAt ? 'bg-green-100' : 'bg-orange-100')}>
                         {selectedUser.welcomeEmailSentAt ? (
-                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <CheckCircle className="h-4 w-4 text-green-600" />
                         ) : (
-                          <Clock className="h-3.5 w-3.5 text-orange-500" />
+                          <Clock className="h-4 w-4 text-orange-600" />
                         )}
-                        Welcome Email
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${selectedUser.welcomeEmailSentAt ? 'text-green-700' : 'text-orange-600'}`}>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground">Welcome Email</p>
+                        <p className={cn('text-sm font-semibold truncate', selectedUser.welcomeEmailSentAt ? 'text-green-700' : 'text-orange-700')}>
                           {selectedUser.welcomeEmailSentAt
                             ? `Sent ${format(new Date(selectedUser.welcomeEmailSentAt), 'MMM d, yyyy')}`
                             : 'Pending Delivery'}
-                        </span>
-                        {!selectedUser.welcomeEmailSentAt && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs cursor-pointer"
-                            onClick={() =>
-                              setResendEmailUser({
-                                id: (selectedUser._id || selectedUser.id)!,
-                                name: selectedUser.name,
-                                email: selectedUser.email,
-                              })
-                            }
-                          >
-                            Resend
-                          </Button>
-                        )}
+                        </p>
                       </div>
                     </div>
+                    {!selectedUser.welcomeEmailSentAt && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs cursor-pointer shrink-0 bg-white"
+                        onClick={() =>
+                          setResendEmailUser({
+                            id: (selectedUser._id || selectedUser.id)!,
+                            name: selectedUser.name,
+                            email: selectedUser.email,
+                          })
+                        }
+                      >
+                        Resend
+                      </Button>
+                    )}
                   </div>
 
                   {/* Departments & Access Profiles */}
